@@ -6,7 +6,8 @@
 #define __ANC_TEST1_H__
 
 
-
+#define NUM_AUDIO_SAMPLES       256u
+#define NUM_DAC_CHANNELS				(8u)
 /* The SPORT device selection depends on which BF609 EZ-Board connector
  * the Audio EZ-Extender is attached.
  * P1A - Sport TX 0, Sport RX 0
@@ -14,43 +15,52 @@
  * P2A - Can't be used due to SoftSwitch conflict with Push Button 2
  * P3A - Sport TX 2, Sport RX 2
  */
-#define SPORT_TX_DEVICE  2
-#define SPORT_RX_DEVICE  2
+#define SPORT_TX_DEVICE1  2
+#define SPORT_RX_DEVICE1  2
+#define SPORT_TX_DEVICE2  0
+#define SPORT_RX_DEVICE2  0
+/* Macro to specify delay count for DAC reset */
+#define DELAY_COUNT             (100000u)
 
 /* TWI device instance used for communicating with the codec device */
-#define TWI_DEV_NUM             0
+#define TWI_DEV_NUM            0
+
 
 #define PUSH_BUTTON1_PORT (ADI_GPIO_PORT_F)
 /* GPIO pin within the port to which push button 1 is connected to */
-#define PUSH_BUTTON1_PIN            (ADI_GPIO_PIN_0)
+#define PUSH_BUTTON1_PIN            (ADI_GPIO_PIN_1)
 
 /* pin within the pint to which push button 1 is connected to */
-#define PUSH_BUTTON1_PINT_PIN       (ADI_GPIO_PIN_0)
+#define PUSH_BUTTON1_PINT_PIN       (ADI_GPIO_PIN_1)
 #define PUSH_BUTTON1_PINT           (ADI_GPIO_PIN_INTERRUPT_4)
 
 #define PUSH_BUTTON2_PORT (ADI_GPIO_PORT_F)
-/* GPIO pin within the port to which push button 1 is connected to */
-#define PUSH_BUTTON2_PIN            (ADI_GPIO_PIN_1)
+/* GPIO pin within the port to which push button 2 is connected to */
+#define PUSH_BUTTON2_PIN            (ADI_GPIO_PIN_0)
 
-/* pin within the pint to which push button 1 is connected to */
-#define PUSH_BUTTON2_PINT_PIN       (ADI_GPIO_PIN_1)
+/* pin within the pint to which push button 2 is connected to */
+#define PUSH_BUTTON2_PINT_PIN       (ADI_GPIO_PIN_0)
 #define PUSH_BUTTON2_PINT           (ADI_GPIO_PIN_INTERRUPT_4)
+
+
+/*
+ * LED GPIO settings
+ */
 
 /* GPIO port to which LED 1 is connected to */
 #define LED1_PORT                   (ADI_GPIO_PORT_E)
 
 /* GPIO pin within the port to which LED 1 is connected to */
-#define LED1_PIN                    (ADI_GPIO_PIN_13)
+#define LED1_PIN                    (ADI_GPIO_PIN_14)
 
-/*
- * LED 2 GPIO settings
- */
+
 
 /* GPIO port to which LED 2 is connected to */
 #define LED2_PORT                   (ADI_GPIO_PORT_E)
 
 /* GPIO pin within the port to which LED 2 is connected to */
-#define LED2_PIN                    (ADI_GPIO_PIN_14)
+#define LED2_PIN                    (ADI_GPIO_PIN_13)
+
 
 /*
  * DAC settings
@@ -91,18 +101,8 @@
 
 
 
-/* Sine wave parameters */
-#define REFERENCE_FREQ 				(3000u)
-#define SAMPLES_PER_PERIOD 			(SAMPLE_RATE) / (REFERENCE_FREQ)
-#define AMPLITUDE					((float)3388607)
-#define PI							((float)3.141592765309)
-#define SAMPLE_SIZE 				(4u)
 
-#define NUM_CHANNELS				(4u)
 
-/* Macro to set buffer size */
-//#define AUDIO_BUFFER_SIZE 	        (SAMPLES_PER_PERIOD * NUM_CHANNELS * SAMPLE_SIZE * 4u)
-#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*8*sizeof(uint32_t))
 
 /* IF (Debug info enabled) */
 #if defined(ENABLE_DEBUG_INFO)

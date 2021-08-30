@@ -185,8 +185,12 @@ static ADI_ADAU1761_DEVICE    adau1761Dev[] =
     {
     	false,
     	NULL
-    }
+    },
 
+    {
+    	false,
+    	NULL
+    }
     /* Add more instances here */
 };
 

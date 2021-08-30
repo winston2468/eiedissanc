@@ -18,7 +18,7 @@
 					<folderInfo id="sharc.toolchain.configuration.debug.1787658133." name="/" resourcePath="">
 						<toolChain id="sharc.toolchain.debug.28680727" isAbstract="false" name="CrossCore SHARC Toolchain" superClass="sharc.toolchain">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="sharc.platform.1629135001" name="CrossCore SHARC Target Platform" osList="all" superClass="sharc.platform"/>
-							<builder buildPath="${workspace_loc:/anc_Core2}/Debug" id="sharc.toolchain.builder.644660027" keepEnvironmentInBuildfile="false" name="CrossCore SHARC Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="sharc.toolchain.builder"/>
+							<builder autoBuildTarget="all" buildPath="${workspace_loc:/anc_test2}/Debug" cleanBuildTarget="clean" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="sharc.toolchain.builder.644660027" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CrossCore SHARC Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="sharc.toolchain.builder"/>
 							<tool id="sharc.toolchain.assembler.2145463991" name="CrossCore SHARC Assembler" superClass="sharc.toolchain.assembler">
 								<option id="assembler.option.debugcode.598291517" name="Generate debug information (-g)" superClass="assembler.option.debugcode" useByScannerDiscovery="false"/>
 								<option id="assembler.option.proc.1365117610" name="-proc" superClass="assembler.option.proc" value=" ADSP-SC589" valueType="string"/>
