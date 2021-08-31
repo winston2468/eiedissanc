@@ -22,9 +22,6 @@
 #include "anc_test1.h"
 #define INSTANT_START
 #define USE_ADAU1761_2
-#define CALLBACK_MODE
-
-
 /* select input source */
 #define USE_LINE_IN
 //#define USE_MICROPHONE
@@ -40,8 +37,6 @@
 /* codec device instance to be tested */
 #define ADAU1761_DEV_NUM          0
 
-
-//#define BUFFER_SIZE      (128*sizeof(uint32_t)) //sizeof(uint32_t) = 4
 
 #define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
 
@@ -100,11 +95,7 @@ int32_t pSrcR1[NUM_AUDIO_SAMPLES / 2];
 int32_t pSrcL2[NUM_AUDIO_SAMPLES / 2];
 int32_t pSrcR2[NUM_AUDIO_SAMPLES / 2];
 int32_t *pDst;
-int32_t * pSrcL_temp = 0;
-int32_t * pSrcR_temp = 0;
 
-int32_t *pDstL;
-int32_t *pDstR;
 static uint8_t DacMasterVolume = 0; //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 
 
@@ -134,8 +125,6 @@ static uint32_t gpioMemory[GPIO_MEMORY_SIZE];
 
 
 
-
-
 static bool bError;
 static uint32_t count;
 
@@ -155,7 +144,6 @@ volatile uint32_t DacCount = 0u;
 
 /* ADC/DAC buffer pointer */
 volatile void *pGetDAC = NULL;
-uint32_t *temp = NULL;
 void *pDAC;
 
 /* Flag to register callback error */
@@ -169,9 +157,6 @@ int32_t DacBuf[AUDIO_BUFFER_SIZE * 2];
 static uint32_t SpuMemory[ADI_SPU_MEMORY_SIZE];
 /* SPU handle */
 static ADI_SPU_HANDLE hSpu;
-
-volatile int32_t ch1[(NUM_AUDIO_SAMPLES / 2)];
-volatile int32_t ch2[(NUM_AUDIO_SAMPLES / 2)];
 
 /*=============  L O C A L    F U N C T I O N    P R O T O T Y P E S =============*/
 /* Initialize GPIO and reset peripherals */
@@ -201,7 +186,7 @@ static void CheckGpioResult(ADI_GPIO_RESULT result) {
 	}
 }
 
-#ifdef CALLBACK_MODE
+
 /* codec callback */
 static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 	switch (Event) {
@@ -248,7 +233,7 @@ static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 }
 #endif
 
-#endif
+
 
 void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 		void *pCBParam) {
@@ -595,7 +580,6 @@ int main(void) {
 	result1 = adi_adau1761_SigmaStudioLoad(hADAU1761_1, default_download_IC_1);
 	CheckResult(result1);
 
-
 	/* config SPORT for Rx data transfer */
 	sportRxInfo1.nDeviceNum = SPORT_RX_DEVICE1;
 	sportRxInfo1.eChannel = ADI_HALF_SPORT_B;
@@ -604,17 +588,15 @@ int main(void) {
 	sportRxInfo1.pMemory = sportRxMem1;
 	sportRxInfo1.bEnableDMA = true;
 	sportRxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
-	sportTxInfo1.bEnableStreaming = false;
+	sportRxInfo1.bEnableStreaming = true;
 
 	result1 = adi_adau1761_ConfigSPORT(hADAU1761_1, ADI_ADAU1761_SPORT_INPUT,
 			&sportRxInfo1);
 	CheckResult(result1);
-#ifdef CALLBACK_MODE
 	/* register a Rx callback */
 	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_1, ADAU1761Callback_1,
 	NULL);
 	CheckResult(result1);
-#endif
 	//DISABLE MIXER BYPASS OUTPUT
 	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401C, 0x21); // MUTE
 	CheckResult(result1);
@@ -630,10 +612,10 @@ int main(void) {
 	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x01);
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4016, 0x00);
 	CheckResult(result1);
-	//result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x01);
-	//CheckResult(result1);
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x01);
+	CheckResult(result1);
 
 #if defined(USE_LINE_IN)
 	result1 = adi_adau1761_SelectInputSource(hADAU1761_1,
@@ -682,17 +664,16 @@ int main(void) {
 	sportRxInfo2.pMemory = sportRxMem2;
 	sportRxInfo2.bEnableDMA = true;
 	sportRxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
-	sportTxInfo2.bEnableStreaming = false;
+	sportRxInfo2.bEnableStreaming = true;
 
 	result2 = adi_adau1761_ConfigSPORT(hADAU1761_2, ADI_ADAU1761_SPORT_INPUT,
 			&sportRxInfo2);
 	CheckResult(result2);
-#ifdef CALLBACK_MODE
+
 	// register a Rx callback
 	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_2, ADAU1761Callback_2,
 			NULL);
 	CheckResult(result2);
-#endif
 
 	//DISABLE MIXER BYPASS OUTPUT
 	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21); // MUTE
@@ -709,9 +690,10 @@ int main(void) {
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x01);
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4016, 0x00);
 	CheckResult(result1);
-
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x01);
+	CheckResult(result1);
 #if defined(USE_LINE_IN)
 	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
 			ADI_ADAU1761_INPUT_ADC);
@@ -810,18 +792,11 @@ int main(void) {
 					// return error
 					return 1u;
 				}
-#ifndef CALLBACK_MODE
-				eMode = SUBMIT_RX_BUFFER;
-#endif
-
 				break;
 			default:
 				break;
 			}
-			//printf("%d a %d b ", (int) bEvent, (int)AdcCount );
-#ifdef CALLBACK_MODE
 			bEvent = false;
-#endif
 		}
 
 		/* wait for push button interrupts - exit the loop after a while */
@@ -872,7 +847,7 @@ uint32_t Adau1962aInit(void) {
 	ADI_ADAU1962A_SPORT_CONFIG SportConfig;
 
 	/* Open ADAU1962A device instance */
-	if ((eResult = adi_adau1962a_Open(0u, ADI_ADAU1962A_SERIAL_MODE_STEREO,
+	if ((eResult = adi_adau1962a_Open(0u, ADI_ADAU1962A_SERIAL_MODE_TDM8,
 			&Adau1962aMemory,
 			ADI_ADAU1962A_MEMORY_SIZE, &phAdau1962a))
 			!= ADI_ADAU1962A_SUCCESS) {
@@ -902,7 +877,7 @@ uint32_t Adau1962aInit(void) {
 
 	SportConfig.eSportChnl = ADI_ADAU1962A_SPORT_B;
 	SportConfig.eSportPri = ADI_ADAU1962A_SERIAL_PORT_DSDATA1;
-	SportConfig.eSportSec = ADI_ADAU1962A_SERIAL_PORT_DSDATA2;
+	SportConfig.eSportSec = ADI_ADAU1962A_SERIAL_PORT_NONE;
 	SportConfig.SportDevMemSize = ADI_SPORT_DMA_MEMORY_SIZE;
 	SportConfig.pSportDevMem = &Adau1962aSportMemory;
 
@@ -945,7 +920,7 @@ uint32_t Adau1962aInit(void) {
 	 */
 	if ((eResult = adi_adau1962a_ConfigSerialClk(phAdau1962a,
 	LR_B_CLK_MASTER_1962, false,
-	BCLK_RISING_1962, false, false,
+	BCLK_RISING_1962, true, false,
 	LRCLK_HI_LO_1962)) != ADI_ADAU1962A_SUCCESS) {
 		printf(
 				"ADAU1962A: Failed to configure serial data clock, Error Code: 0x%08X\n",
@@ -982,7 +957,6 @@ uint32_t Adau1962aInit(void) {
 		/* return error */
 		return 1u;
 	}
-#ifdef CALLBACK_MODE
 	// Register callback
 	if ((eResult = adi_adau1962a_RegisterCallback(phAdau1962a, DacCallback,
 	NULL)) != ADI_ADAU1962A_SUCCESS) {
@@ -991,7 +965,6 @@ uint32_t Adau1962aInit(void) {
 		/* return error */
 		return 1u;
 	}
-#endif
 	//VOL
 	if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
 			ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume)) != ADI_ADAU1962A_SUCCESS) {
@@ -1061,7 +1034,7 @@ uint32_t ProcessBuffers(void) {
 	 *
 	 */
 
-#ifdef  CALLBACK_MODE
+
 	// re-submit processed buffer from callback
 	if (pRxBuffer1 != NULL) {
 
@@ -1086,46 +1059,50 @@ uint32_t ProcessBuffers(void) {
 		AUDIO_BUFFER_SIZE);
 	}
 
-#endif
 
 
-#ifdef CALLBACK_MODE
+
+
 #ifdef USE_ADAU1761_2
 	// process ADC to DAC buffer
 	if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
 
 		pDst = (int32_t *) pDAC;
-		//sRxBuffer1_temp =(int8_t *) sRxBuffer1;
 		uint32_t k = 0;
 		uint32_t j = 0;
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i+=1) {
-			/*sRxBuffer1[i] &= ~(1UL << 16);
-			sRxBuffer1[i] &= ~(1UL << 17);
-			sRxBuffer1[i] &= ~(1UL << 18);
-			sRxBuffer1[i] &= ~(1UL << 19);
-			sRxBuffer1[i] &= ~(1UL << 20);
-			sRxBuffer1[i] &= ~(1UL << 21);
-			sRxBuffer1[i] &= ~(1UL << 22);
-			sRxBuffer1[i] &= ~(1UL << 23);
-	*/
+		/*
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/8; i+=8) {
+
+			pSrcL1[k] = sRxBuffer1[i];
+			k++;
+			pSrcR2[j] = sRxBuffer1[i+1];
+			j++;
+		}
+*/
+
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
+
 			if (i % 2 == 0) {
 				pSrcL1[i - k] = sRxBuffer1[i];
-
 				pSrcL2[i - k] = sRxBuffer2[i];
-				j += 1;
+				j ++;
 			} else {
 				pSrcR1[i - j] = sRxBuffer1[i];
-				//pSrcR1[i - j] = sRxBuffer1[i] << 16 |  sRxBuffer1[i+1] << 8 |  sRxBuffer1[i+2];
 				pSrcR2[i - j] = sRxBuffer2[i];
-				k += 1;
+				k ++;
 			}
 		}
 
-		for (uint32_t h = 0; h < NUM_AUDIO_SAMPLES / 2; h++) {
-			*pDst++ = pSrcL1[h];
-			*pDst++ = pSrcL1[h];
-			*pDst++ = pSrcR1[h];
-			*pDst++ = pSrcR1[h];
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+			//TDM8 SHIFT <<8
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
 		}
 
 
@@ -1149,101 +1126,16 @@ uint32_t ProcessBuffers(void) {
 				k += 1;
 			}
 		}
-		for (uint32_t j = 0; j < NUM_AUDIO_SAMPLES / 2; j++) {
-			*pDst++ = pSrcL1[j];
-			*pDst++ = pSrcR1[j];
-			*pDst++ = pSrcL1[j];
-			*pDst++ = pSrcR1[j];
-			*pDst++ = pSrcL1[j];
-			*pDst++ = pSrcR1[j];
-			*pDst++ = pSrcL1[j];
-			*pDst++ = pSrcR1[j];
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i]<<8;
+			*pDst++ = pSrcR1[i]<<8;
 		}
-#endif
-
-#else
-		/* if a receive buffer is available fill it with new data */
-		result1 = adi_adau1761_IsRxBuffAvailable (hADAU1761_1, &bAvailable);
-		CheckResult(result1);
-
-
-
-		// re-submit processed buffer from callback
-		if (bAvailable) {
-			printf("test1");
-			result1 = adi_adau1761_GetRxBuffer (hADAU1761_1, (void**)&pRxBuffer1);
-					CheckResult(result1);
-			memcpy(&sRxBuffer1, pRxBuffer1, BUFFER_SIZE_1761);
-			// re-submit the ADC buffer
-			result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1, pRxBuffer1,
-			BUFFER_SIZE_1761);
-			CheckResult(result1);
-
-		}
-
-
-	#ifdef USE_ADAU1761_2
-		result2 = adi_adau1761_IsRxBuffAvailable (hADAU1761_2, &bAvailable1);
-		CheckResult(result2);
-		if (bAvailable1) {
-			printf("test2");
-			result2 = adi_adau1761_GetRxBuffer (hADAU1761_2, (void**)&pRxBuffer2);
-					CheckResult(result2);
-			memcpy(&sRxBuffer2, pRxBuffer2, BUFFER_SIZE_1761);
-			// re-submit the ADC buffer
-			result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2, pRxBuffer2,
-					BUFFER_SIZE_1761);
-			CheckResult(result2);
-
-		}
-
-	#endif
-		eResult2 = adi_adau1962a_IsBufAvailable(phAdau1962a,&bAvailableDAC);
-		if (eResult2) {
-			printf("ERR");
-			return 1u;
-		}
-		if (bAvailableDAC) {
-			printf("test3");
-			eResult2 = adi_adau1962a_GetBuffer(phAdau1962a, pDAC);
-			if (eResult2) {
-				printf("ERR");
-				return 1u;
-			}
-		}
-
-
-
-
-		if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
-			printf("test4");
-			//pDAC = pADC;
-			pDst = (int32_t *) pDAC;
-
-			uint32_t k = 0;
-			uint32_t j = 0;
-			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
-
-				if (i % 2 == 0) {
-					pSrcL1[i - k] = (float)sRxBuffer1[i];
-					pSrcL2[i - k] = (float)sRxBuffer2[i];
-					j += 1;
-				} else {
-					pSrcR1[i - j] = (float)sRxBuffer1[i];
-					pSrcR2[i - j] = (float)sRxBuffer2[i];
-					k += 1;
-				}
-			}
-			for (uint32_t j = 0; j < NUM_AUDIO_SAMPLES / 2; j++) {
-				*pDst++ = pSrcL1[j];
-				*pDst++ = pSrcR1[j];
-				*pDst++ = pSrcL2[j];
-				*pDst++ = pSrcR2[j];
-				*pDst++ = pSrcL1[j];
-				*pDst++ = pSrcR1[j];
-				*pDst++ = pSrcL2[j];
-				*pDst++ = pSrcR2[j];
-			}
 #endif
 	}
 

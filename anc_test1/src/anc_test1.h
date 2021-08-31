@@ -6,8 +6,8 @@
 #define __ANC_TEST1_H__
 
 
-#define NUM_AUDIO_SAMPLES       256u
-#define NUM_DAC_CHANNELS				(4u)
+#define NUM_AUDIO_SAMPLES       128*2u
+#define NUM_DAC_CHANNELS				(8u)
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES*sizeof(uint32_t))
 #define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -80,7 +80,7 @@
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
 #define BCLK_RISING_1962 	    (true)
-#define LRCLK_HI_LO_1962        (true)
+#define LRCLK_HI_LO_1962        (false)
 
 
 /* SPU Peripheral ID */
