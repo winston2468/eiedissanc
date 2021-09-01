@@ -2,8 +2,6 @@
  * anc_test1.c
  *****************************************************************************/
 
-
-
 #include <sys/platform.h>
 #include <sys/adi_core.h>
 #include <services/spu/adi_spu.h>
@@ -37,9 +35,7 @@
 /* codec device instance to be tested */
 #define ADAU1761_DEV_NUM          0
 
-
 #define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
-
 
 /* used for exit timeout */
 #define MAXCOUNT (50000000000u)
@@ -48,15 +44,13 @@
 #pragma align(4)
 static uint8_t sportRxMem1[ADI_SPORT_DMA_MEMORY_SIZE];
 
-
-
 /* Memory required for codec driver */
 static uint8_t codecMem1[ADI_ADAU1761_MEMORY_SIZE];
 
 /* adau1761 device handle */
 static ADI_ADAU1761_HANDLE hADAU1761_1;
 
-int32_t AdcBuf1[BUFFER_SIZE_1761*2 ];
+int32_t AdcBuf1[BUFFER_SIZE_1761 * 2];
 
 static int32_t *pRxBuffer1;
 
@@ -64,14 +58,13 @@ static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES];
 
 bool bAvailable;
 
-
 #ifdef USE_ADAU1761_2
 
 static ADI_ADAU1761_HANDLE hADAU1761_2;
 
 #define ADAU1761_DEV_NUM1          1
 
-int32_t AdcBuf2[BUFFER_SIZE_1761*2 ];
+int32_t AdcBuf2[BUFFER_SIZE_1761 * 2];
 
 #pragma align(4)
 static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
@@ -83,7 +76,6 @@ static int32_t *pRxBuffer2;
 static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES];
 
 bool bAvailable1;
-
 
 #endif
 
@@ -98,8 +90,6 @@ int32_t *pDst;
 
 static uint8_t DacMasterVolume = 0; //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 
-
-
 typedef enum {
 	NONE,
 	START_RECORDING,
@@ -112,9 +102,7 @@ typedef enum {
 } MODE;
 
 typedef enum {
-	VOL_SAME,
-	VOL_UP,
-	VOL_DOWN
+	VOL_SAME, VOL_UP, VOL_DOWN
 } VOL_CONTROL;
 
 static VOL_CONTROL eVolControl = VOL_SAME;
@@ -122,8 +110,6 @@ static VOL_CONTROL eVolControl = VOL_SAME;
 static MODE eMode = NONE;
 
 static uint32_t gpioMemory[GPIO_MEMORY_SIZE];
-
-
 
 static bool bError;
 static uint32_t count;
@@ -186,7 +172,6 @@ static void CheckGpioResult(ADI_GPIO_RESULT result) {
 	}
 }
 
-
 /* codec callback */
 static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 	switch (Event) {
@@ -196,13 +181,13 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 		//pADC = (void *)pGetADC;
 		//AdcCount++;
 		pRxBuffer1 = pArg;
-	memcpy(&sRxBuffer1[0], pArg, BUFFER_SIZE_1761);
+		memcpy(&sRxBuffer1[0], pArg, BUFFER_SIZE_1761);
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
 		//printf("test1");
 		break;
 	default:
-		printf("test0 %d \n", (int)Event );
+		printf("test0 %d \n", (int) Event);
 		pRxBuffer1 = pArg;
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
@@ -214,46 +199,44 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 /* codec callback */
 static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 	switch (Event) {
-		case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
+	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
 		//AdcCount++;
 		pRxBuffer2 = pArg;
 		memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
 		break;
-		default:
+	default:
 
-			printf("test1 %d \n", (int)Event );
-			pRxBuffer2 = pArg;
-			eMode = SUBMIT_RX_BUFFER;
-			bEvent = true;
+		printf("test1 %d \n", (int) Event);
+		pRxBuffer2 = pArg;
+		eMode = SUBMIT_RX_BUFFER;
+		bEvent = true;
 		break;
 
 	}
 }
 #endif
 
-
-
 void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 		void *pCBParam) {
 	if (ePinInt == PUSH_BUTTON1_PINT) {
 		//push button 1
 		if (PinIntData & PUSH_BUTTON1_PINT_PIN) {
-				//LED on
-				adi_gpio_Set(LED1_PORT, LED1_PIN);
+			//LED on
+			adi_gpio_Set(LED1_PORT, LED1_PIN);
 
-				eVolControl = VOL_UP;
-				bEvent = true;
+			eVolControl = VOL_UP;
+			bEvent = true;
 		}
 	}
 	if (ePinInt == PUSH_BUTTON2_PINT) {
 		//push button 2
 		if (PinIntData & PUSH_BUTTON2_PINT_PIN) {
-				//LED on
-				adi_gpio_Set(LED2_PORT, LED2_PIN);
-				eVolControl = VOL_DOWN;
-				bEvent = true;
+			//LED on
+			adi_gpio_Set(LED2_PORT, LED2_PIN);
+			eVolControl = VOL_DOWN;
+			bEvent = true;
 		}
 	}
 
@@ -378,7 +361,8 @@ void MixerEnable(bool bEnable) {
 		CheckResult(result1);
 
 		/* enable the record mixer (right) */
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG, 0x5B); /* 0 dB */
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
+				0x5B); /* 0 dB */
 		CheckResult(result1);
 		//RISING EDGE BCLK POLARITY
 		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
@@ -389,7 +373,8 @@ void MixerEnable(bool bEnable) {
 		CheckResult(result2);
 
 		/* enable the record mixer (right) */
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG, 0x5B); /* 0 dB */
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
+				0x5B); /* 0 dB */
 		CheckResult(result2);
 #endif
 		/* disable the output mixer (left) */
@@ -495,14 +480,14 @@ int main(void) {
 		DBG_MSG("Failed to initialize SPU service\n");
 		return (ADI_SPU_FAILURE);
 	}
-/*
-	// Make SPORT 4A to generate secure transactions
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 4A\n");
-		return (ADI_SPU_FAILURE);
-	}
-*/
+	/*
+	 // Make SPORT 4A to generate secure transactions
+	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_SPU_PID, true)
+	 != ADI_SPU_SUCCESS) {
+	 DBG_MSG("Failed to enable Master secure for SPORT 4A\n");
+	 return (ADI_SPU_FAILURE);
+	 }
+	 */
 
 	/* Make SPORT 4B to generate secure transactions */
 	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_SPU_PID, true)
@@ -511,14 +496,14 @@ int main(void) {
 		return (ADI_SPU_FAILURE);
 	}
 
-/*
-	// Make SPORT 4A DMA to generate secure transactions
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_DMA10_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 4A DMA\n");
-		return (ADI_SPU_FAILURE);
-	}
-*/
+	/*
+	 // Make SPORT 4A DMA to generate secure transactions
+	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_DMA10_SPU_PID, true)
+	 != ADI_SPU_SUCCESS) {
+	 DBG_MSG("Failed to enable Master secure for SPORT 4A DMA\n");
+	 return (ADI_SPU_FAILURE);
+	 }
+	 */
 
 	/* Make SPORT 4B DMA to generate secure transactions */
 	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_DMA11_SPU_PID, true)
@@ -526,7 +511,6 @@ int main(void) {
 		DBG_MSG("Failed to enable Master secure for SPORT 4B DMA\n");
 		return (ADI_SPU_FAILURE);
 	}
-
 
 	/* Make SPORT 2B to generate secure transactions */
 	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_SPU_PID, true)
@@ -556,14 +540,10 @@ int main(void) {
 		return (ADI_SPU_FAILURE);
 	}
 
-
 	// Initialize ADAU1962A
 	if (Result == 0u) {
 		Result = Adau1962aInit();
 	}
-
-
-
 
 	//DEVICE 1
 	// Open the codec driver
@@ -612,9 +592,9 @@ int main(void) {
 	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4016, 0x00);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x00);
 	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x01);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
 	CheckResult(result1);
 
 #if defined(USE_LINE_IN)
@@ -644,7 +624,7 @@ int main(void) {
 	//DEVICE 2
 	// Open the codec driver
 	result2 = adi_adau1761_Open(ADAU1761_DEV_NUM1, codecMem2,
-			ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_2);
+	ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_2);
 	CheckResult(result2);
 
 	// Configure TWI
@@ -672,7 +652,7 @@ int main(void) {
 
 	// register a Rx callback
 	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_2, ADAU1761Callback_2,
-			NULL);
+	NULL);
 	CheckResult(result2);
 
 	//DISABLE MIXER BYPASS OUTPUT
@@ -690,9 +670,9 @@ int main(void) {
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4016, 0x00);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x00);
 	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x01);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
 	CheckResult(result1);
 #if defined(USE_LINE_IN)
 	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
@@ -718,8 +698,6 @@ int main(void) {
 	CheckResult(result2);
 #endif
 
-
-
 	count = 0u;
 #ifdef INSTANT_START
 	bEvent = true;
@@ -732,7 +710,7 @@ int main(void) {
 			case SUBMIT_RX_BUFFER:
 				//VolControl();
 				Result = ProcessBuffers();
-					//printf("ERR %d \n", Result);
+				//printf("ERR %d \n", Result);
 				break;
 			case START_RECORDING:
 #ifdef USE_MICROPHONE
@@ -766,16 +744,18 @@ int main(void) {
 				CheckResult(result1);
 
 #ifdef USE_ADAU1761_2
-				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2, &AdcBuf2[BUFFER_SIZE_1761 * 0u],
+				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
+						&AdcBuf2[BUFFER_SIZE_1761 * 0u],
 						BUFFER_SIZE_1761);
 				CheckResult(result2);
-				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2, &AdcBuf2[BUFFER_SIZE_1761 * 1u],
+				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
+						&AdcBuf2[BUFFER_SIZE_1761 * 1u],
 						BUFFER_SIZE_1761);
 				CheckResult(result2);
 #endif
 
 				//Start recording
- 				result1 = adi_adau1761_EnableInput(hADAU1761_1, true);
+				result1 = adi_adau1761_EnableInput(hADAU1761_1, true);
 				CheckResult(result1);
 #ifdef USE_ADAU1761_2
 				result1 = adi_adau1761_EnableInput(hADAU1761_2, true);
@@ -967,7 +947,8 @@ uint32_t Adau1962aInit(void) {
 	}
 	//VOL
 	if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
-			ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume)) != ADI_ADAU1962A_SUCCESS) {
+			ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
+			!= ADI_ADAU1962A_SUCCESS) {
 		printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
 				eResult);
 		// return error
@@ -1034,10 +1015,8 @@ uint32_t ProcessBuffers(void) {
 	 *
 	 */
 
-
 	// re-submit processed buffer from callback
 	if (pRxBuffer1 != NULL) {
-
 
 		// re-submit the ADC buffer
 		adi_adau1761_SubmitRxBuffer(hADAU1761_1, pRxBuffer1,
@@ -1049,7 +1028,7 @@ uint32_t ProcessBuffers(void) {
 
 		// re-submit the ADC buffer
 		adi_adau1761_SubmitRxBuffer(hADAU1761_2, pRxBuffer2,
-				BUFFER_SIZE_1761);
+		BUFFER_SIZE_1761);
 
 	}
 #endif
@@ -1059,10 +1038,6 @@ uint32_t ProcessBuffers(void) {
 		AUDIO_BUFFER_SIZE);
 	}
 
-
-
-
-
 #ifdef USE_ADAU1761_2
 	// process ADC to DAC buffer
 	if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
@@ -1070,75 +1045,64 @@ uint32_t ProcessBuffers(void) {
 		pDst = (int32_t *) pDAC;
 		uint32_t k = 0;
 		uint32_t j = 0;
-		/*
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/8; i+=8) {
-
-			pSrcL1[k] = sRxBuffer1[i];
-			k++;
-			pSrcR2[j] = sRxBuffer1[i+1];
-			j++;
-		}
-*/
 
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
 
 			if (i % 2 == 0) {
 				pSrcL1[i - k] = sRxBuffer1[i];
 				pSrcL2[i - k] = sRxBuffer2[i];
-				j ++;
+				j++;
 			} else {
 				pSrcR1[i - j] = sRxBuffer1[i];
 				pSrcR2[i - j] = sRxBuffer2[i];
-				k ++;
+				k++;
 			}
 		}
 
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 			//TDM8 SHIFT <<8
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
+			*pDst++ = pSrcL1[i] << 8;
+			*pDst++ = pSrcR1[i] << 8;
+			*pDst++ = pSrcL1[i] << 8;
+			*pDst++ = pSrcR1[i] << 8;
+			*pDst++ = pSrcL1[i] << 8;
+			*pDst++ = pSrcR1[i] << 8;
+			*pDst++ = pSrcL1[i] << 8;
+			*pDst++ = pSrcR1[i] << 8;
 		}
 
-
-	    pDAC = NULL;
+		pDAC = NULL;
 #else
-	// process ADC to DAC buffer
-	if (sRxBuffer1 != NULL && pDAC != NULL) {
+		// process ADC to DAC buffer
+		if (sRxBuffer1 != NULL && pDAC != NULL) {
 
-		//pDAC = pADC;
-		pDst = (int32_t *) pDAC;
+			//pDAC = pADC;
+			pDst = (int32_t *) pDAC;
 
-		uint32_t k = 0;
-		uint32_t j = 0;
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
+			uint32_t k = 0;
+			uint32_t j = 0;
+			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
 
-			if (i % 2 == 0) {
-				pSrcL1[i - k] = sRxBuffer1[i];
-				j += 1;
-			} else {
-				pSrcR1[i - j] = sRxBuffer1[i];
-				k += 1;
+				if (i % 2 == 0) {
+					pSrcL1[i - k] = sRxBuffer1[i];
+					j += 1;
+				} else {
+					pSrcR1[i - j] = sRxBuffer1[i];
+					k += 1;
+				}
 			}
-		}
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-			*pDst++ = pSrcL1[i]<<8;
-			*pDst++ = pSrcR1[i]<<8;
-		}
+			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+				*pDst++ = pSrcL1[i]<<8;
+				*pDst++ = pSrcR1[i]<<8;
+				*pDst++ = pSrcL1[i]<<8;
+				*pDst++ = pSrcR1[i]<<8;
+				*pDst++ = pSrcL1[i]<<8;
+				*pDst++ = pSrcR1[i]<<8;
+				*pDst++ = pSrcL1[i]<<8;
+				*pDst++ = pSrcR1[i]<<8;
+			}
 #endif
 	}
-
 
 	return 0u;
 }
@@ -1172,26 +1136,28 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 	}
 }
 
-void VolControl(){
+void VolControl() {
 	ADI_ADAU1962A_RESULT eResult;
-	switch (eVolControl){
+	switch (eVolControl) {
 	case VOL_UP:
 		//VOL
 		if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
-				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume)) != ADI_ADAU1962A_SUCCESS) {
+				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
+				!= ADI_ADAU1962A_SUCCESS) {
 			printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
 					eResult);
 		}
-		eVolControl= VOL_SAME;
+		eVolControl = VOL_SAME;
 		break;
 	case VOL_DOWN:
 		//VOL
 		if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
-				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume)) != ADI_ADAU1962A_SUCCESS) {
+				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
+				!= ADI_ADAU1962A_SUCCESS) {
 			printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
 					eResult);
 		}
-		eVolControl= VOL_SAME;
+		eVolControl = VOL_SAME;
 		break;
 	default:
 		//LED off

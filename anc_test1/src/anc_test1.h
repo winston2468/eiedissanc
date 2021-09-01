@@ -6,7 +6,7 @@
 #define __ANC_TEST1_H__
 
 
-#define NUM_AUDIO_SAMPLES       128*2u
+#define NUM_AUDIO_SAMPLES       512u
 #define NUM_DAC_CHANNELS				(8u)
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES*sizeof(uint32_t))
 #define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
