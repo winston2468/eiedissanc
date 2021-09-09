@@ -3,14 +3,14 @@
  *****************************************************************************/
 /*
 
-   fid2 = fopen('lowpass_filter_500_1000.dat','w');
-   Character2add = ','; % here put the character to be added
+ fid2 = fopen('lowpass_filter_500_1000.dat','w');
+ Character2add = ','; % here put the character to be added
 
-   for k = 1 : length(Num)
-      fprintf(fid2,'%s%s\n',Num(k),Character2add);
-   end
+ for k = 1 : length(Num)
+ fprintf(fid2,'%s%s\n',Num(k),Character2add);
+ end
 
-   fclose(fid2);
+ fclose(fid2);
  */
 #include <sys/platform.h>
 #include <sys/adi_core.h>
@@ -40,22 +40,20 @@
 #include <runtime/cache/adi_cache.h>
 #include "cycle_count.h"
 /* Caches are enabled by default on the ARM core, and buffers are placed in
-** cached memory.
-*/
+ ** cached memory.
+ */
 #define USING_CACHE 1
 #else
 #define  DO_CYCLE_COUNTS
 #include <cycles.h>
 #include <sys/cache.h>
 /* On SHARC core we do not define USING_CACHE as in this example
-** the buffers are allocated explicitly in L1 memory.
-*/
+ ** the buffers are allocated explicitly in L1 memory.
+ */
 #include <filter.h>
 #endif
 
 #include "anc_test1.h"
-
-
 
 #define INSTANT_START
 #define USE_ADAU1761_2
@@ -70,6 +68,55 @@
 #define OSPMLength 256u
 #define OSPMWindowSize 256u
 /* ----------------------------   FIR Configuration ------------------------------------------- */
+#pragma align 4
+static float conv_float_temp1[controlLength];
+#pragma align 4
+static float conv_float_temp2[controlLength];
+#pragma align 4
+static float conv_float_temp3[controlLength];
+#pragma align 4
+static float conv_float_temp4[controlLength];
+
+#pragma align 4
+static float conv_float_control_temp[controlLength];
+#pragma align 4
+static float conv_float_OSPM_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff11_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff12_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff13_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff14_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff15_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff16_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff21_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff22_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff23_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff24_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff25_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff26_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff31_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff32_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff33_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff34_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff35_temp[OSPMLength];
+#pragma align 4
+static float OSPMOutputBuff36_temp[OSPMLength];
 
 #pragma align 4
 uint8_t ConfigMemoryOSPM[ADI_FIR_CONFIG_MEMORY_SIZE];
@@ -106,7 +153,6 @@ uint8_t ChannelMemoryControl2[ADI_FIR_CHANNEL_MEMORY_SIZE];
 #pragma align 4
 uint8_t ChannelMemoryControl3[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
-
 /* Channel Configurations parameters */
 
 #pragma align 4
@@ -136,141 +182,174 @@ ADI_FIR_CHANNEL_PARAMS channelControl2;
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelControl3;
 
-
 #define numErrorSignal 3
 #define numControlSignal 6
+
+static float AWGN_generator_temp[numControlSignal] = { 0 };
 
 //Max FIR channels = 32
 
 #pragma align 4
 //static float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES]={0};
 #pragma align 4
-static float outputSignal1[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal1[NUM_AUDIO_SAMPLES/2] = { 0 };
 #pragma align 4
-static float outputSignal2[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal2[NUM_AUDIO_SAMPLES/2] = { 0 };
 #pragma align 4
-static float outputSignal3[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal3[NUM_AUDIO_SAMPLES/2] = { 0 };
 #pragma align 4
-static float outputSignal4[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal4[NUM_AUDIO_SAMPLES/2] = { 0 };
 #pragma align 4
-static float outputSignal5[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal5[NUM_AUDIO_SAMPLES/2] = { 0 };
 #pragma align 4
-static float outputSignal6[NUM_AUDIO_SAMPLES]={0};
+static float outputSignal6[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal1_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal2_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal3_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal4_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal5_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
+#pragma align 4
+static int32_t outputSignal6_temp[NUM_AUDIO_SAMPLES/2] = { 0 };
 
-
-static ADI_FIR_RESULT         res;
-static ADI_FIR_HANDLE         hFir;
-static ADI_FIR_CONFIG_HANDLE  hConfigControl, hConfigOSPM, hConfigRef;
-static ADI_FIR_CHANNEL_HANDLE hChannelOSPM11, hChannelOSPM12, hChannelOSPM13, hChannelOSPM21, hChannelOSPM22, hChannelOSPM23,hChannelOSPM31, hChannelOSPM32, hChannelOSPM33;
-static ADI_FIR_CHANNEL_HANDLE hChannelControl1, hChannelControl2, hChannelControl3;
+static ADI_FIR_RESULT res;
+static ADI_FIR_HANDLE hFir;
+static ADI_FIR_CONFIG_HANDLE hConfigControl, hConfigOSPM, hConfigRef;
+static ADI_FIR_CHANNEL_HANDLE hChannelOSPM11, hChannelOSPM12, hChannelOSPM13,
+		hChannelOSPM21, hChannelOSPM22, hChannelOSPM23, hChannelOSPM31,
+		hChannelOSPM32, hChannelOSPM33;
+static ADI_FIR_CHANNEL_HANDLE hChannelControl1, hChannelControl2,
+		hChannelControl3;
 static ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
+#pragma align 4
+static float refInputBuff[NUM_AUDIO_SAMPLES / 2] = { 0 };
 
+float refCoeffBuff[NUM_AUDIO_SAMPLES / 2] = {
+#include "data/lowpass_filter_500_1000.dat"
+		};
+
+ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
 
 #pragma align 4
-static float refInputBuff[NUM_AUDIO_SAMPLES/2]={0};
+static float controlInputBuff[controlLength] = { 0 };
 
-float refCoeffBuff[NUM_AUDIO_SAMPLES/2]=
-{
-		#include "data/lowpass_filter_500_1000.dat"
-};
+ADI_CACHE_ALIGN float controlOutputBuff1[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
+ADI_CACHE_ALIGN float controlOutputBuff2[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
+ADI_CACHE_ALIGN float controlOutputBuff3[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
+ADI_CACHE_ALIGN float controlOutputBuff4[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
+ADI_CACHE_ALIGN float controlOutputBuff5[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
+ADI_CACHE_ALIGN float controlOutputBuff6[ADI_CACHE_ROUND_UP_SIZE(
+		controlWindowSize, float)];
 
-ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
+static float controlOutputBuff1_temp[controlLength] = { 0 };
+static float controlOutputBuff2_temp[controlLength] = { 0 };
+static float controlOutputBuff3_temp[controlLength] = { 0 };
+static float controlOutputBuff4_temp[controlLength] = { 0 };
+static float controlOutputBuff5_temp[controlLength] = { 0 };
+static float controlOutputBuff6_temp[controlLength] = { 0 };
 
+static float controlCoeffBuff1[controlLength] = { 0 };
+static float controlCoeffBuff2[controlLength] = { 0 };
+static float controlCoeffBuff3[controlLength] = { 0 };
 
 #pragma align 4
-static float controlInputBuff[controlLength]={0};
-
-ADI_CACHE_ALIGN float controlOutputBuff1[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-ADI_CACHE_ALIGN float controlOutputBuff2[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-ADI_CACHE_ALIGN float controlOutputBuff3[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-ADI_CACHE_ALIGN float controlOutputBuff4[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-ADI_CACHE_ALIGN float controlOutputBuff5[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-ADI_CACHE_ALIGN float controlOutputBuff6[ADI_CACHE_ROUND_UP_SIZE(controlWindowSize, float)];
-
-static float controlCoeffBuff1[controlLength]={0};
-static float controlCoeffBuff2[controlLength]={0};
-static float controlCoeffBuff3[controlLength]={0};
-
+static float OSPMInputBuff11[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff11[OSPMLength]={0};
+static float OSPMInputBuff12[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff12[OSPMLength]={0};
+static float OSPMInputBuff13[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff13[OSPMLength]={0};
+static float OSPMInputBuff21[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff21[OSPMLength]={0};
+static float OSPMInputBuff22[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff22[OSPMLength]={0};
+static float OSPMInputBuff23[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff23[OSPMLength]={0};
+static float OSPMInputBuff31[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff31[OSPMLength]={0};
+static float OSPMInputBuff32[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff32[OSPMLength]={0};
-#pragma align 4
-static float OSPMInputBuff33[OSPMLength]={0};
+static float OSPMInputBuff33[OSPMLength] = { 0 };
 
-static float OSPMCoeffBuff11[OSPMLength]={0};
-static float OSPMCoeffBuff12[OSPMLength]={0};
-static float OSPMCoeffBuff13[OSPMLength]={0};
-static float OSPMCoeffBuff21[OSPMLength]={0};
-static float OSPMCoeffBuff22[OSPMLength]={0};
-static float OSPMCoeffBuff23[OSPMLength]={0};
-static float OSPMCoeffBuff31[OSPMLength]={0};
-static float OSPMCoeffBuff32[OSPMLength]={0};
-static float OSPMCoeffBuff33[OSPMLength]={0};
+static float OSPMCoeffBuff11[OSPMLength] = { 0 };
+static float OSPMCoeffBuff12[OSPMLength] = { 0 };
+static float OSPMCoeffBuff13[OSPMLength] = { 0 };
+static float OSPMCoeffBuff21[OSPMLength] = { 0 };
+static float OSPMCoeffBuff22[OSPMLength] = { 0 };
+static float OSPMCoeffBuff23[OSPMLength] = { 0 };
+static float OSPMCoeffBuff31[OSPMLength] = { 0 };
+static float OSPMCoeffBuff32[OSPMLength] = { 0 };
+static float OSPMCoeffBuff33[OSPMLength] = { 0 };
 
+ADI_CACHE_ALIGN float OSPMOutputBuff11[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff12[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff13[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff21[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff22[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff23[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff31[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff32[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff33[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
 
+static float AWGNSample[OSPMLength] = { 0 };
+static float OSPMAWGNGain[numControlSignal][OSPMLength] = { 0 };
+static float OSPMAWGNSignal1[OSPMLength] = { 0 };
+static float OSPMAWGNSignal2[OSPMLength] = { 0 };
+static float OSPMAWGNSignal3[OSPMLength] = { 0 };
+static float powerOSPMAWGNSignal1[OSPMLength] = { 1.0 };
+static float powerOSPMAWGNSignal2[OSPMLength] = { 1.0 };
+static float powerOSPMAWGNSignal3[OSPMLength] = { 1.0 };
 
-ADI_CACHE_ALIGN float OSPMOutputBuff11[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff12[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff13[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff21[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff22[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff23[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff31[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff32[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff33[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
+static float OSPMRef[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
+static float OSPMAux11[OSPMLength] = { 0 };
+static float OSPMAux12[OSPMLength] = { 0 };
+static float OSPMAux13[OSPMLength] = { 0 };
+static float OSPMAux21[OSPMLength] = { 0 };
+static float OSPMAux22[OSPMLength] = { 0 };
+static float OSPMAux23[OSPMLength] = { 0 };
+static float OSPMAux31[OSPMLength] = { 0 };
+static float OSPMAux32[OSPMLength] = { 0 };
+static float OSPMAux33[OSPMLength] = { 0 };
 
-
-float AWGNSample[OSPMLength] ={0};
-float OSPMAWGNGain[numControlSignal][OSPMLength] = {0};
-float OSPMAWGNSignal1[OSPMLength] = {0};
-float OSPMAWGNSignal2[OSPMLength] = {0};
-float OSPMAWGNSignal3[OSPMLength] = {0};
-float powerOSPMAWGNSignal1[OSPMLength] = {1};
-float powerOSPMAWGNSignal2[OSPMLength] = {1};
-float powerOSPMAWGNSignal3[OSPMLength] = {1};
-
-
-static float OSPMRef[numControlSignal][numErrorSignal][OSPMLength]={0};
-
-
-static float OSPMAux11[OSPMLength]={0};
-static float OSPMAux12[OSPMLength]={0};
-static float OSPMAux13[OSPMLength]={0};
-static float OSPMAux21[OSPMLength]={0};
-static float OSPMAux22[OSPMLength]={0};
-static float OSPMAux23[OSPMLength]={0};
-static float OSPMAux31[OSPMLength]={0};
-static float OSPMAux32[OSPMLength]={0};
-static float OSPMAux33[OSPMLength]={0};
-
-float forgetingFactor= 0.6;
-float filteredErrorSignal[numErrorSignal][OSPMLength];
+float forgetingFactor = 0.6;
+static float filteredErrorSignal[numErrorSignal][OSPMLength]={0};
 float indirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength];
-float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength]={1};
-float powerFilteredErrorSignal[numErrorSignal][OSPMLength] = {1};
-float stepSizeS[numControlSignal][numErrorSignal][OSPMLength];
-float stepSizeSMin = 0;
-float stepSizeW[numControlSignal]= {0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001};
+float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength] = {
+		1.0 };
+float powerFilteredErrorSignal[numErrorSignal][OSPMLength] = { 1.0 };
+float stepSizeS[numControlSignal][numErrorSignal][OSPMLength]={0};
+float stepSizeSMin = 0.001;
+float stepSizeW[numControlSignal] = { 0.0001, 0.0001, 0.0001, 0.0001, 0.0001,
+		0.0001 };
 
 #if (numControlSignal == 6)
 
-static ADI_FIR_CHANNEL_HANDLE hChannelOSPM14, hChannelOSPM15, hChannelOSPM16, hChannelOSPM24, hChannelOSPM25, hChannelOSPM26,hChannelOSPM34, hChannelOSPM35, hChannelOSPM36;
-static ADI_FIR_CHANNEL_HANDLE hChannelControl4, hChannelControl5, hChannelControl6;
+static ADI_FIR_CHANNEL_HANDLE hChannelOSPM14, hChannelOSPM15, hChannelOSPM16,
+		hChannelOSPM24, hChannelOSPM25, hChannelOSPM26, hChannelOSPM34,
+		hChannelOSPM35, hChannelOSPM36;
+static ADI_FIR_CHANNEL_HANDLE hChannelControl4, hChannelControl5,
+		hChannelControl6;
 
 #pragma align 4
 uint8_t ChannelMemoryOSPM14[ADI_FIR_CHANNEL_MEMORY_SIZE];
@@ -298,8 +377,6 @@ uint8_t ChannelMemoryControl5[ADI_FIR_CHANNEL_MEMORY_SIZE];
 #pragma align 4
 uint8_t ChannelMemoryControl6[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
-
-
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelControl4;
 #pragma align 4
@@ -307,10 +384,9 @@ ADI_FIR_CHANNEL_PARAMS channelControl5;
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelControl6;
 
-static float controlCoeffBuff4[controlLength]={0};
-static float controlCoeffBuff5[controlLength]={0};
-static float controlCoeffBuff6[controlLength]={0};
-
+static float controlCoeffBuff4[controlLength] = { 0 };
+static float controlCoeffBuff5[controlLength] = { 0 };
+static float controlCoeffBuff6[controlLength] = { 0 };
 
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelOSPM14;
@@ -332,61 +408,62 @@ ADI_FIR_CHANNEL_PARAMS channelOSPM35;
 ADI_FIR_CHANNEL_PARAMS channelOSPM36;
 
 #pragma align 4
-static float OSPMInputBuff14[OSPMLength]={0};
+static float OSPMInputBuff14[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff15[OSPMLength]={0};
+static float OSPMInputBuff15[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff16[OSPMLength]={0};
+static float OSPMInputBuff16[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff24[OSPMLength]={0};
+static float OSPMInputBuff24[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff25[OSPMLength]={0};
+static float OSPMInputBuff25[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff26[OSPMLength]={0};
+static float OSPMInputBuff26[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff34[OSPMLength]={0};
+static float OSPMInputBuff34[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff35[OSPMLength]={0};
+static float OSPMInputBuff35[OSPMLength] = { 0 };
 #pragma align 4
-static float OSPMInputBuff36[OSPMLength]={0};
+static float OSPMInputBuff36[OSPMLength] = { 0 };
 
+static float OSPMCoeffBuff14[OSPMLength] = { 0 };
+static float OSPMCoeffBuff15[OSPMLength] = { 0 };
+static float OSPMCoeffBuff16[OSPMLength] = { 0 };
+static float OSPMCoeffBuff24[OSPMLength] = { 0 };
+static float OSPMCoeffBuff25[OSPMLength] = { 0 };
+static float OSPMCoeffBuff26[OSPMLength] = { 0 };
+static float OSPMCoeffBuff34[OSPMLength] = { 0 };
+static float OSPMCoeffBuff35[OSPMLength] = { 0 };
+static float OSPMCoeffBuff36[OSPMLength] = { 0 };
 
-static float OSPMCoeffBuff14[OSPMLength]={0};
-static float OSPMCoeffBuff15[OSPMLength]={0};
-static float OSPMCoeffBuff16[OSPMLength]={0};
-static float OSPMCoeffBuff24[OSPMLength]={0};
-static float OSPMCoeffBuff25[OSPMLength]={0};
-static float OSPMCoeffBuff26[OSPMLength]={0};
-static float OSPMCoeffBuff34[OSPMLength]={0};
-static float OSPMCoeffBuff35[OSPMLength]={0};
-static float OSPMCoeffBuff36[OSPMLength]={0};
+static float OSPMAux14[OSPMLength] = { 0 };
+static float OSPMAux15[OSPMLength] = { 0 };
+static float OSPMAux16[OSPMLength] = { 0 };
+static float OSPMAux24[OSPMLength] = { 0 };
+static float OSPMAux25[OSPMLength] = { 0 };
+static float OSPMAux26[OSPMLength] = { 0 };
+static float OSPMAux34[OSPMLength] = { 0 };
+static float OSPMAux35[OSPMLength] = { 0 };
+static float OSPMAux36[OSPMLength] = { 0 };
 
-
-
-
-static float OSPMAux14[OSPMLength]={0};
-static float OSPMAux15[OSPMLength]={0};
-static float OSPMAux16[OSPMLength]={0};
-static float OSPMAux24[OSPMLength]={0};
-static float OSPMAux25[OSPMLength]={0};
-static float OSPMAux26[OSPMLength]={0};
-static float OSPMAux34[OSPMLength]={0};
-static float OSPMAux35[OSPMLength]={0};
-static float OSPMAux36[OSPMLength]={0};
-
-
-
-
-
-ADI_CACHE_ALIGN float OSPMOutputBuff14[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff15[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff16[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff24[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff25[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff26[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff34[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff35[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff36[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize, float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff14[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff15[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff16[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff24[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff25[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff26[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff34[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff35[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
+ADI_CACHE_ALIGN float OSPMOutputBuff36[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+		float)];
 
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelAux4;
@@ -395,19 +472,14 @@ ADI_FIR_CHANNEL_PARAMS channelAux5;
 #pragma align 4
 ADI_FIR_CHANNEL_PARAMS channelAuxl6;
 
-
-float OSPMAWGNSignal4[OSPMLength] = {0};
-float OSPMAWGNSignal5[OSPMLength] = {0};
-float OSPMAWGNSignal6[OSPMLength] = {0};
-float powerOSPMAWGNSignal4[OSPMLength] = {1};
-float powerOSPMAWGNSignal5[OSPMLength] = {1};
-float powerOSPMAWGNSignal6[OSPMLength] = {1};
+float OSPMAWGNSignal4[OSPMLength] = { 0 };
+float OSPMAWGNSignal5[OSPMLength] = { 0 };
+float OSPMAWGNSignal6[OSPMLength] = { 0 };
+float powerOSPMAWGNSignal4[OSPMLength] = { 1.0 };
+float powerOSPMAWGNSignal5[OSPMLength] = { 1.0 };
+float powerOSPMAWGNSignal6[OSPMLength] = { 1.0 };
 
 #endif
-
-
-
-
 
 /* the ADAU1761 Rec Mixer Left 0 register */
 #define REC_MIX_LEFT_REG    (0x400A)
@@ -423,7 +495,8 @@ float powerOSPMAWGNSignal6[OSPMLength] = {1};
 #define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
 
 /* used for exit timeout */
-#define MAXCOUNT (50000000000u)
+//#define MAXCOUNT (50000000000u)
+#define MAXCOUNT (5000000u)
 /*=============  D A T A  =============*/
 
 #pragma align(4)
@@ -439,7 +512,7 @@ int32_t AdcBuf1[BUFFER_SIZE_1761 * 2];
 #pragma align 4
 static int32_t *pRxBuffer1;
 #pragma align 4
-static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES];
+static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES] = { 0 };
 
 bool bAvailable;
 
@@ -458,7 +531,7 @@ static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
 #pragma align 4
 static int32_t *pRxBuffer2;
 #pragma align 4
-static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES];
+static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES] = { 0 };
 
 bool bAvailable1;
 
@@ -557,6 +630,7 @@ void reverseArray(int32_t*, uint32_t);
 void reverseArrayf(float*, uint32_t);
 float AWGN_generator(void);
 int32_t ANCALG(void);
+int8_t DisableAllFIRChannels(void);
 /* DAC callback */
 void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg);
 
@@ -585,16 +659,19 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 		//pADC = (void *)pGetADC;
 		//AdcCount++;
 		pRxBuffer1 = pArg;
-		memcpy(&sRxBuffer1[0], pArg, BUFFER_SIZE_1761);
+
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
 		//printf("test1");
 		break;
 	default:
-		printf("test0 %d \n", (int) Event);
-		pRxBuffer1 = pArg;
-		eMode = SUBMIT_RX_BUFFER;
+		eMode = SUBMIT_TX_BUFFER;
 		bEvent = true;
+
+		printf("test0 %d \n", (int) Event);
+		/*pRxBuffer1 = pArg;
+		 eMode = SUBMIT_RX_BUFFER;
+		 bEvent = true;*/
 		break;
 	}
 }
@@ -606,16 +683,19 @@ static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
 		//AdcCount++;
 		pRxBuffer2 = pArg;
-		memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
+
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
 		break;
 	default:
+		eMode = SUBMIT_TX_BUFFER;
+		bEvent = true;
 
 		printf("test1 %d \n", (int) Event);
-		pRxBuffer2 = pArg;
-		eMode = SUBMIT_RX_BUFFER;
-		bEvent = true;
+		/*pRxBuffer2 = pArg;
+		 eMode = SUBMIT_RX_BUFFER;
+		 bEvent = true;
+		 */
 		break;
 
 	}
@@ -857,796 +937,831 @@ void MixerEnable(bool bEnable) {
 #endif
 }
 
-int32_t FIR_init(){
+int32_t FIR_init() {
 	//FIR stuff
-	ADI_FIR_RESULT         res;
+	ADI_FIR_RESULT res;
+	for (int32_t i = 0; i < OSPMLength; i++) {
+		powerOSPMAWGNSignal1[i] = 1.0;
+		powerOSPMAWGNSignal2[i] = 1.0;
+		powerOSPMAWGNSignal3[i] = 1.0;
+		powerOSPMAWGNSignal4[i] = 1.0;
+		powerOSPMAWGNSignal5[i] = 1.0;
+		powerOSPMAWGNSignal6[i] = 1.0;
+	}
+	for (int32_t k = 0; k < numErrorSignal; k++) {
+		for (int32_t i = 0; i < OSPMLength; i++) {
+			powerFilteredErrorSignal[k][i] = 1.0;
+		}
+	}
+	for (int32_t j = 0; j < numControlSignal; j++) {
+		for (int32_t k = 0; k < numErrorSignal; k++) {
+			for (int32_t i = 0; i < OSPMLength; i++) {
+				powerIndirectErrorSignal[j][k][i] = 1.0;
+			}
+		}
+	}
+	/*
+	for (int32_t j = 0; j < numControlSignal; j++) {
+		for (int32_t i = 0; i < OSPMLength; i++) {
+			OSPMAWGNGain[j][i] = 1.0;
+		}
+	}*/
+	/*
+	for (int32_t j = 0; j < numControlSignal; j++) {
+		for (int32_t k = 0; k < numErrorSignal; k++) {
+			for (int32_t i = 0; i < OSPMLength; i++) {
+				stepSizeS[j][k][i] = 0.001;
+			}
+		}
+	}
+	*/
 
-	channelRef.nTapLength = NUM_AUDIO_SAMPLES/2;
-	channelRef.nWindowSize = NUM_AUDIO_SAMPLES/2;
+	 for (int32_t i =0; i< controlLength; i++){
+	 controlCoeffBuff1[i] = 0.000000000001;
+	 controlCoeffBuff2[i] = 0.000000000001;
+	 controlCoeffBuff3[i] = 0.000000000001;
+	 controlCoeffBuff4[i] = 0.000000000001;
+	 controlCoeffBuff5[i] = 0.000000000001;
+	 controlCoeffBuff6[i] = 0.000000000001;
+	 }
+	 for (int32_t i =0; i< OSPMLength; i++){
+	 OSPMCoeffBuff11[i] = 0.000000000001;
+	 OSPMCoeffBuff12[i] = 0.000000000001;
+	 OSPMCoeffBuff13[i] = 0.000000000001;
+	 OSPMCoeffBuff14[i] = 0.000000000001;
+	 OSPMCoeffBuff15[i] = 0.000000000001;
+	 OSPMCoeffBuff16[i] = 0.000000000001;
+	 OSPMCoeffBuff21[i] = 0.000000000001;
+	 OSPMCoeffBuff22[i] = 0.000000000001;
+	 OSPMCoeffBuff23[i] = 0.000000000001;
+	 OSPMCoeffBuff24[i] = 0.000000000001;
+	 OSPMCoeffBuff25[i] = 0.000000000001;
+	 OSPMCoeffBuff26[i] = 0.000000000001;
+	 OSPMCoeffBuff31[i] = 0.000000000001;
+	 OSPMCoeffBuff32[i] = 0.000000000001;
+	 OSPMCoeffBuff33[i] = 0.000000000001;
+	 OSPMCoeffBuff34[i] = 0.000000000001;
+	 OSPMCoeffBuff35[i] = 0.000000000001;
+	 OSPMCoeffBuff36[i] = 0.000000000001;
+	 }
+
+	channelRef.nTapLength = NUM_AUDIO_SAMPLES / 2;
+	channelRef.nWindowSize = NUM_AUDIO_SAMPLES / 2;
 	channelRef.eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
-	channelRef.nSamplingRatio = 1u;    /*!< Sampling Ratio */
-	channelRef.nGroupNum = 0u;         /*!< Group Number of the Channel - Channels in groups 0 will always be
-	                                                scheduled before group 1 and so on. Group number of the channel
-	                                                determines the order in which channels in a configuration will be linked */
+	channelRef.nSamplingRatio = 1u; /*!< Sampling Ratio */
+	channelRef.nGroupNum = 0u; /*!< Group Number of the Channel - Channels in groups 0 will always be
+	 scheduled before group 1 and so on. Group number of the channel
+	 determines the order in which channels in a configuration will be linked */
 
-	channelRef.pInputBuffBase = (void *)refInputBuff;     /*!< Pointer to the base of the input circular buffer */
-	channelRef.pInputBuffIndex = (void *)refInputBuff;    /*!< Pointer to the current index of the input circular buffer */
-	channelRef.nInputBuffCount = NUM_AUDIO_SAMPLES/2;   /*!< Number of elements in the input circular buffer */
-	channelRef.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelRef.pInputBuffBase = (void *) refInputBuff; /*!< Pointer to the base of the input circular buffer */
+	channelRef.pInputBuffIndex = (void *) refInputBuff; /*!< Pointer to the current index of the input circular buffer */
+	channelRef.nInputBuffCount = NUM_AUDIO_SAMPLES / 2; /*!< Number of elements in the input circular buffer */
+	channelRef.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelRef.pCoefficientBase = (void *)refCoeffBuff;   /*!< Pointer to the start of the coefficient buffer */
+	channelRef.pCoefficientBase = (void *) refCoeffBuff; /*!< Pointer to the start of the coefficient buffer */
 	channelRef.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelRef.pCoefficientIndex = (void *)refCoeffBuff;   /*!< Pointer to the start of the coefficient buffer */
+	channelRef.pCoefficientIndex = (void *) refCoeffBuff; /*!< Pointer to the start of the coefficient buffer */
 
-	channelRef.pOutputBuffBase = (void *)refOutputBuff;    /*!< Pointer to the base of the output circular buffer */
-	channelRef.pOutputBuffIndex =(void *)refOutputBuff;   /*!< Pointer to the current index of the output circular buffer */
-	channelRef.nOutputBuffCount = NUM_AUDIO_SAMPLES/2;   /*!< Number of elements in the output circular buffer */
-	channelRef.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelRef.pOutputBuffBase = (void *) refOutputBuff; /*!< Pointer to the base of the output circular buffer */
+	channelRef.pOutputBuffIndex = (void *) refOutputBuff; /*!< Pointer to the current index of the output circular buffer */
+	channelRef.nOutputBuffCount = NUM_AUDIO_SAMPLES / 2; /*!< Number of elements in the output circular buffer */
+	channelRef.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl1.nTapLength = controlLength;
 	channelControl1.nWindowSize = controlWindowSize;
 	channelControl1.eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
-	channelControl1.nSamplingRatio = 1u;    /*!< Sampling Ratio */
-	channelControl1.nGroupNum = 0u;         /*!< Group Number of the Channel - Channels in groups 0 will always be
-	                                                scheduled before group 1 and so on. Group number of the channel
-	                                                determines the order in which channels in a configuration will be linked */
+	channelControl1.nSamplingRatio = 1u; /*!< Sampling Ratio */
+	channelControl1.nGroupNum = 0u; /*!< Group Number of the Channel - Channels in groups 0 will always be
+	 scheduled before group 1 and so on. Group number of the channel
+	 determines the order in which channels in a configuration will be linked */
 
+	channelControl1.pInputBuffBase = (void *) controlInputBuff; /*!< Pointer to the base of the input circular buffer */
+	channelControl1.pInputBuffIndex = (void *) controlInputBuff; /*!< Pointer to the current index of the input circular buffer */
+	channelControl1.nInputBuffCount = controlWindowSize; /*!< Number of elements in the input circular buffer */
+	channelControl1.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-	channelControl1.pInputBuffBase = (void *)controlInputBuff;     /*!< Pointer to the base of the input circular buffer */
-	channelControl1.pInputBuffIndex = (void *)controlInputBuff;    /*!< Pointer to the current index of the input circular buffer */
-	channelControl1.nInputBuffCount = controlWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelControl1.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
-
-
-	channelControl1.pCoefficientBase = (void *)controlCoeffBuff1;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl1.pCoefficientBase = (void *) controlCoeffBuff1; /*!< Pointer to the start of the coefficient buffer */
 	channelControl1.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl1.pCoefficientIndex = (void *)controlCoeffBuff1;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl1.pCoefficientIndex = (void *) controlCoeffBuff1; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl1.pOutputBuffBase = (void *)controlOutputBuff1;    /*!< Pointer to the base of the output circular buffer */
-	channelControl1.pOutputBuffIndex =(void *)controlOutputBuff1;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl1.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl1.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelControl1.pOutputBuffBase = (void *) controlOutputBuff1; /*!< Pointer to the base of the output circular buffer */
+	channelControl1.pOutputBuffIndex = (void *) controlOutputBuff1; /*!< Pointer to the current index of the output circular buffer */
+	channelControl1.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl1.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl2 = channelControl1;
 
-	channelControl2.pCoefficientBase = (void *)controlCoeffBuff2;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl2.pCoefficientBase = (void *) controlCoeffBuff2; /*!< Pointer to the start of the coefficient buffer */
 	channelControl2.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl2.pCoefficientIndex = (void *)controlCoeffBuff2;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl2.pCoefficientIndex = (void *) controlCoeffBuff2; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl2.pOutputBuffBase = (void *)controlOutputBuff2;    /*!< Pointer to the base of the output circular buffer */
-	channelControl2.pOutputBuffIndex =(void *)controlOutputBuff2;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl2.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl2.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelControl2.pOutputBuffBase = (void *) controlOutputBuff2; /*!< Pointer to the base of the output circular buffer */
+	channelControl2.pOutputBuffIndex = (void *) controlOutputBuff2; /*!< Pointer to the current index of the output circular buffer */
+	channelControl2.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl2.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl3 = channelControl1;
 
-	channelControl3.pCoefficientBase = (void *)controlCoeffBuff3;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl3.pCoefficientBase = (void *) controlCoeffBuff3; /*!< Pointer to the start of the coefficient buffer */
 	channelControl3.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl3.pCoefficientIndex = (void *)controlCoeffBuff3;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl3.pCoefficientIndex = (void *) controlCoeffBuff3; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl3.pOutputBuffBase = (void *)controlOutputBuff3;    /*!< Pointer to the base of the output circular buffer */
-	channelControl3.pOutputBuffIndex =(void *)controlOutputBuff3;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl3.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl3.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
-
-
-
+	channelControl3.pOutputBuffBase = (void *) controlOutputBuff3; /*!< Pointer to the base of the output circular buffer */
+	channelControl3.pOutputBuffIndex = (void *) controlOutputBuff3; /*!< Pointer to the current index of the output circular buffer */
+	channelControl3.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl3.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM11.nTapLength = OSPMLength;
 	channelOSPM11.nWindowSize = OSPMWindowSize;
 	channelOSPM11.eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
-	channelOSPM11.nSamplingRatio = 1u;    /*!< Sampling Ratio */
-	channelOSPM11.nGroupNum = 1u;         /*!< Group Number of the Channel - Channels in groups 0 will always be
-	                                                scheduled before group 1 and so on. Group number of the channel
-	                                                determines the order in which channels in a configuration will be linked */
+	channelOSPM11.nSamplingRatio = 1u; /*!< Sampling Ratio */
+	channelOSPM11.nGroupNum = 1u; /*!< Group Number of the Channel - Channels in groups 0 will always be
+	 scheduled before group 1 and so on. Group number of the channel
+	 determines the order in which channels in a configuration will be linked */
 
-	channelOSPM11.pInputBuffBase = (void *)OSPMInputBuff11;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM11.pInputBuffIndex = (void *)OSPMInputBuff11;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM11.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM11.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM11.pInputBuffBase = (void *) OSPMInputBuff11; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM11.pInputBuffIndex = (void *) OSPMInputBuff11; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM11.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM11.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM11.pCoefficientBase = (void *)OSPMCoeffBuff11;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM11.pCoefficientBase = (void *) OSPMCoeffBuff11; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM11.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM11.pCoefficientIndex = (void *)OSPMCoeffBuff11;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM11.pCoefficientIndex = (void *) OSPMCoeffBuff11; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM11.pOutputBuffBase = (void *)OSPMOutputBuff11;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM11.pOutputBuffIndex =(void *)OSPMOutputBuff11;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM11.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM11.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelOSPM11.pOutputBuffBase = (void *) OSPMOutputBuff11; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM11.pOutputBuffIndex = (void *) OSPMOutputBuff11; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM11.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM11.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM12 = channelOSPM11;
 
-	channelOSPM12.pInputBuffBase = (void *)OSPMInputBuff12;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM12.pInputBuffIndex = (void *)OSPMInputBuff12;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM12.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM12.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM12.pInputBuffBase = (void *) OSPMInputBuff12; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM12.pInputBuffIndex = (void *) OSPMInputBuff12; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM12.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM12.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM12.pCoefficientBase = (void *)OSPMCoeffBuff12;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM12.pCoefficientBase = (void *) OSPMCoeffBuff12; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM12.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM12.pCoefficientIndex = (void *)OSPMCoeffBuff12;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM12.pCoefficientIndex = (void *) OSPMCoeffBuff12; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM12.pOutputBuffBase = (void *)OSPMOutputBuff12;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM12.pOutputBuffIndex =(void *)OSPMOutputBuff12;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM12.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM12.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelOSPM12.pOutputBuffBase = (void *) OSPMOutputBuff12; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM12.pOutputBuffIndex = (void *) OSPMOutputBuff12; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM12.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM12.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM13 = channelOSPM11;
 
-	channelOSPM13.pInputBuffBase = (void *)OSPMInputBuff13;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM13.pInputBuffIndex = (void *)OSPMInputBuff13;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM13.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM13.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM13.pInputBuffBase = (void *) OSPMInputBuff13; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM13.pInputBuffIndex = (void *) OSPMInputBuff13; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM13.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM13.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM13.pCoefficientBase = (void *)OSPMCoeffBuff13;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM13.pCoefficientBase = (void *) OSPMCoeffBuff13; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM13.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM13.pCoefficientIndex = (void *)OSPMCoeffBuff13;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM13.pCoefficientIndex = (void *) OSPMCoeffBuff13; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM13.pOutputBuffBase = (void *)OSPMOutputBuff13;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM13.pOutputBuffIndex =(void *)OSPMOutputBuff13;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM13.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM13.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
+	channelOSPM13.pOutputBuffBase = (void *) OSPMOutputBuff13; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM13.pOutputBuffIndex = (void *) OSPMOutputBuff13; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM13.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM13.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM21 = channelOSPM11;
 
-	channelOSPM21.pInputBuffBase = (void *)OSPMInputBuff21;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM21.pInputBuffIndex = (void *)OSPMInputBuff21;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM21.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM21.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM21.pInputBuffBase = (void *) OSPMInputBuff21; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM21.pInputBuffIndex = (void *) OSPMInputBuff21; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM21.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM21.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM21.pCoefficientBase = (void *)OSPMCoeffBuff21;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM21.pCoefficientBase = (void *) OSPMCoeffBuff21; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM21.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM21.pCoefficientIndex = (void *)OSPMCoeffBuff21;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM21.pCoefficientIndex = (void *) OSPMCoeffBuff21; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM21.pOutputBuffBase = (void *)OSPMOutputBuff21;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM21.pOutputBuffIndex =(void *)OSPMOutputBuff21;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM21.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM21.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM21.pOutputBuffBase = (void *) OSPMOutputBuff21; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM21.pOutputBuffIndex = (void *) OSPMOutputBuff21; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM21.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM21.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM22 = channelOSPM11;
 
-	channelOSPM22.pInputBuffBase = (void *)OSPMInputBuff22;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM22.pInputBuffIndex = (void *)OSPMInputBuff22;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM22.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM22.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM22.pInputBuffBase = (void *) OSPMInputBuff22; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM22.pInputBuffIndex = (void *) OSPMInputBuff22; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM22.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM22.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM22.pCoefficientBase = (void *)OSPMCoeffBuff22;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM22.pCoefficientBase = (void *) OSPMCoeffBuff22; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM22.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM22.pCoefficientIndex = (void *)OSPMCoeffBuff22;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM22.pCoefficientIndex = (void *) OSPMCoeffBuff22; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM22.pOutputBuffBase = (void *)OSPMOutputBuff22;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM22.pOutputBuffIndex =(void *)OSPMOutputBuff22;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM22.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM22.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM22.pOutputBuffBase = (void *) OSPMOutputBuff22; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM22.pOutputBuffIndex = (void *) OSPMOutputBuff22; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM22.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM22.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM23 = channelOSPM11;
 
-	channelOSPM23.pInputBuffBase = (void *)OSPMInputBuff23;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM23.pInputBuffIndex = (void *)OSPMInputBuff23;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM23.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM23.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM23.pInputBuffBase = (void *) OSPMInputBuff23; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM23.pInputBuffIndex = (void *) OSPMInputBuff23; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM23.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM23.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM23.pCoefficientBase = (void *)OSPMCoeffBuff23;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM23.pCoefficientBase = (void *) OSPMCoeffBuff23; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM23.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM23.pCoefficientIndex = (void *)OSPMCoeffBuff23;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM23.pCoefficientIndex = (void *) OSPMCoeffBuff23; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM23.pOutputBuffBase = (void *)OSPMOutputBuff23;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM23.pOutputBuffIndex =(void *)OSPMOutputBuff23;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM23.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM23.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
-
+	channelOSPM23.pOutputBuffBase = (void *) OSPMOutputBuff23; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM23.pOutputBuffIndex = (void *) OSPMOutputBuff23; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM23.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM23.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM31 = channelOSPM11;
 
-	channelOSPM31.pInputBuffBase = (void *)OSPMInputBuff31;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM31.pInputBuffIndex = (void *)OSPMInputBuff31;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM31.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM31.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM31.pInputBuffBase = (void *) OSPMInputBuff31; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM31.pInputBuffIndex = (void *) OSPMInputBuff31; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM31.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM31.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM31.pCoefficientBase = (void *)OSPMCoeffBuff31;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM31.pCoefficientBase = (void *) OSPMCoeffBuff31; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM31.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM31.pCoefficientIndex = (void *)OSPMCoeffBuff31;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM31.pCoefficientIndex = (void *) OSPMCoeffBuff31; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM31.pOutputBuffBase = (void *)OSPMOutputBuff31;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM31.pOutputBuffIndex =(void *)OSPMOutputBuff31;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM31.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM31.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM31.pOutputBuffBase = (void *) OSPMOutputBuff31; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM31.pOutputBuffIndex = (void *) OSPMOutputBuff31; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM31.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM31.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM32 = channelOSPM11;
 
-	channelOSPM32.pInputBuffBase = (void *)OSPMInputBuff32;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM32.pInputBuffIndex = (void *)OSPMInputBuff32;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM32.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM32.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM32.pInputBuffBase = (void *) OSPMInputBuff32; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM32.pInputBuffIndex = (void *) OSPMInputBuff32; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM32.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM32.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM32.pCoefficientBase = (void *)OSPMCoeffBuff32;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM32.pCoefficientBase = (void *) OSPMCoeffBuff32; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM32.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM32.pCoefficientIndex = (void *)OSPMCoeffBuff32;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM32.pCoefficientIndex = (void *) OSPMCoeffBuff32; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM32.pOutputBuffBase = (void *)OSPMOutputBuff32;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM32.pOutputBuffIndex =(void *)OSPMOutputBuff32;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM32.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM32.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM32.pOutputBuffBase = (void *) OSPMOutputBuff32; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM32.pOutputBuffIndex = (void *) OSPMOutputBuff32; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM32.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM32.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM33 = channelOSPM11;
 
-	channelOSPM33.pInputBuffBase = (void *)OSPMInputBuff33;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM33.pInputBuffIndex = (void *)OSPMInputBuff33;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM33.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM33.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM33.pInputBuffBase = (void *) OSPMInputBuff33; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM33.pInputBuffIndex = (void *) OSPMInputBuff33; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM33.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM33.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM33.pCoefficientBase = (void *)OSPMCoeffBuff33;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM33.pCoefficientBase = (void *) OSPMCoeffBuff33; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM33.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM33.pCoefficientIndex = (void *)OSPMCoeffBuff33;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM33.pCoefficientIndex = (void *) OSPMCoeffBuff33; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM33.pOutputBuffBase = (void *)OSPMOutputBuff33;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM33.pOutputBuffIndex =(void *)OSPMOutputBuff33;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM33.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM33.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
-
-
-
-
-
+	channelOSPM33.pOutputBuffBase = (void *) OSPMOutputBuff33; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM33.pOutputBuffIndex = (void *) OSPMOutputBuff33; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM33.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM33.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 #if (numControlSignal == 6)
 
-
 	channelControl4 = channelControl1;
 
-	channelControl4.pCoefficientBase = (void *)controlCoeffBuff4;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl4.pCoefficientBase = (void *) controlCoeffBuff4; /*!< Pointer to the start of the coefficient buffer */
 	channelControl4.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl4.pCoefficientIndex = (void *)controlCoeffBuff4;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl4.pCoefficientIndex = (void *) controlCoeffBuff4; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl4.pOutputBuffBase = (void *)controlOutputBuff4;    /*!< Pointer to the base of the output circular buffer */
-	channelControl4.pOutputBuffIndex =(void *)controlOutputBuff4;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl4.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl4.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelControl4.pOutputBuffBase = (void *) controlOutputBuff4; /*!< Pointer to the base of the output circular buffer */
+	channelControl4.pOutputBuffIndex = (void *) controlOutputBuff4; /*!< Pointer to the current index of the output circular buffer */
+	channelControl4.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl4.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl5 = channelControl1;
 
-	channelControl5.pCoefficientBase = (void *)controlCoeffBuff5;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl5.pCoefficientBase = (void *) controlCoeffBuff5; /*!< Pointer to the start of the coefficient buffer */
 	channelControl5.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl5.pCoefficientIndex = (void *)controlCoeffBuff5;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl5.pCoefficientIndex = (void *) controlCoeffBuff5; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl5.pOutputBuffBase = (void *)controlOutputBuff5;    /*!< Pointer to the base of the output circular buffer */
-	channelControl5.pOutputBuffIndex =(void *)controlOutputBuff5;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl5.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl5.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelControl5.pOutputBuffBase = (void *) controlOutputBuff5; /*!< Pointer to the base of the output circular buffer */
+	channelControl5.pOutputBuffIndex = (void *) controlOutputBuff5; /*!< Pointer to the current index of the output circular buffer */
+	channelControl5.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl5.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl6 = channelControl1;
 
-	channelControl6.pCoefficientBase = (void *)controlCoeffBuff6;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl6.pCoefficientBase = (void *) controlCoeffBuff6; /*!< Pointer to the start of the coefficient buffer */
 	channelControl6.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelControl6.pCoefficientIndex = (void *)controlCoeffBuff6;   /*!< Pointer to the start of the coefficient buffer */
+	channelControl6.pCoefficientIndex = (void *) controlCoeffBuff6; /*!< Pointer to the start of the coefficient buffer */
 
-	channelControl6.pOutputBuffBase = (void *)controlOutputBuff6;    /*!< Pointer to the base of the output circular buffer */
-	channelControl6.pOutputBuffIndex =(void *)controlOutputBuff6;   /*!< Pointer to the current index of the output circular buffer */
-	channelControl6.nOutputBuffCount = controlWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelControl6.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
-
+	channelControl6.pOutputBuffBase = (void *) controlOutputBuff6; /*!< Pointer to the base of the output circular buffer */
+	channelControl6.pOutputBuffIndex = (void *) controlOutputBuff6; /*!< Pointer to the current index of the output circular buffer */
+	channelControl6.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
+	channelControl6.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM14 = channelOSPM11;
 
-	channelOSPM14.pInputBuffBase = (void *)OSPMInputBuff14;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM14.pInputBuffIndex = (void *)OSPMInputBuff14;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM14.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM14.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM14.pInputBuffBase = (void *) OSPMInputBuff14; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM14.pInputBuffIndex = (void *) OSPMInputBuff14; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM14.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM14.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM14.pCoefficientBase = (void *)OSPMCoeffBuff14;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM14.pCoefficientBase = (void *) OSPMCoeffBuff14; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM14.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM14.pCoefficientIndex = (void *)OSPMCoeffBuff14;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM14.pCoefficientIndex = (void *) OSPMCoeffBuff14; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM14.pOutputBuffBase = (void *)OSPMOutputBuff14;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM14.pOutputBuffIndex =(void *)OSPMOutputBuff14;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM14.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM14.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM14.pOutputBuffBase = (void *) OSPMOutputBuff14; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM14.pOutputBuffIndex = (void *) OSPMOutputBuff14; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM14.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM14.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM15 = channelOSPM11;
 
-	channelOSPM15.pInputBuffBase = (void *)OSPMInputBuff15;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM15.pInputBuffIndex = (void *)OSPMInputBuff15;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM15.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM15.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM15.pInputBuffBase = (void *) OSPMInputBuff15; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM15.pInputBuffIndex = (void *) OSPMInputBuff15; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM15.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM15.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM15.pCoefficientBase = (void *)OSPMCoeffBuff15;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM15.pCoefficientBase = (void *) OSPMCoeffBuff15; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM15.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM15.pCoefficientIndex = (void *)OSPMCoeffBuff15;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM15.pCoefficientIndex = (void *) OSPMCoeffBuff15; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM15.pOutputBuffBase = (void *)OSPMOutputBuff15;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM15.pOutputBuffIndex =(void *)OSPMOutputBuff15;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM15.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM15.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM15.pOutputBuffBase = (void *) OSPMOutputBuff15; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM15.pOutputBuffIndex = (void *) OSPMOutputBuff15; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM15.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM15.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM16 = channelOSPM11;
 
-	channelOSPM16.pInputBuffBase = (void *)OSPMInputBuff16;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM16.pInputBuffIndex = (void *)OSPMInputBuff16;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM16.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM16.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM16.pInputBuffBase = (void *) OSPMInputBuff16; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM16.pInputBuffIndex = (void *) OSPMInputBuff16; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM16.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM16.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM16.pCoefficientBase = (void *)OSPMCoeffBuff16;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM16.pCoefficientBase = (void *) OSPMCoeffBuff16; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM16.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM16.pCoefficientIndex = (void *)OSPMCoeffBuff16;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM16.pCoefficientIndex = (void *) OSPMCoeffBuff16; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM16.pOutputBuffBase = (void *)OSPMOutputBuff16;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM16.pOutputBuffIndex =(void *)OSPMOutputBuff16;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM16.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM16.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelOSPM16.pOutputBuffBase = (void *) OSPMOutputBuff16; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM16.pOutputBuffIndex = (void *) OSPMOutputBuff16; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM16.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM16.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM24 = channelOSPM11;
 
-	channelOSPM24.pInputBuffBase = (void *)OSPMInputBuff24;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM24.pInputBuffIndex = (void *)OSPMInputBuff24;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM24.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM24.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM24.pInputBuffBase = (void *) OSPMInputBuff24; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM24.pInputBuffIndex = (void *) OSPMInputBuff24; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM24.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM24.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM24.pCoefficientBase = (void *)OSPMCoeffBuff24;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM24.pCoefficientBase = (void *) OSPMCoeffBuff24; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM24.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM24.pCoefficientIndex = (void *)OSPMCoeffBuff24;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM24.pCoefficientIndex = (void *) OSPMCoeffBuff24; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM24.pOutputBuffBase = (void *)OSPMOutputBuff24;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM24.pOutputBuffIndex =(void *)OSPMOutputBuff24;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM24.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM24.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM24.pOutputBuffBase = (void *) OSPMOutputBuff24; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM24.pOutputBuffIndex = (void *) OSPMOutputBuff24; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM24.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM24.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM25 = channelOSPM11;
 
-	channelOSPM25.pInputBuffBase = (void *)OSPMInputBuff25;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM25.pInputBuffIndex = (void *)OSPMInputBuff25;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM25.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM25.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM25.pInputBuffBase = (void *) OSPMInputBuff25; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM25.pInputBuffIndex = (void *) OSPMInputBuff25; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM25.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM25.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM25.pCoefficientBase = (void *)OSPMCoeffBuff25;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM25.pCoefficientBase = (void *) OSPMCoeffBuff25; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM25.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM25.pCoefficientIndex = (void *)OSPMCoeffBuff25;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM25.pCoefficientIndex = (void *) OSPMCoeffBuff25; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM25.pOutputBuffBase = (void *)OSPMOutputBuff25;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM25.pOutputBuffIndex =(void *)OSPMOutputBuff25;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM25.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM25.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM25.pOutputBuffBase = (void *) OSPMOutputBuff25; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM25.pOutputBuffIndex = (void *) OSPMOutputBuff25; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM25.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM25.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM26 = channelOSPM11;
 
-	channelOSPM26.pInputBuffBase = (void *)OSPMInputBuff26;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM26.pInputBuffIndex = (void *)OSPMInputBuff26;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM26.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM26.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM26.pInputBuffBase = (void *) OSPMInputBuff26; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM26.pInputBuffIndex = (void *) OSPMInputBuff26; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM26.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM26.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM26.pCoefficientBase = (void *)OSPMCoeffBuff26;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM26.pCoefficientBase = (void *) OSPMCoeffBuff26; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM26.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM26.pCoefficientIndex = (void *)OSPMCoeffBuff26;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM26.pCoefficientIndex = (void *) OSPMCoeffBuff26; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM26.pOutputBuffBase = (void *)OSPMOutputBuff26;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM26.pOutputBuffIndex =(void *)OSPMOutputBuff26;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM26.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM26.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
+	channelOSPM26.pOutputBuffBase = (void *) OSPMOutputBuff26; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM26.pOutputBuffIndex = (void *) OSPMOutputBuff26; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM26.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM26.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM34 = channelOSPM11;
 
-	channelOSPM34.pInputBuffBase = (void *)OSPMInputBuff34;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM34.pInputBuffIndex = (void *)OSPMInputBuff34;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM34.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM34.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM34.pInputBuffBase = (void *) OSPMInputBuff34; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM34.pInputBuffIndex = (void *) OSPMInputBuff34; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM34.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM34.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM34.pCoefficientBase = (void *)OSPMCoeffBuff34;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM34.pCoefficientBase = (void *) OSPMCoeffBuff34; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM34.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM34.pCoefficientIndex = (void *)OSPMCoeffBuff34;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM34.pCoefficientIndex = (void *) OSPMCoeffBuff34; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM34.pOutputBuffBase = (void *)OSPMOutputBuff34;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM34.pOutputBuffIndex =(void *)OSPMOutputBuff34;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM34.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM34.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM34.pOutputBuffBase = (void *) OSPMOutputBuff34; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM34.pOutputBuffIndex = (void *) OSPMOutputBuff34; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM34.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM34.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM35 = channelOSPM11;
 
-	channelOSPM35.pInputBuffBase = (void *)OSPMInputBuff35;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM35.pInputBuffIndex = (void *)OSPMInputBuff35;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM35.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM35.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM35.pInputBuffBase = (void *) OSPMInputBuff35; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM35.pInputBuffIndex = (void *) OSPMInputBuff35; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM35.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM35.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM35.pCoefficientBase = (void *)OSPMCoeffBuff35;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM35.pCoefficientBase = (void *) OSPMCoeffBuff35; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM35.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM35.pCoefficientIndex = (void *)OSPMCoeffBuff35;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM35.pCoefficientIndex = (void *) OSPMCoeffBuff35; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM35.pOutputBuffBase = (void *)OSPMOutputBuff35;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM35.pOutputBuffIndex =(void *)OSPMOutputBuff35;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM35.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM35.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
+	channelOSPM35.pOutputBuffBase = (void *) OSPMOutputBuff35; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM35.pOutputBuffIndex = (void *) OSPMOutputBuff35; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM35.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM35.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM36 = channelOSPM11;
 
-	channelOSPM36.pInputBuffBase = (void *)OSPMInputBuff36;     /*!< Pointer to the base of the input circular buffer */
-	channelOSPM36.pInputBuffIndex = (void *)OSPMInputBuff36;    /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM36.nInputBuffCount = OSPMWindowSize;   /*!< Number of elements in the input circular buffer */
-	channelOSPM36.nInputBuffModify = 1;   /*!< Modifier to be used for the input circular buffer */
+	channelOSPM36.pInputBuffBase = (void *) OSPMInputBuff36; /*!< Pointer to the base of the input circular buffer */
+	channelOSPM36.pInputBuffIndex = (void *) OSPMInputBuff36; /*!< Pointer to the current index of the input circular buffer */
+	channelOSPM36.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM36.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
-
-	channelOSPM36.pCoefficientBase = (void *)OSPMCoeffBuff36;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM36.pCoefficientBase = (void *) OSPMCoeffBuff36; /*!< Pointer to the start of the coefficient buffer */
 	channelOSPM36.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-	channelOSPM36.pCoefficientIndex = (void *)OSPMCoeffBuff36;   /*!< Pointer to the start of the coefficient buffer */
+	channelOSPM36.pCoefficientIndex = (void *) OSPMCoeffBuff36; /*!< Pointer to the start of the coefficient buffer */
 
-	channelOSPM36.pOutputBuffBase = (void *)OSPMOutputBuff36;    /*!< Pointer to the base of the output circular buffer */
-	channelOSPM36.pOutputBuffIndex =(void *)OSPMOutputBuff36;   /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM36.nOutputBuffCount = OSPMWindowSize;   /*!< Number of elements in the output circular buffer */
-	channelOSPM36.nOutputBuffModify =1;  /*!< Modifier to be used for the output circular buffer */
-
-
+	channelOSPM36.pOutputBuffBase = (void *) OSPMOutputBuff36; /*!< Pointer to the base of the output circular buffer */
+	channelOSPM36.pOutputBuffIndex = (void *) OSPMOutputBuff36; /*!< Pointer to the current index of the output circular buffer */
+	channelOSPM36.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOSPM36.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 #endif
 
-
 	res = adi_fir_Open(0u, &hFir);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_Open failed\n");
 		return -1;
 	}
 
-
 	// ------------------------------- Create Configurations --------------------------------------------
-	res = adi_fir_CreateConfig ( hFir, ConfigMemoryRef, ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigRef);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_CreateConfig(hFir, ConfigMemoryRef,
+			ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigRef);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_CreateConfig failed\n");
 		return -1;
 	}
 
-	res = adi_fir_CreateConfig ( hFir, ConfigMemoryControl, ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigControl);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_CreateConfig(hFir, ConfigMemoryControl,
+			ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigControl);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_CreateConfig failed\n");
 		return -1;
 	}
-	res = adi_fir_CreateConfig ( hFir, ConfigMemoryOSPM, ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigOSPM);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_CreateConfig(hFir, ConfigMemoryOSPM,
+			ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigOSPM);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_CreateConfig failed\n");
 		return -1;
 	}
 
 	// ----------------------------------  Add Channels ---------------------------------------------------
 
-	res = adi_fir_AddChannel (hConfigRef, ChannelMemoryRef, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelRef, &hChannelRef);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigRef, ChannelMemoryRef,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelRef, &hChannelRef);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl1, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl1, &hChannelControl1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl1,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl1, &hChannelControl1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl2, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl2, &hChannelControl2);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl2,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl2, &hChannelControl2);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl3, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl3, &hChannelControl3);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl3,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl3, &hChannelControl3);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-
-
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM11, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM11, &hChannelOSPM11);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM11,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM11, &hChannelOSPM11);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM12, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM12, &hChannelOSPM12);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM12,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM12, &hChannelOSPM12);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM13, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM13, &hChannelOSPM13);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM21, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM21, &hChannelOSPM21);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM22, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM22, &hChannelOSPM22);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM23, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM23, &hChannelOSPM23);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM13,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM13, &hChannelOSPM13);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM31, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM31, &hChannelOSPM31);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM21,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM21, &hChannelOSPM21);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM32, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM32, &hChannelOSPM32);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM22,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM22, &hChannelOSPM22);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM33, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM33, &hChannelOSPM33);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM23,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM23, &hChannelOSPM23);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM31,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM31, &hChannelOSPM31);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM32,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM32, &hChannelOSPM32);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM33,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM33, &hChannelOSPM33);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 	// ---------------------------------------   Enable Channels -----------------------------------------------
-
-	res = adi_fir_EnableChannel (hChannelRef, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-	res = adi_fir_EnableChannel (hChannelControl1, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-	res = adi_fir_EnableChannel (hChannelControl2, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelControl3, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	/*
+	 res = adi_fir_EnableChannel (hChannelRef, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
-	res = adi_fir_EnableChannel (hChannelOSPM11, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM12, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM13, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelControl1, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+
+	 res = adi_fir_EnableChannel (hChannelControl2, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelControl3, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
-	res = adi_fir_EnableChannel (hChannelOSPM21, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM22, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM23, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelOSPM11, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM12, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM13, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
-
-	res = adi_fir_EnableChannel (hChannelOSPM31, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM32, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM33, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelOSPM21, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM22, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM23, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
 
+	 res = adi_fir_EnableChannel (hChannelOSPM31, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM32, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM33, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+
+	 */
 
 #if (numControlSignal == 6)
 
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl4, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl4, &hChannelControl4);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl4,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl4, &hChannelControl4);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl5, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl5, &hChannelControl5);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl5,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl5, &hChannelControl5);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigControl, ChannelMemoryControl6, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl6, &hChannelControl6);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl6,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl6, &hChannelControl6);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-
-
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM14, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM14, &hChannelOSPM14);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM14,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM14, &hChannelOSPM14);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM15, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM15, &hChannelOSPM15);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM15,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM15, &hChannelOSPM15);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM16, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM16, &hChannelOSPM16);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM24, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM24, &hChannelOSPM24);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM25, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM25, &hChannelOSPM25);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_AddChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM26, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM26, &hChannelOSPM26);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM16,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM16, &hChannelOSPM16);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM34, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM34, &hChannelOSPM34);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM24,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM24, &hChannelOSPM24);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM35, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM35, &hChannelOSPM35);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM25,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM25, &hChannelOSPM25);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_AddChannel (hConfigOSPM, ChannelMemoryOSPM36, ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM36, &hChannelOSPM36);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM26,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM26, &hChannelOSPM26);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM34,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM34, &hChannelOSPM34);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM35,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM35, &hChannelOSPM35);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_AddChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_AddChannel(hConfigOSPM, ChannelMemoryOSPM36,
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOSPM36, &hChannelOSPM36);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_AddChannel failed\n");
 		return -1;
 	}
 
 	// ---------------------------------------   Enable Channels -----------------------------------------------
-
-	res = adi_fir_EnableChannel (hChannelControl4, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-	res = adi_fir_EnableChannel (hChannelControl5, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelControl6, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	/*
+	 res = adi_fir_EnableChannel (hChannelControl4, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
-	res = adi_fir_EnableChannel (hChannelOSPM14, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM15, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM16, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelControl5, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelControl6, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
-	res = adi_fir_EnableChannel (hChannelOSPM24, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM25, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM26, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelOSPM14, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM15, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM16, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+
+
+	 res = adi_fir_EnableChannel (hChannelOSPM24, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM25, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM26, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
 
 
 
-	res = adi_fir_EnableChannel (hChannelOSPM34, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM35, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM36, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	 res = adi_fir_EnableChannel (hChannelOSPM34, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM35, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 res = adi_fir_EnableChannel (hChannelOSPM36, true);
+	 if( res != ADI_FIR_RESULT_SUCCESS) {
+	 printf("adi_fir_EnableChannel failed\n");
+	 return -1;
+	 }
+	 */
 
 #endif
 
-	res = adi_fir_ChannelInterruptEnable (hConfigOSPM, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_ChannelInterruptEnable(hConfigOSPM, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_ChannelInterruptEnable failed\n");
 		return -1;
 	}
-	res = adi_fir_ChannelInterruptEnable (hConfigControl, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_ChannelInterruptEnable(hConfigControl, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_ChannelInterruptEnable failed\n");
 		return -1;
 	}
-	res = adi_fir_ChannelInterruptEnable (hConfigRef, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_ChannelInterruptEnable(hConfigRef, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_ChannelInterruptEnable failed\n");
 		return -1;
 	}
@@ -1661,7 +1776,7 @@ int main(void) {
 	ADI_ADAU1761_SPORT_INFO sportRxInfo2;
 	ADI_ADAU1761_SPORT_INFO sportTxInfo2;
 #endif
-	int8_t firResult =0;
+	int8_t firResult = 0;
 	bool bExit;
 	uint32_t Result = 0u;
 	//uint32_t i;
@@ -1903,11 +2018,10 @@ int main(void) {
 	CheckResult(result2);
 #endif
 	firResult = FIR_init();
-	if(firResult ==0){
-	printf("FIR init success\n");
+	if (firResult == 0) {
+		printf("FIR init success\n");
 	}
 	count = 0u;
-
 
 #ifdef INSTANT_START
 	bEvent = true;
@@ -1917,6 +2031,32 @@ int main(void) {
 	while (!bExit) {
 		if (bEvent) {
 			switch (eMode) {
+			case SUBMIT_TX_BUFFER:
+
+				if (pRxBuffer1 != NULL) {
+
+					// re-submit the ADC buffer
+					adi_adau1761_SubmitRxBuffer(hADAU1761_1, pRxBuffer1,
+					BUFFER_SIZE_1761);
+
+				}
+#ifdef USE_ADAU1761_2
+				if (pRxBuffer2 != NULL) {
+
+					// re-submit the ADC buffer
+					adi_adau1761_SubmitRxBuffer(hADAU1761_2, pRxBuffer2,
+					BUFFER_SIZE_1761);
+
+				}
+#endif
+				if (pGetDAC != NULL) {
+					/* re-submit the DAC buffer */
+					adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC,
+					AUDIO_BUFFER_SIZE);
+				}
+
+				break;
+
 			case SUBMIT_RX_BUFFER:
 				//VolControl();
 				Result = ProcessBuffers();
@@ -2009,7 +2149,7 @@ int main(void) {
 		return 1u;
 	}
 	adi_adau1962a_Close(phAdau1962a);
-
+	printf("outputSignal1_temp %d output1 %f OSPMAWGNSignal1 %f pSrcL1 %f\n", outputSignal1_temp[1], outputSignal1[1], OSPMAWGNSignal1[1],conv_float_temp1[1]);
 	printf("%d a %d b ", (int) DacCount, (int) AdcCount);
 	if (!bError) {
 		printf("All done\n");
@@ -2213,43 +2353,35 @@ uint32_t Adau1962aSubmitBuffers(void) {
 	return Result;
 }
 
+float AWGN_generator() {/* Generates additive white Gaussian Noise samples with zero mean and a standard deviation of 1. */
 
+	float temp1;
+	float temp2;
+	float result;
+	int p;
 
-float AWGN_generator()
-{/* Generates additive white Gaussian Noise samples with zero mean and a standard deviation of 1. */
+	p = 1;
 
-  float temp1;
-  float temp2;
-  float result;
-  int p;
+	while (p > 0) {
+		temp2 = (rand() / ((float) RAND_MAX)); //  rand() function generates an integer between 0 and  RAND_MAX, which is defined in stdlib.h.
 
-  p = 1;
+		if (temp2 == 0) {				// temp2 is >= (RAND_MAX / 2)
+			p = 1;
+		}				// end if
+		else {				// temp2 is < (RAND_MAX / 2)
+			p = -1;
+		}				// end else
 
-  while( p > 0 )
-  {
-	temp2 = ( rand() / ( (float)RAND_MAX ) ); /*  rand() function generates an
-                                                       integer between 0 and  RAND_MAX,
-                                                       which is defined in stdlib.h.
-                                                   */
+	}				// end while()
 
-    if ( temp2 == 0 )
-    {// temp2 is >= (RAND_MAX / 2)
-      p = 1;
-    }// end if
-    else
-    {// temp2 is < (RAND_MAX / 2)
-       p = -1;
-    }// end else
-
-  }// end while()
-
-  temp1 = cos( ( 2.0 * 3.1415926536 ) * rand() / ( (float)RAND_MAX ) );
-  result = sqrt( -2.0 * log( temp2 ) ) * temp1;
-
-  return result;	// return the generated random sample to the caller
+	temp1 = cos((2.0 * 3.1415926536) * rand() / ((float) RAND_MAX));
+	result = sqrt(-2.0 * log(temp2)) * temp1+2.0;
+	if (result<0){
+		result =0;
+	}
+	return result;	// return the generated random sample to the caller
 
 }
-
 
 uint32_t ProcessBuffers(void) {
 	/*
@@ -2270,6 +2402,7 @@ uint32_t ProcessBuffers(void) {
 		adi_adau1761_SubmitRxBuffer(hADAU1761_1, pRxBuffer1,
 		BUFFER_SIZE_1761);
 
+
 	}
 #ifdef USE_ADAU1761_2
 	if (pRxBuffer2 != NULL) {
@@ -2288,8 +2421,11 @@ uint32_t ProcessBuffers(void) {
 
 #ifdef USE_ADAU1761_2
 	// process ADC to DAC buffer
-	if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
 
+	if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
+		DacCount++;
+	    memcpy(&sRxBuffer1[0], pRxBuffer1, BUFFER_SIZE_1761);
+	    memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
 		pDst = (int32_t *) pDAC;
 		uint32_t k = 0;
 		uint32_t j = 0;
@@ -2306,241 +2442,233 @@ uint32_t ProcessBuffers(void) {
 				k++;
 			}
 		}
-
 		ANCALG();
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-			//TDM8 SHIFT <<8
 
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal2[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal3[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal4[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal5[i],-23) << 8;
-			*pDst++ = (int32_t) 0;//conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal6[i],-23) << 8;
-			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-23) << 8;
-		}
-/*
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 			//TDM8 SHIFT <<8
-			*pDst++ = (int32_t) pSrcL1[i] << 8;
-			*pDst++ = (int32_t) pSrcR1[i] << 8;
-			*pDst++ = (int32_t) pSrcL1[i] << 8;
-			*pDst++ = (int32_t) pSrcR1[i] << 8;
-			*pDst++ = (int32_t) pSrcL1[i] << 8;
-			*pDst++ = (int32_t) pSrcR1[i] << 8;
-			*pDst++ = (int32_t) pSrcL1[i] << 8;
-			*pDst++ = (int32_t) pSrcR1[i] << 8;
+			outputSignal1_temp[i]=((int32_t) conv_fix_by(outputSignal1[i], 23)) << 8;
+			outputSignal2_temp[i]=((int32_t) conv_fix_by(outputSignal2[i], 23)) << 8;
+			outputSignal3_temp[i]=((int32_t) conv_fix_by(outputSignal3[i], 23)) << 8;
+			outputSignal4_temp[i]=((int32_t) conv_fix_by(outputSignal4[i], 23)) << 8;
+			outputSignal5_temp[i]=((int32_t) conv_fix_by(outputSignal5[i], 23)) << 8;
+			outputSignal6_temp[i]=((int32_t) conv_fix_by(outputSignal6[i], 23)) << 8;
+			*pDst++ = (int32_t) outputSignal1_temp[i];
+			*pDst++ = (int32_t) outputSignal2_temp[i];
+			*pDst++ = (int32_t) outputSignal3_temp[i];
+			*pDst++ = (int32_t) outputSignal4_temp[i];
+			*pDst++ = (int32_t) outputSignal5_temp[i];
+			*pDst++ = (int32_t) 0;	//conv_fix_by( outputSignal1[i],-31) << 8;
+			*pDst++ = (int32_t) outputSignal6_temp[i];
+			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-31) << 8;
 		}
-*/
+		/*
+		 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+		 //TDM8 SHIFT <<8
+		 *pDst++ = (int32_t) pSrcL1[i] << 8;
+		 *pDst++ = (int32_t) pSrcR1[i] << 8;
+		 *pDst++ = (int32_t) pSrcL1[i] << 8;
+		 *pDst++ = (int32_t) pSrcR1[i] << 8;
+		 *pDst++ = (int32_t) pSrcL1[i] << 8;
+		 *pDst++ = (int32_t) pSrcR1[i] << 8;
+		 *pDst++ = (int32_t) pSrcL1[i] << 8;
+		 *pDst++ = (int32_t) pSrcR1[i] << 8;
+		 }
+		 */
 		pDAC = NULL;
 	}
 #else
-		// process ADC to DAC buffer
-		if (sRxBuffer1 != NULL && pDAC != NULL) {
+	// process ADC to DAC buffer
+	if (sRxBuffer1 != NULL && pDAC != NULL) {
 
-			//pDAC = pADC;
-			pDst = (int32_t *) pDAC;
+		//pDAC = pADC;
+		pDst = (int32_t *) pDAC;
 
-			uint32_t k = 0;
-			uint32_t j = 0;
-			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
+		uint32_t k = 0;
+		uint32_t j = 0;
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
 
-				if (i % 2 == 0) {
-					pSrcL1[i - k] = sRxBuffer1[i];
-					j += 1;
-				} else {
-					pSrcR1[i - j] = sRxBuffer1[i];
-					k += 1;
-				}
-			}
-			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-				*pDst++ = (int32_t)  pSrcL1[i]<<8;
-				*pDst++ = (int32_t) pSrcR1[i]<<8;
-				*pDst++ = (int32_t) pSrcL1[i]<<8;
-				*pDst++ = (int32_t) pSrcR1[i]<<8;
-				*pDst++ = (int32_t) pSrcL1[i]<<8;
-				*pDst++ = (int32_t) pSrcR1[i]<<8;
-				*pDst++ = (int32_t) pSrcL1[i]<<8;
-				*pDst++ = (int32_t) pSrcR1[i]<<8;
+			if (i % 2 == 0) {
+				pSrcL1[i - k] = sRxBuffer1[i];
+				j += 1;
+			} else {
+				pSrcR1[i - j] = sRxBuffer1[i];
+				k += 1;
 			}
 		}
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+			*pDst++ = (int32_t) pSrcL1[i]<<8;
+			*pDst++ = (int32_t) pSrcR1[i]<<8;
+			*pDst++ = (int32_t) pSrcL1[i]<<8;
+			*pDst++ = (int32_t) pSrcR1[i]<<8;
+			*pDst++ = (int32_t) pSrcL1[i]<<8;
+			*pDst++ = (int32_t) pSrcR1[i]<<8;
+			*pDst++ = (int32_t) pSrcL1[i]<<8;
+			*pDst++ = (int32_t) pSrcR1[i]<<8;
+		}
+	}
 #endif
-
 
 	return 0u;
 }
 
-void reverseArray(int32_t *arr, uint32_t size){
-	    for (uint32_t i = 0; i < (size/2); i++) {
-	    int32_t temp = arr[i];
-	    arr[i] = arr[size - i - 1];
-	    arr[size - i - 1] = temp;
+void reverseArray(int32_t arr[], uint32_t size) {
+	for (uint32_t i = 0; i < (size / 2); i++) {
+		int32_t temp = arr[i];
+		arr[i] = arr[size - i - 1];
+		arr[size - i - 1] = temp;
+	}
+
+}
+
+void reverseArrayf(float arr[], uint32_t size) {
+	for (uint32_t i = 0; i < (size / 2); i++) {
+		float temp = arr[i];
+		arr[i] = arr[size - i - 1];
+		arr[size - i - 1] = temp;
 	}
 }
 
-void reverseArrayf(float *arr, uint32_t size){
-	    for (uint32_t i = 0; i < (size/2); i++) {
-	    int32_t temp = arr[i];
-	    arr[i] = arr[size - i - 1];
-	    arr[size - i - 1] = temp;
-	}
-}
-
-int8_t DisableAllFIRChannels(){
-	ADI_FIR_RESULT         res;
+int8_t DisableAllFIRChannels() {
+	ADI_FIR_RESULT res;
 	// ---------------------------------------   Enable Channels -----------------------------------------------
 
-	res = adi_fir_EnableChannel (hChannelRef, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelRef, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelRef\n");
 		return -1;
 	}
 
-
-	res = adi_fir_EnableChannel (hChannelControl1, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl1, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl1\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelControl2, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl2, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl2\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl3, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM11, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM12, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM13, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl3, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl3\n");
 		return -1;
 	}
 
-
-	res = adi_fir_EnableChannel (hChannelOSPM21, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM11, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM11\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM22, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM12, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM12\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM23, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM31, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM32, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM33, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM13, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM13\n");
 		return -1;
 	}
 
+	res = adi_fir_EnableChannel(hChannelOSPM21, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM21\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM22, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM22\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM23, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM23\n");
+		return -1;
+	}
 
+	res = adi_fir_EnableChannel(hChannelOSPM31, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM31\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM32, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM32\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM33, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM33\n");
+		return -1;
+	}
 
-
-#if (numControlSignal == 6)
+#if (numControlSignal == 6 )
 
 	// ---------------------------------------   Disable Channels -----------------------------------------------
 
-	res = adi_fir_EnableChannel (hChannelControl4, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl4, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl4\n ");
 		return -1;
 	}
 
-
-	res = adi_fir_EnableChannel (hChannelControl5, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl5, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl5\n ");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl6, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM14, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM15, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM16, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelControl6, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl6\n ");
 		return -1;
 	}
 
+	res = adi_fir_EnableChannel(hChannelOSPM14, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM14\n ");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM15, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM15\n ");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM16, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM16\n ");
+		return -1;
+	}
 
-	res = adi_fir_EnableChannel (hChannelOSPM24, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM24, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM24\n ");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM25, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM25, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM25\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM26, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM26, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM26\n");
 		return -1;
 	}
 
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM34, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM34, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM34\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM35, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM35, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM35\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM36, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
+	res = adi_fir_EnableChannel(hChannelOSPM36, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelOSPM36\n");
 		return -1;
 	}
 
@@ -2549,387 +2677,404 @@ int8_t DisableAllFIRChannels(){
 }
 
 int32_t ANCALG(void) {
-	ADI_FIR_RESULT         res;
-	int8_t disableAllFirChannelsResult=0;
-	int8_t refResult=0;
-	//disableAllFirChannelsResult=DisableAllFIRChannels();
-	//if(disableAllFirChannelsResult!=0){
-	//	printf("error disabling FIR channels");
-	//}
+	ADI_FIR_RESULT res;
+	int8_t disableAllFirChannelsResult = 0;
+	int8_t refResult = 0;
 
-	reverseArray(pSrcL1,NUM_AUDIO_SAMPLES/2);
+	reverseArray(pSrcL1, NUM_AUDIO_SAMPLES / 2);
 
-	static float conv_float_temp[controlLength];
-
-	for (int32_t i=0; i< NUM_AUDIO_SAMPLES/2; i++)
-	{
-		conv_float_temp[i]= conv_float_by(pSrcL1[i], -23);
+	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+		conv_float_temp1[i] = conv_float_by(pSrcL1[i], -31);
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelRef, conv_float_temp, conv_float_temp, NUM_AUDIO_SAMPLES/2, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelRef, conv_float_temp1,
+			conv_float_temp1, NUM_AUDIO_SAMPLES / 2, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelRef, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelRef, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableConfig (hConfigRef, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableConfig(hConfigRef, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
-	res = adi_fir_WaitForEvent (hConfigRef, ADI_FIR_EVENT_ALL_CHANNEL_DONE, hChannelRef);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_WaitForEvent(hConfigRef, ADI_FIR_EVENT_ALL_CHANNEL_DONE,
+			hChannelRef);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_WaitForEvent failed Ref\n");
 		return -1;
 	}
 
-	static float conv_float_control_temp[controlLength];
+	//memcpy(&conv_float_control_temp, refOutputBuff, sizeof(refOutputBuff));
+	//memcpy(&conv_float_OSPM_temp, refOutputBuff, sizeof(refOutputBuff));
 
-
-
-
-	memcpy(&conv_float_control_temp, refOutputBuff, controlLength);
-
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl1, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	memcpy(&conv_float_control_temp, conv_float_temp1, sizeof(conv_float_temp1));
+	memcpy(&conv_float_OSPM_temp, conv_float_temp1, sizeof(conv_float_temp1));
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl1,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl2, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl2,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl3, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl3,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl4, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl4,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl5, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl5,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
-	res = adi_fir_SubmitInputCircBuffer (hChannelControl6, conv_float_control_temp, conv_float_control_temp, controlLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl6,
+			conv_float_control_temp, conv_float_control_temp, controlLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-
-
-	res = adi_fir_EnableChannel (hChannelControl1, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelControl1, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl2, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelControl2, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl3, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelControl3, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl4, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelControl4, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed hChannelControl41\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelControl5, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl5, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelControl6, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelControl6, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableConfig (hConfigControl, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableConfig(hConfigControl, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
 
 //OSPM
-	static float conv_float_OSPM_temp[OSPMLength];
-	memcpy(&conv_float_OSPM_temp, refOutputBuff, OSPMLength);
 
-
-
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM11, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM11, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM12, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM12, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM13, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM13, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM21, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM21, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM22, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM22, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM23, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM23, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM31, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM31, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM32, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM32, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM33, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM33, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelOSPM11, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM11, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM12, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM12, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM13, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM13, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM21, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM21, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM22, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM22, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM23, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM23, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM31, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM31, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM32, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM32, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM33, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM33, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-
 
 #if (numControlSignal == 6)
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM14, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM14, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM15, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM15, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM16, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM16, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM24, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM24, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM25, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM25, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM26, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM26, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM34, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM34, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM35, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM35, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM36, conv_float_OSPM_temp, conv_float_OSPM_temp, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM36, conv_float_OSPM_temp,
+			conv_float_OSPM_temp, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelOSPM14, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM14, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM15, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM15, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM16, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM16, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM24, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM24, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM25, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM25, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM26, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM26, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM34, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM34, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM35, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM35, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM36, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM36, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 #endif
 
-	res = adi_fir_EnableConfig (hConfigOSPM, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableConfig(hConfigOSPM, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
 
-
-	//do stuff while OSPM FIR
-	for(int8_t i = 0; i< OSPMLength ; i++){
-	//AWGNSample[i] = AWGN_generator();
-	OSPMAWGNSignal1[i] = OSPMAWGNGain[0][i]*AWGN_generator();
-	OSPMAWGNSignal2[i] = OSPMAWGNGain[1][i]*AWGN_generator();
-	OSPMAWGNSignal3[i] = OSPMAWGNGain[2][i]*AWGN_generator();
-#if (numControlSignal == 6 )
-	OSPMAWGNSignal4[i] = OSPMAWGNGain[3][i]*AWGN_generator();
-	OSPMAWGNSignal5[i] = OSPMAWGNGain[4][i]*AWGN_generator();
-	OSPMAWGNSignal6[i] = OSPMAWGNGain[5][i]*AWGN_generator();
-#endif
-	}
-	res = adi_fir_WaitForEvent (hConfigControl, ADI_FIR_EVENT_ALL_CHANNEL_DONE, hChannelControl6);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_WaitForEvent(hConfigControl, ADI_FIR_EVENT_ALL_CHANNEL_DONE,
+			hChannelControl6);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_WaitForEvent failed hChannel1_1\n");
 		return -1;
 	}
-
-	res = adi_fir_WaitForEvent (hConfigOSPM, ADI_FIR_EVENT_ALL_CHANNEL_DONE, hChannelOSPM36);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_WaitForEvent(hConfigControl, ADI_FIR_EVENT_ALL_CHANNEL_DONE,
+			hChannelControl1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_WaitForEvent failed hChannel1_1\n");
 		return -1;
 	}
-
-	for(uint32_t i = 0; i < OSPMLength; i ++){
-		OSPMRef[0][0][i]= OSPMOutputBuff11[i];
-		OSPMRef[0][1][i]= OSPMOutputBuff21[i];
-		OSPMRef[0][2][i]= OSPMOutputBuff31[i];
-		OSPMRef[1][0][i]= OSPMOutputBuff12[i];
-		OSPMRef[1][1][i]= OSPMOutputBuff22[i];
-		OSPMRef[1][2][i]= OSPMOutputBuff32[i];
-		OSPMRef[2][0][i]= OSPMOutputBuff13[i];
-		OSPMRef[2][1][i]= OSPMOutputBuff23[i];
-		OSPMRef[2][2][i]= OSPMOutputBuff33[i];
-#if (numControlSignal == 6)
-		OSPMRef[3][0][i]= OSPMOutputBuff14[i];
-		OSPMRef[3][1][i]= OSPMOutputBuff24[i];
-		OSPMRef[3][2][i]= OSPMOutputBuff34[i];
-		OSPMRef[4][0][i]= OSPMOutputBuff15[i];
-		OSPMRef[4][1][i]= OSPMOutputBuff25[i];
-		OSPMRef[4][2][i]= OSPMOutputBuff35[i];
-		OSPMRef[5][0][i]= OSPMOutputBuff16[i];
-		OSPMRef[5][1][i]= OSPMOutputBuff26[i];
-		OSPMRef[5][2][i]= OSPMOutputBuff36[i];
-#endif
+	memcpy(&controlOutputBuff1_temp, controlOutputBuff1,
+			sizeof(controlOutputBuff1));
+	memcpy(&controlOutputBuff2_temp, controlOutputBuff2,
+			sizeof(controlOutputBuff2));
+	memcpy(&controlOutputBuff3_temp, controlOutputBuff3,
+			sizeof(controlOutputBuff3));
+	memcpy(&controlOutputBuff4_temp, controlOutputBuff4,
+			sizeof(controlOutputBuff4));
+	memcpy(&controlOutputBuff5_temp, controlOutputBuff5,
+			sizeof(controlOutputBuff5));
+	memcpy(&controlOutputBuff6_temp, controlOutputBuff6,
+			sizeof(controlOutputBuff6));
+	res = adi_fir_WaitForEvent(hConfigOSPM, ADI_FIR_EVENT_ALL_CHANNEL_DONE,
+			hChannelOSPM36);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_WaitForEvent failed hChannel1_1\n");
+		return -1;
 	}
-/*
+	/*
+	 for(uint32_t i = 0; i < OSPMLength; i ++){
+	 OSPMRef[0][0][i]= OSPMOutputBuff11[i];
+	 OSPMRef[0][1][i]= OSPMOutputBuff21[i];
+	 OSPMRef[0][2][i]= OSPMOutputBuff31[i];
+	 OSPMRef[1][0][i]= OSPMOutputBuff12[i];
+	 OSPMRef[1][1][i]= OSPMOutputBuff22[i];
+	 OSPMRef[1][2][i]= OSPMOutputBuff32[i];
+	 OSPMRef[2][0][i]= OSPMOutputBuff13[i];
+	 OSPMRef[2][1][i]= OSPMOutputBuff23[i];
+	 OSPMRef[2][2][i]= OSPMOutputBuff33[i];
+	 #if (numControlSignal == 6)
+	 OSPMRef[3][0][i]= OSPMOutputBuff14[i];
+	 OSPMRef[3][1][i]= OSPMOutputBuff24[i];
+	 OSPMRef[3][2][i]= OSPMOutputBuff34[i];
+	 OSPMRef[4][0][i]= OSPMOutputBuff15[i];
+	 OSPMRef[4][1][i]= OSPMOutputBuff25[i];
+	 OSPMRef[4][2][i]= OSPMOutputBuff35[i];
+	 OSPMRef[5][0][i]= OSPMOutputBuff16[i];
+	 OSPMRef[5][1][i]= OSPMOutputBuff26[i];
+	 OSPMRef[5][2][i]= OSPMOutputBuff36[i];
+	 #endif
+	 }
+	 */
+
 	memcpy(&OSPMRef[0][0], OSPMOutputBuff11, sizeof(OSPMOutputBuff11));
 	memcpy(&OSPMRef[0][1], OSPMOutputBuff21, sizeof(OSPMOutputBuff21));
 	memcpy(&OSPMRef[0][2], OSPMOutputBuff31, sizeof(OSPMOutputBuff31));
@@ -2950,569 +3095,771 @@ int32_t ANCALG(void) {
 	memcpy(&OSPMRef[5][1], OSPMOutputBuff26, sizeof(OSPMOutputBuff26));
 	memcpy(&OSPMRef[5][2], OSPMOutputBuff36, sizeof(OSPMOutputBuff36));
 #endif
-*/
 
-	res = adi_fir_EnableChannel (hChannelOSPM11, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM12, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM13, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
+	//do stuff while OSPM FIR
+	for (uint32_t i = 0; i < OSPMLength; i++) {
+		AWGN_generator_temp[i]= AWGN_generator();
 
-
-	res = adi_fir_EnableChannel (hChannelOSPM21, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+		OSPMAWGNSignal1[i] = (float) OSPMAWGNGain[0][i]
+				* AWGN_generator()*i/48000.0;
+		OSPMAWGNSignal2[i] = (float) OSPMAWGNGain[1][i] * (AWGN_generator());
+		OSPMAWGNSignal3[i] = (float) OSPMAWGNGain[2][i]
+													 * (AWGN_generator());
+#if (numControlSignal == 6 )
+		OSPMAWGNSignal4[i] = (float) OSPMAWGNGain[3][i]
+													 * (AWGN_generator());
+		OSPMAWGNSignal5[i] = (float) OSPMAWGNGain[4][i]
+													 * (AWGN_generator());
+		OSPMAWGNSignal6[i] = (float) OSPMAWGNGain[5][i]
+													 * (AWGN_generator());
+#endif
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM11, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM22, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM12, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM23, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM31, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM32, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM33, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM13, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
+	res = adi_fir_EnableChannel(hChannelOSPM21, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM22, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM23, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
 
-
+	res = adi_fir_EnableChannel(hChannelOSPM31, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM32, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM33, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
 
 #if (numControlSignal == 6)
 
 	// ---------------------------------------   Disable Channels -----------------------------------------------
 
-	res = adi_fir_EnableChannel (hChannelControl4, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+
+	res = adi_fir_EnableChannel(hChannelOSPM14, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM15, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel failed\n");
+		return -1;
+	}
+	res = adi_fir_EnableChannel(hChannelOSPM16, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
-
-	res = adi_fir_EnableChannel (hChannelControl5, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM24, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelControl6, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM25, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM14, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM15, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM16, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM26, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
-
-	res = adi_fir_EnableChannel (hChannelOSPM24, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM34, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM25, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM35, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM26, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-
-
-
-	res = adi_fir_EnableChannel (hChannelOSPM34, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM35, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel failed\n");
-		return -1;
-	}
-	res = adi_fir_EnableChannel (hChannelOSPM36, false);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM36, false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 
 #endif
 
-
-
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM11, OSPMAWGNSignal1, OSPMAWGNSignal1, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM11, OSPMAWGNSignal1,
+			OSPMAWGNSignal1, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM12, OSPMAWGNSignal2, OSPMAWGNSignal2, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM12, OSPMAWGNSignal2,
+			OSPMAWGNSignal2, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM13, OSPMAWGNSignal3, OSPMAWGNSignal3, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM13, OSPMAWGNSignal3,
+			OSPMAWGNSignal3, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM21, OSPMAWGNSignal1, OSPMAWGNSignal1, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM21, OSPMAWGNSignal1,
+			OSPMAWGNSignal1, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM22, OSPMAWGNSignal2, OSPMAWGNSignal2, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM22, OSPMAWGNSignal2,
+			OSPMAWGNSignal2, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM23, OSPMAWGNSignal3, OSPMAWGNSignal3, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM23, OSPMAWGNSignal3,
+			OSPMAWGNSignal3, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM31, OSPMAWGNSignal1, OSPMAWGNSignal1, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM31, OSPMAWGNSignal1,
+			OSPMAWGNSignal1, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM32, OSPMAWGNSignal2, OSPMAWGNSignal2, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM32, OSPMAWGNSignal2,
+			OSPMAWGNSignal2, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM33, OSPMAWGNSignal3, OSPMAWGNSignal3, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM33, OSPMAWGNSignal3,
+			OSPMAWGNSignal3, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelOSPM11, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM11, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM12, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM12, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM13, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM13, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM21, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM21, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM22, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM22, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM23, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM23, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM31, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM31, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM32, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM32, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM33, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM33, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-
 
 #if (numControlSignal == 6)
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM14, OSPMAWGNSignal4, OSPMAWGNSignal4, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM14, OSPMAWGNSignal4,
+			OSPMAWGNSignal4, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM15, OSPMAWGNSignal5, OSPMAWGNSignal5, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM15, OSPMAWGNSignal5,
+			OSPMAWGNSignal5, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM16, OSPMAWGNSignal6, OSPMAWGNSignal6, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM16, OSPMAWGNSignal6,
+			OSPMAWGNSignal6, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM24, OSPMAWGNSignal4, OSPMAWGNSignal4, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM24, OSPMAWGNSignal4,
+			OSPMAWGNSignal4, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM25, OSPMAWGNSignal5, OSPMAWGNSignal5, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM25, OSPMAWGNSignal5,
+			OSPMAWGNSignal5, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM26, OSPMAWGNSignal6, OSPMAWGNSignal6, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM26, OSPMAWGNSignal6,
+			OSPMAWGNSignal6, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM34, OSPMAWGNSignal4, OSPMAWGNSignal4, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM34, OSPMAWGNSignal4,
+			OSPMAWGNSignal4, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM35, OSPMAWGNSignal5, OSPMAWGNSignal5, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM35, OSPMAWGNSignal5,
+			OSPMAWGNSignal5, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_SubmitInputCircBuffer (hChannelOSPM36, OSPMAWGNSignal6, OSPMAWGNSignal6, OSPMLength, 1);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_SubmitInputCircBuffer(hChannelOSPM36, OSPMAWGNSignal6,
+			OSPMAWGNSignal6, OSPMLength, 1);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
 	}
 
-	res = adi_fir_EnableChannel (hChannelOSPM14, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM14, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM15, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM15, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM16, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM16, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM24, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM24, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM25, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM25, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM26, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM26, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM34, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM34, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM35, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM35, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
-	res = adi_fir_EnableChannel (hChannelOSPM36, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableChannel(hChannelOSPM36, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableChannel failed\n");
 		return -1;
 	}
 #endif
 
-	res = adi_fir_EnableConfig (hConfigOSPM, true);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_EnableConfig(hConfigOSPM, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
 
-
-	res = adi_fir_WaitForEvent (hConfigOSPM, ADI_FIR_EVENT_ALL_CHANNEL_DONE, hChannelOSPM36);
-	if( res != ADI_FIR_RESULT_SUCCESS) {
+	res = adi_fir_WaitForEvent(hConfigOSPM, ADI_FIR_EVENT_ALL_CHANNEL_DONE,
+			hChannelOSPM36);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_WaitForEvent failed hChannel1_1\n");
 		return -1;
 	}
-/*
-	memcpy(&OSPMAux11,OSPMOutputBuff11, OSPMLength);
-	memcpy(&OSPMAux12,OSPMOutputBuff12, OSPMLength);
-	memcpy(&OSPMAux13,OSPMOutputBuff13, OSPMLength);
-	memcpy(&OSPMAux21,OSPMOutputBuff21, OSPMLength);
-	memcpy(&OSPMAux22,OSPMOutputBuff22, OSPMLength);
-	memcpy(&OSPMAux23,OSPMOutputBuff23, OSPMLength);
-	memcpy(&OSPMAux31,OSPMOutputBuff31, OSPMLength);
-	memcpy(&OSPMAux32,OSPMOutputBuff32, OSPMLength);
-	memcpy(&OSPMAux33,OSPMOutputBuff33, OSPMLength);
+	/*
+	 memcpy(&OSPMAux11,OSPMOutputBuff11, OSPMLength);
+	 memcpy(&OSPMAux12,OSPMOutputBuff12, OSPMLength);
+	 memcpy(&OSPMAux13,OSPMOutputBuff13, OSPMLength);
+	 memcpy(&OSPMAux21,OSPMOutputBuff21, OSPMLength);
+	 memcpy(&OSPMAux22,OSPMOutputBuff22, OSPMLength);
+	 memcpy(&OSPMAux23,OSPMOutputBuff23, OSPMLength);
+	 memcpy(&OSPMAux31,OSPMOutputBuff31, OSPMLength);
+	 memcpy(&OSPMAux32,OSPMOutputBuff32, OSPMLength);
+	 memcpy(&OSPMAux33,OSPMOutputBuff33, OSPMLength);
 
+	 #if (numControlSignal == 6)
+	 memcpy(&OSPMAux14,OSPMOutputBuff14, OSPMLength);
+	 memcpy(&OSPMAux15,OSPMOutputBuff15, OSPMLength);
+	 memcpy(&OSPMAux16,OSPMOutputBuff16, OSPMLength);
+	 memcpy(&OSPMAux24,OSPMOutputBuff24, OSPMLength);
+	 memcpy(&OSPMAux25,OSPMOutputBuff25, OSPMLength);
+	 memcpy(&OSPMAux26,OSPMOutputBuff26, OSPMLength);
+	 memcpy(&OSPMAux34,OSPMOutputBuff34, OSPMLength);
+	 memcpy(&OSPMAux35,OSPMOutputBuff35, OSPMLength);
+	 memcpy(&OSPMAux36,OSPMOutputBuff36, OSPMLength);
+	 #endif
+	 */
+	memcpy(&OSPMOutputBuff11_temp, OSPMOutputBuff11, sizeof(OSPMOutputBuff11));
+	memcpy(&OSPMOutputBuff21_temp, OSPMOutputBuff21, sizeof(OSPMOutputBuff21));
+	memcpy(&OSPMOutputBuff31_temp, OSPMOutputBuff31, sizeof(OSPMOutputBuff31));
+	memcpy(&OSPMOutputBuff12_temp, OSPMOutputBuff12, sizeof(OSPMOutputBuff12));
+	memcpy(&OSPMOutputBuff22_temp, OSPMOutputBuff22, sizeof(OSPMOutputBuff22));
+	memcpy(&OSPMOutputBuff32_temp, OSPMOutputBuff32, sizeof(OSPMOutputBuff32));
+	memcpy(&OSPMOutputBuff13_temp, OSPMOutputBuff13, sizeof(OSPMOutputBuff13));
+	memcpy(&OSPMOutputBuff23_temp, OSPMOutputBuff23, sizeof(OSPMOutputBuff23));
+	memcpy(&OSPMOutputBuff33_temp, OSPMOutputBuff33, sizeof(OSPMOutputBuff33));
 #if (numControlSignal == 6)
-	memcpy(&OSPMAux14,OSPMOutputBuff14, OSPMLength);
-	memcpy(&OSPMAux15,OSPMOutputBuff15, OSPMLength);
-	memcpy(&OSPMAux16,OSPMOutputBuff16, OSPMLength);
-	memcpy(&OSPMAux24,OSPMOutputBuff24, OSPMLength);
-	memcpy(&OSPMAux25,OSPMOutputBuff25, OSPMLength);
-	memcpy(&OSPMAux26,OSPMOutputBuff26, OSPMLength);
-	memcpy(&OSPMAux34,OSPMOutputBuff34, OSPMLength);
-	memcpy(&OSPMAux35,OSPMOutputBuff35, OSPMLength);
-	memcpy(&OSPMAux36,OSPMOutputBuff36, OSPMLength);
+	memcpy(&OSPMOutputBuff14_temp, OSPMOutputBuff14, sizeof(OSPMOutputBuff14));
+	memcpy(&OSPMOutputBuff24_temp, OSPMOutputBuff24, sizeof(OSPMOutputBuff24));
+	memcpy(&OSPMOutputBuff34_temp, OSPMOutputBuff34, sizeof(OSPMOutputBuff34));
+	memcpy(&OSPMOutputBuff15_temp, OSPMOutputBuff15, sizeof(OSPMOutputBuff15));
+	memcpy(&OSPMOutputBuff25_temp, OSPMOutputBuff25, sizeof(OSPMOutputBuff25));
+	memcpy(&OSPMOutputBuff35_temp, OSPMOutputBuff35, sizeof(OSPMOutputBuff35));
+	memcpy(&OSPMOutputBuff16_temp, OSPMOutputBuff16, sizeof(OSPMOutputBuff16));
+	memcpy(&OSPMOutputBuff26_temp, OSPMOutputBuff26, sizeof(OSPMOutputBuff26));
+	memcpy(&OSPMOutputBuff36_temp, OSPMOutputBuff36, sizeof(OSPMOutputBuff36));
 #endif
-*/
-
-	reverseArray(pSrcR1,NUM_AUDIO_SAMPLES/2);
-	reverseArray(pSrcL2,NUM_AUDIO_SAMPLES/2);
-	reverseArray(pSrcR2,NUM_AUDIO_SAMPLES/2);
+	reverseArray(pSrcR1, NUM_AUDIO_SAMPLES / 2);
+	reverseArray(pSrcL2, NUM_AUDIO_SAMPLES / 2);
+	reverseArray(pSrcR2, NUM_AUDIO_SAMPLES / 2);
 
 	//conv_float_temp[controlLength];
 
-	for (int32_t i=0; i< OSPMLength; i++)
-	{
-		conv_float_temp[i]= conv_float_by(pSrcR1[i], -23);
+	for (int32_t i = 0; i < OSPMLength; i++) {
+		conv_float_temp2[i] = conv_float_by(pSrcR1[i], -31);
 #if !(numControlSignal==6)
-	filteredErrorSignal[0][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]);
+		filteredErrorSignal[0][i]= conv_float_temp2[i] - (OSPMOutputBuff11_temp[i] + OSPMOutputBuff12_temp[i] + OSPMOutputBuff13_temp[i]);
 #else
-	filteredErrorSignal[0][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]+ OSPMOutputBuff14[i] + OSPMOutputBuff15[i]+ OSPMOutputBuff16[i]);
+		filteredErrorSignal[0][i] = (float) ((float)conv_float_temp2[i]
+				- (float)((float)OSPMOutputBuff11_temp[i] + (float)OSPMOutputBuff12_temp[i]
+						+ (float)OSPMOutputBuff13_temp[i] + (float)OSPMOutputBuff14_temp[i]
+						+ (float)OSPMOutputBuff15_temp[i] + (float)OSPMOutputBuff16_temp[i]));
 #endif
 	}
 
-	for (int32_t i=0; i< OSPMLength; i++)
-	{
-		conv_float_temp[i]= conv_float_by(pSrcL2[i], -23);
+	for (int32_t i = 0; i < OSPMLength; i++) {
+		conv_float_temp3[i] = conv_float_by(pSrcL2[i], -31);
 #if !(numControlSignal==6)
-	filteredErrorSignal[1][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]);
+		filteredErrorSignal[1][i]= conv_float_temp3[i] - (OSPMOutputBuff21_temp[i] + OSPMOutputBuff22_temp[i] + OSPMOutputBuff23_temp[i]);
 #else
-	filteredErrorSignal[1][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]+ OSPMOutputBuff14[i] + OSPMOutputBuff15[i]+ OSPMOutputBuff16[i]);
+		filteredErrorSignal[1][i] = (float) ((float)conv_float_temp3[i]
+																	- (float)((float)OSPMOutputBuff21_temp[i] + (float)OSPMOutputBuff22_temp[i]
+																			+ (float)OSPMOutputBuff23_temp[i] + (float)OSPMOutputBuff24_temp[i]
+																			+ (float)OSPMOutputBuff25_temp[i] + (float)OSPMOutputBuff26_temp[i]));
 #endif
 	}
 
-
-
-	for (int32_t i=0; i< OSPMLength; i++)
-	{
-		conv_float_temp[i]= conv_float_by(pSrcR2[i], -23);
+	for (int32_t i = 0; i < OSPMLength; i++) {
+		conv_float_temp4[i] = conv_float_by(pSrcR2[i], -31);
 #if !(numControlSignal==6)
-	filteredErrorSignal[2][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]);
+		filteredErrorSignal[2][i]= conv_float_temp4[i] - (OSPMOutputBuff31_temp[i] + OSPMOutputBuff32_temp[i] + OSPMOutputBuff33_temp[i]);
 #else
-	filteredErrorSignal[2][i]= conv_float_temp[i] - (OSPMOutputBuff11[i] + OSPMOutputBuff12[i] + OSPMOutputBuff13[i]+ OSPMOutputBuff14[i] + OSPMOutputBuff15[i]+ OSPMOutputBuff16[i]);
+		filteredErrorSignal[2][i] = (float) ((float)conv_float_temp4[i]
+																	- (float)((float)OSPMOutputBuff31_temp[i] + (float)OSPMOutputBuff32_temp[i]
+																			+ (float)OSPMOutputBuff33_temp[i] + (float)OSPMOutputBuff34_temp[i]
+																			+ (float)OSPMOutputBuff35_temp[i] + (float)OSPMOutputBuff36_temp[i]));
 #endif
 	}
-
-
 
 //INDIRECT ERROR SIGNAL
-	for(uint32_t i =0; i< OSPMLength; i++){
-		indirectErrorSignal[0][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff11[i];
-		indirectErrorSignal[1][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff12[i];
-		indirectErrorSignal[2][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff13[i];
-		indirectErrorSignal[0][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff21[i];
-		indirectErrorSignal[1][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff22[i];
-		indirectErrorSignal[2][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff23[i];
-		indirectErrorSignal[0][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff31[i];
-		indirectErrorSignal[1][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff32[i];
-		indirectErrorSignal[2][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff33[i];
+	for (uint32_t i = 0; i < OSPMLength; i++) {
+		indirectErrorSignal[0][0][i] = (float)filteredErrorSignal[0][i]
+				+ (float)OSPMOutputBuff11_temp[i];
+		indirectErrorSignal[1][0][i] = (float)filteredErrorSignal[0][i]
+				+ (float)OSPMOutputBuff12_temp[i];
+		indirectErrorSignal[2][0][i] = (float)filteredErrorSignal[0][i]
+				+ (float)OSPMOutputBuff13_temp[i];
+		indirectErrorSignal[0][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff21_temp[i];
+		indirectErrorSignal[1][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff22_temp[i];
+		indirectErrorSignal[2][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff23_temp[i];
+		indirectErrorSignal[0][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff31_temp[i];
+		indirectErrorSignal[1][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff32_temp[i];
+		indirectErrorSignal[2][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff33_temp[i];
 #if (numControlSignal ==6)
 
-		indirectErrorSignal[3][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff14[i];
-		indirectErrorSignal[4][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff15[i];
-		indirectErrorSignal[5][0][i]= filteredErrorSignal[0][i] +OSPMOutputBuff16[i];
-		indirectErrorSignal[3][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff24[i];
-		indirectErrorSignal[4][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff25[i];
-		indirectErrorSignal[5][1][i]= filteredErrorSignal[1][i] +OSPMOutputBuff26[i];
-		indirectErrorSignal[3][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff34[i];
-		indirectErrorSignal[4][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff35[i];
-		indirectErrorSignal[5][2][i]= filteredErrorSignal[2][i] +OSPMOutputBuff36[i];
-
+		indirectErrorSignal[3][0][i] = (float)filteredErrorSignal[0][i]
+				+ (float)OSPMOutputBuff14_temp[i];
+		indirectErrorSignal[4][0][i] = (float)filteredErrorSignal[0][i]
+				+ (float)OSPMOutputBuff15_temp[i];
+		indirectErrorSignal[5][0][i] = (float)filteredErrorSignal[0][i]
+				+ OSPMOutputBuff16_temp[i];
+		indirectErrorSignal[3][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff24_temp[i];
+		indirectErrorSignal[4][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff25_temp[i];
+		indirectErrorSignal[5][1][i] = (float)filteredErrorSignal[1][i]
+				+ (float)OSPMOutputBuff26_temp[i];
+		indirectErrorSignal[3][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff34_temp[i];
+		indirectErrorSignal[4][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff35_temp[i];
+		indirectErrorSignal[5][2][i] = (float)filteredErrorSignal[2][i]
+				+ (float)OSPMOutputBuff36_temp[i];
 
 #endif
 	}
 
 	//	power of OSPMAWGNSignal
-		for(uint32_t i =0; i< OSPMLength; i++){
-			powerOSPMAWGNSignal1[i]= forgetingFactor* powerOSPMAWGNSignal1[i] +(1-forgetingFactor)*OSPMAWGNSignal1[i]*OSPMAWGNSignal1[i];
-			powerOSPMAWGNSignal2[i]= forgetingFactor* powerOSPMAWGNSignal2[i] +(1-forgetingFactor)*OSPMAWGNSignal2[i]*OSPMAWGNSignal2[i];
-			powerOSPMAWGNSignal3[i]= forgetingFactor* powerOSPMAWGNSignal3[i] +(1-forgetingFactor)*OSPMAWGNSignal3[i]*OSPMAWGNSignal3[i];
+	for (uint32_t i = 0; i < OSPMLength; i++) {
+		powerOSPMAWGNSignal1[i] = forgetingFactor * powerOSPMAWGNSignal1[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal1[i]
+						* OSPMAWGNSignal1[i];
+		powerOSPMAWGNSignal2[i] = forgetingFactor * powerOSPMAWGNSignal2[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal2[i]
+						* OSPMAWGNSignal2[i];
+		powerOSPMAWGNSignal3[i] = forgetingFactor * powerOSPMAWGNSignal3[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal3[i]
+						* OSPMAWGNSignal3[i];
 
-	#if (numControlSignal ==6)
-			powerOSPMAWGNSignal4[i]= forgetingFactor* powerOSPMAWGNSignal4[i] +(1-forgetingFactor)*OSPMAWGNSignal4[i]*OSPMAWGNSignal4[i];
-			powerOSPMAWGNSignal5[i]= forgetingFactor* powerOSPMAWGNSignal5[i] +(1-forgetingFactor)*OSPMAWGNSignal5[i]*OSPMAWGNSignal5[i];
-			powerOSPMAWGNSignal6[i]= forgetingFactor* powerOSPMAWGNSignal6[i] +(1-forgetingFactor)*OSPMAWGNSignal6[i]*OSPMAWGNSignal6[i];
-
-	#endif
-		}
-		//	power of filteredErrorSignal
-		for (int8_t k = 0; k < numErrorSignal; k++){
-			for(uint32_t i =0; i< OSPMLength; i++){
-				powerFilteredErrorSignal[k][i]= forgetingFactor* powerFilteredErrorSignal[k][i] +(1-forgetingFactor)*filteredErrorSignal[k][i]*filteredErrorSignal[k][i];
-			}
-		}
-
-
-		//power of indirectErrorSignal
-		for (int8_t j = 0; j < numControlSignal; j++){
-			for (int8_t k = 0; k < numErrorSignal; k++){
-
-			for(uint32_t i =0; i< OSPMLength; i++){
-				powerIndirectErrorSignal[j][k][i]= forgetingFactor* powerIndirectErrorSignal[j][k][i] +(1-forgetingFactor)*indirectErrorSignal[j][k][i]*indirectErrorSignal[j][k][i];
-			}
-		}
-}
-		//stepSizeS
-			for (int8_t k = 0; k < numErrorSignal; k++){
-			for(uint32_t i =0; i< OSPMLength; i++){
-				stepSizeS[0][k][i]= powerOSPMAWGNSignal1[i]*stepSizeSMin/powerIndirectErrorSignal[0][k][i];
-				stepSizeS[1][k][i]= powerOSPMAWGNSignal2[i]*stepSizeSMin/powerIndirectErrorSignal[1][k][i];
-				stepSizeS[2][k][i]= powerOSPMAWGNSignal3[i]*stepSizeSMin/powerIndirectErrorSignal[2][k][i];
-				stepSizeS[3][k][i]= powerOSPMAWGNSignal4[i]*stepSizeSMin/powerIndirectErrorSignal[3][k][i];
-				stepSizeS[4][k][i]= powerOSPMAWGNSignal5[i]*stepSizeSMin/powerIndirectErrorSignal[4][k][i];
-				stepSizeS[5][k][i]= powerOSPMAWGNSignal6[i]*stepSizeSMin/powerIndirectErrorSignal[5][k][i];
-			}
-		}
-
-		//OSPMAWGNGain
-			for(uint8_t j = 0; j<numControlSignal; j++)
-			{
-				for(uint8_t i = 0; i< OSPMLength ; i++)
-				{
-				OSPMAWGNGain[j][i]= (powerFilteredErrorSignal[0][i]+powerFilteredErrorSignal[1][i]+powerFilteredErrorSignal[2][i])/(powerIndirectErrorSignal[j][0][i]+powerIndirectErrorSignal[j][1][i]+powerIndirectErrorSignal[j][2][i]);
-				}
-			}
-
-		//OSPM Coeff
-		for(uint8_t i = 0; i< OSPMLength ; i++)
-		{
-			OSPMCoeffBuff11[i] = OSPMCoeffBuff11[i] + (stepSizeS[0][0][i]*OSPMOutputBuff11[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff21[i] = OSPMCoeffBuff21[i] + (stepSizeS[0][1][i]*OSPMOutputBuff21[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff31[i] = OSPMCoeffBuff31[i] + (stepSizeS[0][2][i]*OSPMOutputBuff31[i]*filteredErrorSignal[2][i]);
-			OSPMCoeffBuff12[i] = OSPMCoeffBuff12[i] + (stepSizeS[1][0][i]*OSPMOutputBuff12[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff22[i] = OSPMCoeffBuff22[i] + (stepSizeS[1][1][i]*OSPMOutputBuff22[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff32[i] = OSPMCoeffBuff32[i] + (stepSizeS[1][2][i]*OSPMOutputBuff32[i]*filteredErrorSignal[2][i]);
-			OSPMCoeffBuff13[i] = OSPMCoeffBuff13[i] + (stepSizeS[2][0][i]*OSPMOutputBuff13[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff23[i] = OSPMCoeffBuff23[i] + (stepSizeS[2][1][i]*OSPMOutputBuff23[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff33[i] = OSPMCoeffBuff33[i] + (stepSizeS[2][2][i]*OSPMOutputBuff33[i]*filteredErrorSignal[2][i]);
 #if (numControlSignal ==6)
-			OSPMCoeffBuff14[i] = OSPMCoeffBuff14[i] + (stepSizeS[3][0][i]*OSPMOutputBuff14[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff24[i] = OSPMCoeffBuff24[i] + (stepSizeS[3][1][i]*OSPMOutputBuff24[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff34[i] = OSPMCoeffBuff34[i] + (stepSizeS[3][2][i]*OSPMOutputBuff34[i]*filteredErrorSignal[2][i]);
-			OSPMCoeffBuff15[i] = OSPMCoeffBuff15[i] + (stepSizeS[4][0][i]*OSPMOutputBuff15[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff25[i] = OSPMCoeffBuff25[i] + (stepSizeS[4][1][i]*OSPMOutputBuff25[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff35[i] = OSPMCoeffBuff35[i] + (stepSizeS[4][2][i]*OSPMOutputBuff35[i]*filteredErrorSignal[2][i]);
-			OSPMCoeffBuff16[i] = OSPMCoeffBuff16[i] + (stepSizeS[5][0][i]*OSPMOutputBuff16[i]*filteredErrorSignal[0][i]);
-			OSPMCoeffBuff26[i] = OSPMCoeffBuff26[i] + (stepSizeS[5][1][i]*OSPMOutputBuff26[i]*filteredErrorSignal[1][i]);
-			OSPMCoeffBuff36[i] = OSPMCoeffBuff36[i] + (stepSizeS[5][2][i]*OSPMOutputBuff36[i]*filteredErrorSignal[2][i]);
-
+		powerOSPMAWGNSignal4[i] = forgetingFactor * powerOSPMAWGNSignal4[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal4[i]
+						* OSPMAWGNSignal4[i];
+		powerOSPMAWGNSignal5[i] = forgetingFactor * powerOSPMAWGNSignal5[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal5[i]
+						* OSPMAWGNSignal5[i];
+		powerOSPMAWGNSignal6[i] = forgetingFactor * powerOSPMAWGNSignal6[i]
+				+ (1.0 - forgetingFactor) * OSPMAWGNSignal6[i]
+						* OSPMAWGNSignal6[i];
 
 #endif
-
-
+	}
+	//	power of filteredErrorSignal
+	for (uint32_t k = 0; k < numErrorSignal; k++) {
+		for (uint32_t i = 0; i < OSPMLength; i++) {
+			powerFilteredErrorSignal[k][i] = (float)forgetingFactor
+					* (float)powerFilteredErrorSignal[k][i]
+					+ (float)(1.0 - forgetingFactor) * (float)filteredErrorSignal[k][i]
+							* (float)filteredErrorSignal[k][i];
 		}
+	}
 
-		//Control Coeff
+	//power of indirectErrorSignal
+	for (uint32_t j = 0; j < numControlSignal; j++) {
+		for (uint32_t k = 0; k < numErrorSignal; k++) {
 
-		for(uint8_t i = 0; i< controlLength ; i++)
-		{
+			for (uint32_t i = 0; i < OSPMLength; i++) {
+				powerIndirectErrorSignal[j][k][i] = (float) forgetingFactor
+						* (float)powerIndirectErrorSignal[j][k][i]
+						+ (float)(1.0 - forgetingFactor) * (float)indirectErrorSignal[j][k][i]
+								* (float)indirectErrorSignal[j][k][i];
+			}
+		}
+	}
+	//stepSizeS
+	for (uint32_t k = 0; k < numErrorSignal; k++) {
+		for (uint32_t i = 0; i < OSPMLength; i++) {
+			stepSizeS[0][k][i] = ((float)((float)powerOSPMAWGNSignal1[i] * (float) stepSizeSMin
+			))/( (float)powerIndirectErrorSignal[0][k][i]);
+			stepSizeS[1][k][i] = ((float)((float)powerOSPMAWGNSignal2[i] * (float) stepSizeSMin
+			))/( (float)powerIndirectErrorSignal[1][k][i]);
+			stepSizeS[2][k][i] = ((float)((float)powerOSPMAWGNSignal3[i] * (float) stepSizeSMin
+			))/( (float)powerIndirectErrorSignal[2][k][i]);
+			stepSizeS[3][k][i] = ((float)((float)powerOSPMAWGNSignal4[i] * (float) stepSizeSMin
+			))/( (float)powerIndirectErrorSignal[3][k][i]);
+			stepSizeS[4][k][i] = ((float)((float)powerOSPMAWGNSignal5[i] * (float) stepSizeSMin
+			))/( (float)powerIndirectErrorSignal[4][k][i]);
+			stepSizeS[5][k][i] = ((float)((float)powerOSPMAWGNSignal6[i] * (float) stepSizeSMin
+					))/( (float)powerIndirectErrorSignal[5][k][i]);
+		}
+	}
 
-			controlCoeffBuff1[i]=controlCoeffBuff1[i]+ stepSizeW[0]*((filteredErrorSignal[0][i]*OSPMRef[0][0][i])+(filteredErrorSignal[1][i]*OSPMRef[0][1][i])+(filteredErrorSignal[2][i]*OSPMRef[0][2][i]));
-			controlCoeffBuff2[i]=controlCoeffBuff2[i]+ stepSizeW[1]*((filteredErrorSignal[0][i]*OSPMRef[1][0][i])+(filteredErrorSignal[1][i]*OSPMRef[1][1][i])+(filteredErrorSignal[2][i]*OSPMRef[1][2][i]));
-			controlCoeffBuff3[i]=controlCoeffBuff3[i]+ stepSizeW[2]*((filteredErrorSignal[0][i]*OSPMRef[2][0][i])+(filteredErrorSignal[1][i]*OSPMRef[2][1][i])+(filteredErrorSignal[2][i]*OSPMRef[2][2][i]));
+	//OSPMAWGNGain
+	for (uint32_t j = 0; j < numControlSignal; j++) {
+		for (uint32_t i = 0; i < OSPMLength; i++) {
+			OSPMAWGNGain[j][i] = ((float) ( (float)powerFilteredErrorSignal[0][i]
+					+  (float)powerFilteredErrorSignal[1][i]
+					+  (float)powerFilteredErrorSignal[2][i])
+					)/ ((float) ( (float)powerIndirectErrorSignal[j][0][i]
+							+  (float)powerIndirectErrorSignal[j][1][i]
+							+  (float)powerIndirectErrorSignal[j][2][i]));
+		}
+	}
+	disableAllFirChannelsResult = DisableAllFIRChannels();
+	if (disableAllFirChannelsResult != 0) {
+		printf("error disabling FIR channels");
+	}
+
+	//OSPM Coeff
+	for (uint32_t i = 0; i < OSPMLength; i++) {
+		OSPMCoeffBuff11[i] = OSPMCoeffBuff11[i]
+				+ (stepSizeS[0][0][i] * OSPMOutputBuff11_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff21[i] = OSPMCoeffBuff21[i]
+				+ (stepSizeS[0][1][i] * OSPMOutputBuff21_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff31[i] = OSPMCoeffBuff31[i]
+				+ (stepSizeS[0][2][i] * OSPMOutputBuff31_temp[i]
+						* filteredErrorSignal[2][i]);
+		OSPMCoeffBuff12[i] = OSPMCoeffBuff12[i]
+				+ (stepSizeS[1][0][i] * OSPMOutputBuff12_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff22[i] = OSPMCoeffBuff22[i]
+				+ (stepSizeS[1][1][i] * OSPMOutputBuff22_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff32[i] = OSPMCoeffBuff32[i]
+				+ (stepSizeS[1][2][i] * OSPMOutputBuff32_temp[i]
+						* filteredErrorSignal[2][i]);
+		OSPMCoeffBuff13[i] = OSPMCoeffBuff13[i]
+				+ (stepSizeS[2][0][i] * OSPMOutputBuff13_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff23[i] = OSPMCoeffBuff23[i]
+				+ (stepSizeS[2][1][i] * OSPMOutputBuff23_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff33[i] = OSPMCoeffBuff33[i]
+				+ (stepSizeS[2][2][i] * OSPMOutputBuff33_temp[i]
+						* filteredErrorSignal[2][i]);
 #if (numControlSignal ==6)
-			controlCoeffBuff4[i]=controlCoeffBuff4[i]+ stepSizeW[3]*((filteredErrorSignal[0][i]*OSPMRef[3][0][i])+(filteredErrorSignal[1][i]*OSPMRef[3][1][i])+(filteredErrorSignal[2][i]*OSPMRef[3][2][i]));
-			controlCoeffBuff5[i]=controlCoeffBuff5[i]+ stepSizeW[4]*((filteredErrorSignal[0][i]*OSPMRef[4][0][i])+(filteredErrorSignal[1][i]*OSPMRef[4][1][i])+(filteredErrorSignal[2][i]*OSPMRef[4][2][i]));
-			controlCoeffBuff6[i]=controlCoeffBuff6[i]+ stepSizeW[5]*((filteredErrorSignal[0][i]*OSPMRef[5][0][i])+(filteredErrorSignal[1][i]*OSPMRef[5][1][i])+(filteredErrorSignal[2][i]*OSPMRef[5][2][i]));
+		OSPMCoeffBuff14[i] = OSPMCoeffBuff14[i]
+				+ (stepSizeS[3][0][i] * OSPMOutputBuff14_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff24[i] = OSPMCoeffBuff24[i]
+				+ (stepSizeS[3][1][i] * OSPMOutputBuff24_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff34[i] = OSPMCoeffBuff34[i]
+				+ (stepSizeS[3][2][i] * OSPMOutputBuff34_temp[i]
+						* filteredErrorSignal[2][i]);
+		OSPMCoeffBuff15[i] = OSPMCoeffBuff15[i]
+				+ (stepSizeS[4][0][i] * OSPMOutputBuff15_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff25[i] = OSPMCoeffBuff25[i]
+				+ (stepSizeS[4][1][i] * OSPMOutputBuff25_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff35[i] = OSPMCoeffBuff35[i]
+				+ (stepSizeS[4][2][i] * OSPMOutputBuff35_temp[i]
+						* filteredErrorSignal[2][i]);
+		OSPMCoeffBuff16[i] = OSPMCoeffBuff16[i]
+				+ (stepSizeS[5][0][i] * OSPMOutputBuff16_temp[i]
+						* filteredErrorSignal[0][i]);
+		OSPMCoeffBuff26[i] = OSPMCoeffBuff26[i]
+				+ (stepSizeS[5][1][i] * OSPMOutputBuff26_temp[i]
+						* filteredErrorSignal[1][i]);
+		OSPMCoeffBuff36[i] = OSPMCoeffBuff36[i]
+				+ (stepSizeS[5][2][i] * OSPMOutputBuff36_temp[i]
+						* filteredErrorSignal[2][i]);
+
 #endif
-
-		}
-
-
-
-		for(uint32_t i = 0; i< NUM_AUDIO_SAMPLES ; i++)
-		{
-		outputSignal1[i]=controlOutputBuff1[i]+OSPMAWGNSignal1[i];
-		outputSignal2[i]=controlOutputBuff2[i]+OSPMAWGNSignal2[i];
-		outputSignal3[i]=controlOutputBuff3[i]+OSPMAWGNSignal3[i];
-#if (numControlSignal ==6)
-		outputSignal4[i]=controlOutputBuff4[i]+OSPMAWGNSignal4[i];
-		outputSignal5[i]=controlOutputBuff5[i]+OSPMAWGNSignal5[i];
-		outputSignal6[i]=controlOutputBuff6[i]+OSPMAWGNSignal6[i];
-#endif
-		}
-
-		reverseArrayf(OSPMAWGNSignal1,OSPMLength);
-		reverseArrayf(OSPMAWGNSignal2,OSPMLength);
-		reverseArrayf(OSPMAWGNSignal3,OSPMLength);
-	#if(numControlSignal==6)
-		reverseArrayf(OSPMAWGNSignal4,OSPMLength);
-		reverseArrayf(OSPMAWGNSignal5,OSPMLength);
-		reverseArrayf(OSPMAWGNSignal6,OSPMLength);
-	#endif
-
-
-return 0;
 
 	}
+
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM11, OSPMCoeffBuff11,
+			OSPMCoeffBuff11, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM12, OSPMCoeffBuff12,
+			OSPMCoeffBuff12, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM13, OSPMCoeffBuff13,
+			OSPMCoeffBuff13, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM21, OSPMCoeffBuff21,
+			OSPMCoeffBuff21, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM22, OSPMCoeffBuff22,
+			OSPMCoeffBuff22, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM23, OSPMCoeffBuff23,
+			OSPMCoeffBuff23, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM31, OSPMCoeffBuff31,
+			OSPMCoeffBuff31, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM32, OSPMCoeffBuff32,
+			OSPMCoeffBuff32, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM33, OSPMCoeffBuff33,
+			OSPMCoeffBuff33, 1);
+
+#if (numControlSignal ==6)
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM14, OSPMCoeffBuff14,
+			OSPMCoeffBuff14, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM15, OSPMCoeffBuff15,
+			OSPMCoeffBuff15, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM16, OSPMCoeffBuff16,
+			OSPMCoeffBuff16, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM24, OSPMCoeffBuff24,
+			OSPMCoeffBuff24, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM25, OSPMCoeffBuff25,
+			OSPMCoeffBuff25, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM26, OSPMCoeffBuff26,
+			OSPMCoeffBuff26, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM34, OSPMCoeffBuff34,
+			OSPMCoeffBuff34, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM35, OSPMCoeffBuff35,
+			OSPMCoeffBuff35, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelOSPM36, OSPMCoeffBuff36,
+			OSPMCoeffBuff36, 1);
+
+#endif
+
+	//Control Coeff
+
+	for (uint32_t i = 0; i < controlLength; i++) {
+
+		controlCoeffBuff1[i] =
+				(float)controlCoeffBuff1[i]
+						+ (float)stepSizeW[0]
+								* (float)((float)((float)filteredErrorSignal[0][i] * (float)OSPMRef[0][0][i])
+										+ ((float)filteredErrorSignal[1][i]
+												* (float)OSPMRef[0][1][i])
+										+ ((float)filteredErrorSignal[2][i]
+												*(float) OSPMRef[0][2][i]));
+		controlCoeffBuff2[i] =
+				controlCoeffBuff2[i]
+						+ stepSizeW[1]
+								* ((filteredErrorSignal[0][i] * OSPMRef[1][0][i])
+										+ (filteredErrorSignal[1][i]
+												* OSPMRef[1][1][i])
+										+ (filteredErrorSignal[2][i]
+												* OSPMRef[1][2][i]));
+		controlCoeffBuff3[i] =
+				controlCoeffBuff3[i]
+						+ stepSizeW[2]
+								* ((filteredErrorSignal[0][i] * OSPMRef[2][0][i])
+										+ (filteredErrorSignal[1][i]
+												* OSPMRef[2][1][i])
+										+ (filteredErrorSignal[2][i]
+												* OSPMRef[2][2][i]));
+#if (numControlSignal ==6)
+		controlCoeffBuff4[i] =
+				controlCoeffBuff4[i]
+						+ stepSizeW[3]
+								* ((filteredErrorSignal[0][i] * OSPMRef[3][0][i])
+										+ (filteredErrorSignal[1][i]
+												* OSPMRef[3][1][i])
+										+ (filteredErrorSignal[2][i]
+												* OSPMRef[3][2][i]));
+		controlCoeffBuff5[i] =
+				controlCoeffBuff5[i]
+						+ stepSizeW[4]
+								* ((filteredErrorSignal[0][i] * OSPMRef[4][0][i])
+										+ (filteredErrorSignal[1][i]
+												* OSPMRef[4][1][i])
+										+ (filteredErrorSignal[2][i]
+												* OSPMRef[4][2][i]));
+		controlCoeffBuff6[i] =
+				controlCoeffBuff6[i]
+						+ stepSizeW[5]
+								* ((filteredErrorSignal[0][i] * OSPMRef[5][0][i])
+										+ (filteredErrorSignal[1][i]
+												* OSPMRef[5][1][i])
+										+ (filteredErrorSignal[2][i]
+												* OSPMRef[5][2][i]));
+#endif
+
+	}
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl1, controlCoeffBuff1,
+			controlCoeffBuff1, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl2, controlCoeffBuff2,
+			controlCoeffBuff2, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl3, controlCoeffBuff3,
+			controlCoeffBuff3, 1);
+
+#if (numControlSignal ==6)
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl4, controlCoeffBuff4,
+			controlCoeffBuff4, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl5, controlCoeffBuff5,
+			controlCoeffBuff5, 1);
+	adi_fir_SetChannelCoefficientBuffer(hChannelControl6, controlCoeffBuff6,
+			controlCoeffBuff6, 1);
+
+#endif
+
+	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/2; i++) {
+		outputSignal1[i] = ((float)((float)controlOutputBuff1_temp[i]*0.0000001 + (float)OSPMAWGNSignal1[i]))*0.0000001;
+		outputSignal2[i] = ((float)controlOutputBuff2_temp[i]*0.0000001 + (float)OSPMAWGNSignal2[i])*0.0000001;
+		outputSignal3[i] = ((float)controlOutputBuff3_temp[i]*0.0000001 + (float)OSPMAWGNSignal3[i])*0.0000001;
+
+#if (numControlSignal ==6)
+		outputSignal4[i] = ((float)controlOutputBuff4_temp[i]*0.0000001+ (float)OSPMAWGNSignal4[i])*0.0000001;
+		outputSignal5[i] = ((float)controlOutputBuff5_temp[i]*0.0000001 + (float)OSPMAWGNSignal5[i])*0.0000001;
+		outputSignal6[i] = ((float)controlOutputBuff6_temp[i]*0.0000001 + (float)OSPMAWGNSignal6[i])*0.0000001;
+#endif
+	}
+
+	reverseArrayf(outputSignal1, NUM_AUDIO_SAMPLES / 2);
+	reverseArrayf(outputSignal2, NUM_AUDIO_SAMPLES / 2);
+	reverseArrayf(outputSignal3, NUM_AUDIO_SAMPLES / 2);
+#if(numControlSignal==6)
+	reverseArrayf(outputSignal4, NUM_AUDIO_SAMPLES / 2);
+	reverseArrayf(outputSignal5, NUM_AUDIO_SAMPLES / 2);
+	reverseArrayf(outputSignal6, NUM_AUDIO_SAMPLES / 2);
+
+#endif
+
+	return 0;
+
+}
 void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 	/*
 	 * DAC Callback.
@@ -3535,9 +3882,11 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		break;
 	default:
 		if (bEventError == false)
-			printf("dead", nEvent);
+		printf("dead %d", nEvent);
 
 		bEventError = true;
+		eMode = SUBMIT_TX_BUFFER;
+		bEvent = true;
 		break;
 	}
 }
