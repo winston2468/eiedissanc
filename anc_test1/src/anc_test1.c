@@ -2312,13 +2312,13 @@ uint32_t ProcessBuffers(void) {
 			//TDM8 SHIFT <<8
 
 			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
-			*pDst++ = (int32_t) conv_fix_by( outputSignal1[i],-23) << 8;
+			*pDst++ = (int32_t) conv_fix_by( outputSignal2[i],-23) << 8;
+			*pDst++ = (int32_t) conv_fix_by( outputSignal3[i],-23) << 8;
+			*pDst++ = (int32_t) conv_fix_by( outputSignal4[i],-23) << 8;
+			*pDst++ = (int32_t) conv_fix_by( outputSignal5[i],-23) << 8;
+			*pDst++ = (int32_t) 0;//conv_fix_by( outputSignal1[i],-23) << 8;
+			*pDst++ = (int32_t) conv_fix_by( outputSignal6[i],-23) << 8;
+			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-23) << 8;
 		}
 /*
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
