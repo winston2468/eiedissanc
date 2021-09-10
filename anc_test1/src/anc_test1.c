@@ -316,9 +316,9 @@ static float OSPMAWGNGain[numControlSignal][OSPMLength] = { 0 };
 static float OSPMAWGNSignal1[OSPMLength] = { 0 };
 static float OSPMAWGNSignal2[OSPMLength] = { 0 };
 static float OSPMAWGNSignal3[OSPMLength] = { 0 };
-static float powerOSPMAWGNSignal1[OSPMLength] = { 1.0 };
-static float powerOSPMAWGNSignal2[OSPMLength] = { 1.0 };
-static float powerOSPMAWGNSignal3[OSPMLength] = { 1.0 };
+static float powerOSPMAWGNSignal1[OSPMLength] = { 0 };
+static float powerOSPMAWGNSignal2[OSPMLength] = { 0 };
+static float powerOSPMAWGNSignal3[OSPMLength] = { 0 };
 
 static float OSPMRef[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
@@ -475,9 +475,9 @@ ADI_FIR_CHANNEL_PARAMS channelAuxl6;
 float OSPMAWGNSignal4[OSPMLength] = { 0 };
 float OSPMAWGNSignal5[OSPMLength] = { 0 };
 float OSPMAWGNSignal6[OSPMLength] = { 0 };
-float powerOSPMAWGNSignal4[OSPMLength] = { 1.0 };
-float powerOSPMAWGNSignal5[OSPMLength] = { 1.0 };
-float powerOSPMAWGNSignal6[OSPMLength] = { 1.0 };
+float powerOSPMAWGNSignal4[OSPMLength] = { 0 };
+float powerOSPMAWGNSignal5[OSPMLength] = { 0 };
+float powerOSPMAWGNSignal6[OSPMLength] = { 0 };
 
 #endif
 
@@ -496,7 +496,7 @@ float powerOSPMAWGNSignal6[OSPMLength] = { 1.0 };
 
 /* used for exit timeout */
 //#define MAXCOUNT (50000000000u)
-#define MAXCOUNT (5000000u)
+#define MAXCOUNT (50000000000u)
 /*=============  D A T A  =============*/
 
 #pragma align(4)
@@ -841,7 +841,8 @@ void MixerEnable(bool bEnable) {
 #ifdef USE_LINE_IN
 	if (bEnable) {
 		/* enable the record mixer (left) */
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x5B); /* 0 dB */
+		//0x5B 0 db
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x7F); /* +6 dB */
 		CheckResult(result1);
 
 		/* enable the record mixer (right) */
@@ -853,7 +854,7 @@ void MixerEnable(bool bEnable) {
 		//CheckResult(result);
 #ifdef USE_ADAU1761_2
 		/* enable the record mixer (left) */
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG, 0x5B); /* 0 dB */
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG, 0x7F); /* 6 dB */
 		CheckResult(result2);
 
 		/* enable the record mixer (right) */
@@ -941,31 +942,31 @@ int32_t FIR_init() {
 	//FIR stuff
 	ADI_FIR_RESULT res;
 	for (int32_t i = 0; i < OSPMLength; i++) {
-		powerOSPMAWGNSignal1[i] = 1.0;
-		powerOSPMAWGNSignal2[i] = 1.0;
-		powerOSPMAWGNSignal3[i] = 1.0;
-		powerOSPMAWGNSignal4[i] = 1.0;
-		powerOSPMAWGNSignal5[i] = 1.0;
-		powerOSPMAWGNSignal6[i] = 1.0;
+		powerOSPMAWGNSignal1[i] = 0.000000000001;
+		powerOSPMAWGNSignal2[i] = 0.000000000001;
+		powerOSPMAWGNSignal3[i] = 0.000000000001;
+		powerOSPMAWGNSignal4[i] = 0.000000000001;
+		powerOSPMAWGNSignal5[i] = 0.000000000001;
+		powerOSPMAWGNSignal6[i] = 0.000000000001;
 	}
 	for (int32_t k = 0; k < numErrorSignal; k++) {
 		for (int32_t i = 0; i < OSPMLength; i++) {
-			powerFilteredErrorSignal[k][i] = 1.0;
+			powerFilteredErrorSignal[k][i] = 1;
 		}
 	}
 	for (int32_t j = 0; j < numControlSignal; j++) {
 		for (int32_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
-				powerIndirectErrorSignal[j][k][i] = 1.0;
+				powerIndirectErrorSignal[j][k][i] = 1;
 			}
 		}
 	}
-	/*
+
 	for (int32_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OSPMLength; i++) {
-			OSPMAWGNGain[j][i] = 1.0;
+			OSPMAWGNGain[j][i] = 1;
 		}
-	}*/
+	}
 	/*
 	for (int32_t j = 0; j < numControlSignal; j++) {
 		for (int32_t k = 0; k < numErrorSignal; k++) {
@@ -977,32 +978,32 @@ int32_t FIR_init() {
 	*/
 
 	 for (int32_t i =0; i< controlLength; i++){
-	 controlCoeffBuff1[i] = 0.000000000001;
-	 controlCoeffBuff2[i] = 0.000000000001;
-	 controlCoeffBuff3[i] = 0.000000000001;
-	 controlCoeffBuff4[i] = 0.000000000001;
-	 controlCoeffBuff5[i] = 0.000000000001;
-	 controlCoeffBuff6[i] = 0.000000000001;
+	 controlCoeffBuff1[i] = 1;
+	 controlCoeffBuff2[i] = 1;
+	 controlCoeffBuff3[i] = 1;
+	 controlCoeffBuff4[i] = 1;
+	 controlCoeffBuff5[i] = 1;
+	 controlCoeffBuff6[i] = 1;
 	 }
 	 for (int32_t i =0; i< OSPMLength; i++){
-	 OSPMCoeffBuff11[i] = 0.000000000001;
-	 OSPMCoeffBuff12[i] = 0.000000000001;
-	 OSPMCoeffBuff13[i] = 0.000000000001;
-	 OSPMCoeffBuff14[i] = 0.000000000001;
-	 OSPMCoeffBuff15[i] = 0.000000000001;
-	 OSPMCoeffBuff16[i] = 0.000000000001;
-	 OSPMCoeffBuff21[i] = 0.000000000001;
-	 OSPMCoeffBuff22[i] = 0.000000000001;
-	 OSPMCoeffBuff23[i] = 0.000000000001;
-	 OSPMCoeffBuff24[i] = 0.000000000001;
-	 OSPMCoeffBuff25[i] = 0.000000000001;
-	 OSPMCoeffBuff26[i] = 0.000000000001;
-	 OSPMCoeffBuff31[i] = 0.000000000001;
-	 OSPMCoeffBuff32[i] = 0.000000000001;
-	 OSPMCoeffBuff33[i] = 0.000000000001;
-	 OSPMCoeffBuff34[i] = 0.000000000001;
-	 OSPMCoeffBuff35[i] = 0.000000000001;
-	 OSPMCoeffBuff36[i] = 0.000000000001;
+	 OSPMCoeffBuff11[i] = 1;
+	 OSPMCoeffBuff12[i] = 1;
+	 OSPMCoeffBuff13[i] = 1;
+	 OSPMCoeffBuff14[i] = 1;
+	 OSPMCoeffBuff15[i] = 1;
+	 OSPMCoeffBuff16[i] = 1;
+	 OSPMCoeffBuff21[i] = 1;
+	 OSPMCoeffBuff22[i] = 1;
+	 OSPMCoeffBuff23[i] = 1;
+	 OSPMCoeffBuff24[i] = 1;
+	 OSPMCoeffBuff25[i] = 1;
+	 OSPMCoeffBuff26[i] = 1;
+	 OSPMCoeffBuff31[i] = 1;
+	 OSPMCoeffBuff32[i] = 1;
+	 OSPMCoeffBuff33[i] = 1;
+	 OSPMCoeffBuff34[i] = 1;
+	 OSPMCoeffBuff35[i] = 1;
+	 OSPMCoeffBuff36[i] = 1;
 	 }
 
 	channelRef.nTapLength = NUM_AUDIO_SAMPLES / 2;
@@ -2149,7 +2150,7 @@ int main(void) {
 		return 1u;
 	}
 	adi_adau1962a_Close(phAdau1962a);
-	printf("outputSignal1_temp %d output1 %f OSPMAWGNSignal1 %f pSrcL1 %f\n", outputSignal1_temp[1], outputSignal1[1], OSPMAWGNSignal1[1],conv_float_temp1[1]);
+	printf("outputSignal1_temp %d output1 %f OSPMAWGNSignal1 %f pSrcL1 %f yo %d\n", outputSignal1_temp[0], outputSignal1[0], OSPMAWGNSignal1[0],conv_float_temp1[0], conv_fix_by(outputSignal1[0], 10));
 	printf("%d a %d b ", (int) DacCount, (int) AdcCount);
 	if (!bError) {
 		printf("All done\n");
@@ -2369,16 +2370,13 @@ float AWGN_generator() {/* Generates additive white Gaussian Noise samples with 
 			p = 1;
 		}				// end if
 		else {				// temp2 is < (RAND_MAX / 2)
-			p = -1;
+		p = -1;
 		}				// end else
 
 	}				// end while()
 
-	temp1 = cos((2.0 * 3.1415926536) * rand() / ((float) RAND_MAX));
-	result = sqrt(-2.0 * log(temp2)) * temp1+2.0;
-	if (result<0){
-		result =0;
-	}
+	temp1 = cosf((2.0 * 3.1415926536) * rand() / ((float) RAND_MAX));
+	result = sqrtf(-2.0 * logf(temp2)) * temp1;
 	return result;	// return the generated random sample to the caller
 
 }
@@ -2446,20 +2444,27 @@ uint32_t ProcessBuffers(void) {
 
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 			//TDM8 SHIFT <<8
-			outputSignal1_temp[i]=((int32_t) conv_fix_by(outputSignal1[i], 23)) << 8;
-			outputSignal2_temp[i]=((int32_t) conv_fix_by(outputSignal2[i], 23)) << 8;
-			outputSignal3_temp[i]=((int32_t) conv_fix_by(outputSignal3[i], 23)) << 8;
-			outputSignal4_temp[i]=((int32_t) conv_fix_by(outputSignal4[i], 23)) << 8;
-			outputSignal5_temp[i]=((int32_t) conv_fix_by(outputSignal5[i], 23)) << 8;
-			outputSignal6_temp[i]=((int32_t) conv_fix_by(outputSignal6[i], 23)) << 8;
-			*pDst++ = (int32_t) outputSignal1_temp[i];
-			*pDst++ = (int32_t) outputSignal2_temp[i];
-			*pDst++ = (int32_t) outputSignal3_temp[i];
-			*pDst++ = (int32_t) outputSignal4_temp[i];
-			*pDst++ = (int32_t) outputSignal5_temp[i];
-			*pDst++ = (int32_t) 0;	//conv_fix_by( outputSignal1[i],-31) << 8;
-			*pDst++ = (int32_t) outputSignal6_temp[i];
-			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-31) << 8;
+			/*
+			outputSignal1[i]=outputSignal1[i];
+			outputSignal2[i]=outputSignal2[i];
+			outputSignal3[i]=outputSignal3[i];
+			outputSignal4[i]=outputSignal4[i];
+			outputSignal5[i]=outputSignal5[i];
+			outputSignal6[i]=outputSignal6[i];*/
+			outputSignal1_temp[i]= conv_fix_by((outputSignal1[i]), -30);
+			outputSignal2_temp[i]=(int32_t)( conv_fix_by(outputSignal2[i], -30));
+			outputSignal3_temp[i]=(int32_t)( conv_fix_by(outputSignal3[i], -30));
+			outputSignal4_temp[i]=(int32_t)( conv_fix_by(outputSignal4[i], -30));
+			outputSignal5_temp[i]=(int32_t)( conv_fix_by(outputSignal5[i], -30));
+			outputSignal6_temp[i]=(int32_t) (conv_fix_by(outputSignal6[i], -30));
+			*pDst++ = (int32_t) outputSignal1_temp[i]<<8;
+			*pDst++ = (int32_t) outputSignal2_temp[i]<<8;
+			*pDst++ = (int32_t) outputSignal3_temp[i]<<8;
+			*pDst++ = (int32_t) outputSignal4_temp[i]<<8;
+			*pDst++ = (int32_t) outputSignal5_temp[i]<<8;
+			*pDst++ = (int32_t) 0;	//conv_fix_by( outputSignal1[i],-10) << 8;
+			*pDst++ = (int32_t) outputSignal6_temp[i]<<8;
+			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-10) << 8;
 		}
 		/*
 		 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
@@ -2684,7 +2689,7 @@ int32_t ANCALG(void) {
 	reverseArray(pSrcL1, NUM_AUDIO_SAMPLES / 2);
 
 	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-		conv_float_temp1[i] = conv_float_by(pSrcL1[i], -31);
+		conv_float_temp1[i] = conv_float_by(pSrcL1[i], -10);
 	}
 
 	res = adi_fir_SubmitInputCircBuffer(hChannelRef, conv_float_temp1,
@@ -3098,20 +3103,20 @@ int32_t ANCALG(void) {
 
 	//do stuff while OSPM FIR
 	for (uint32_t i = 0; i < OSPMLength; i++) {
-		AWGN_generator_temp[i]= AWGN_generator();
+		//AWGN_generator_temp[i]= AWGN_generator();
 
-		OSPMAWGNSignal1[i] = (float) OSPMAWGNGain[0][i]
-				* AWGN_generator()*i/48000.0;
-		OSPMAWGNSignal2[i] = (float) OSPMAWGNGain[1][i] * (AWGN_generator());
+		OSPMAWGNSignal1[i] = (float) OSPMAWGNGain[0][i]//*AWGN_generator_temp[i];
+				* (float) AWGN_generator()*0.000000000001;
+		OSPMAWGNSignal2[i] = (float) OSPMAWGNGain[1][i] * (float) (AWGN_generator())*0.000000000001;
 		OSPMAWGNSignal3[i] = (float) OSPMAWGNGain[2][i]
-													 * (AWGN_generator());
+													 * (float) (AWGN_generator())*0.000000000001;
 #if (numControlSignal == 6 )
 		OSPMAWGNSignal4[i] = (float) OSPMAWGNGain[3][i]
-													 * (AWGN_generator());
+													 * (float) (AWGN_generator())*0.000000000001;
 		OSPMAWGNSignal5[i] = (float) OSPMAWGNGain[4][i]
-													 * (AWGN_generator());
+													 * (float) (AWGN_generator())*0.000000000001;
 		OSPMAWGNSignal6[i] = (float) OSPMAWGNGain[5][i]
-													 * (AWGN_generator());
+													 * (float) (AWGN_generator())*0.000000000001;
 #endif
 	}
 	res = adi_fir_EnableChannel(hChannelOSPM11, false);
@@ -3499,7 +3504,7 @@ int32_t ANCALG(void) {
 	//conv_float_temp[controlLength];
 
 	for (int32_t i = 0; i < OSPMLength; i++) {
-		conv_float_temp2[i] = conv_float_by(pSrcR1[i], -31);
+		conv_float_temp2[i] = conv_float_by(pSrcR1[i], -10);
 #if !(numControlSignal==6)
 		filteredErrorSignal[0][i]= conv_float_temp2[i] - (OSPMOutputBuff11_temp[i] + OSPMOutputBuff12_temp[i] + OSPMOutputBuff13_temp[i]);
 #else
@@ -3511,7 +3516,7 @@ int32_t ANCALG(void) {
 	}
 
 	for (int32_t i = 0; i < OSPMLength; i++) {
-		conv_float_temp3[i] = conv_float_by(pSrcL2[i], -31);
+		conv_float_temp3[i] = conv_float_by(pSrcL2[i], -10);
 #if !(numControlSignal==6)
 		filteredErrorSignal[1][i]= conv_float_temp3[i] - (OSPMOutputBuff21_temp[i] + OSPMOutputBuff22_temp[i] + OSPMOutputBuff23_temp[i]);
 #else
@@ -3523,7 +3528,7 @@ int32_t ANCALG(void) {
 	}
 
 	for (int32_t i = 0; i < OSPMLength; i++) {
-		conv_float_temp4[i] = conv_float_by(pSrcR2[i], -31);
+		conv_float_temp4[i] = conv_float_by(pSrcR2[i], -10);
 #if !(numControlSignal==6)
 		filteredErrorSignal[2][i]= conv_float_temp4[i] - (OSPMOutputBuff31_temp[i] + OSPMOutputBuff32_temp[i] + OSPMOutputBuff33_temp[i]);
 #else
@@ -3652,6 +3657,7 @@ int32_t ANCALG(void) {
 					)/ ((float) ( (float)powerIndirectErrorSignal[j][0][i]
 							+  (float)powerIndirectErrorSignal[j][1][i]
 							+  (float)powerIndirectErrorSignal[j][2][i]));
+
 		}
 	}
 	disableAllFirChannelsResult = DisableAllFIRChannels();
@@ -3836,14 +3842,14 @@ int32_t ANCALG(void) {
 #endif
 
 	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/2; i++) {
-		outputSignal1[i] = ((float)((float)controlOutputBuff1_temp[i]*0.0000001 + (float)OSPMAWGNSignal1[i]))*0.0000001;
-		outputSignal2[i] = ((float)controlOutputBuff2_temp[i]*0.0000001 + (float)OSPMAWGNSignal2[i])*0.0000001;
-		outputSignal3[i] = ((float)controlOutputBuff3_temp[i]*0.0000001 + (float)OSPMAWGNSignal3[i])*0.0000001;
+		outputSignal1[i] = ((float)((float)controlOutputBuff1_temp[i] + (float)OSPMAWGNSignal1[i]));
+		outputSignal2[i] = ((float)controlOutputBuff2_temp[i]+ (float)OSPMAWGNSignal2[i]);
+		outputSignal3[i] = ((float)controlOutputBuff3_temp[i] + (float)OSPMAWGNSignal3[i]);
 
 #if (numControlSignal ==6)
-		outputSignal4[i] = ((float)controlOutputBuff4_temp[i]*0.0000001+ (float)OSPMAWGNSignal4[i])*0.0000001;
-		outputSignal5[i] = ((float)controlOutputBuff5_temp[i]*0.0000001 + (float)OSPMAWGNSignal5[i])*0.0000001;
-		outputSignal6[i] = ((float)controlOutputBuff6_temp[i]*0.0000001 + (float)OSPMAWGNSignal6[i])*0.0000001;
+		outputSignal4[i] = ((float)controlOutputBuff4_temp[i]+ (float)OSPMAWGNSignal4[i]);
+		outputSignal5[i] = ((float)controlOutputBuff5_temp[i] + (float)OSPMAWGNSignal5[i]);
+		outputSignal6[i] = ((float)controlOutputBuff6_temp[i] + (float)OSPMAWGNSignal6[i]);
 #endif
 	}
 
