@@ -5,11 +5,25 @@
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
 
-
-#define NUM_AUDIO_SAMPLES       512u
+#define LowPassFilter
+#define NUM_AUDIO_SAMPLES       2048u
+#define NUM_AUDIO_SAMPLES_ALT      8192u
+//#define TAP_LENGTH 128u
+//#define WINDOW_SIZE 128u
+#define controlLength 1024u
+#define controlWindowSize 1024u
+#define OSPMLength 1024u
+#define OSPMWindowSize 1024u
+#define numErrorSignal 3
+#define numControlSignal 3
 #define NUM_DAC_CHANNELS				(8u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES*sizeof(uint32_t))
-#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
+#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ALT*sizeof(uint32_t))
+#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES_ALT/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
+
+/* select sample rate */
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
+
+
 /* The SPORT device selection depends on which BF609 EZ-Board connector
  * the Audio EZ-Extender is attached.
  * P1A - Sport TX 0, Sport RX 0
@@ -75,7 +89,7 @@
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(48000u)
+#define SAMPLE_RATE_A   			(32000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
