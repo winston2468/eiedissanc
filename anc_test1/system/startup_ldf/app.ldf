@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 core 1 linker description file generated on Aug 19, 2021 at 16:37:10.
+** ADSP-SC589 core 1 linker description file generated on Sep 15, 2021 at 16:23:41.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -1473,6 +1473,12 @@ PROCESSOR SC589_CORE_1
       dxe_sdram_stack_and_heap_reserve NO_INIT BW
       {
       } > SDRAM_STACK_HEAP_BLOCK
+      
+      dxe_sdram_executable_name
+      {
+         INPUT_SECTION_ALIGN(4)
+         EXECUTABLE_NAME(_executable_name.)
+      } > MY_SDRAM_DATA1_MEM
       
       dxe_sdram_data DM
       {

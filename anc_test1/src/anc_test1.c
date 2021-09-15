@@ -36,23 +36,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <drivers/fir/adi_fir.h>
+
 #ifdef __ADSPARM__
 #include <runtime/cache/adi_cache.h>
-#include "cycle_count.h"
+
 /* Caches are enabled by default on the ARM core, and buffers are placed in
  ** cached memory.
  */
 #define USING_CACHE 1
 #else
-#define  DO_CYCLE_COUNTS
+//#define  DO_CYCLE_COUNTS
 #include <cycles.h>
 #include <sys/cache.h>
 /* On SHARC core we do not define USING_CACHE as in this example
  ** the buffers are allocated explicitly in L1 memory.
  */
-#include <filter.h>
-#endif
 
+#endif
+#include <filter.h>
+#include "cycle_count.h"
 #include "anc_test1.h"
 
 #define INSTANT_START
@@ -162,17 +164,17 @@ static float outputSignal5[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
 static float outputSignal6[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal1_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal1_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal2_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal2_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal3_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal3_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal4_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal4_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal5_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal5_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 #pragma align 4
-static int32_t outputSignal6_temp[NUM_AUDIO_SAMPLES_ALT / 2] = { 0 };
+static int32_t outputSignal6_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
 
 static ADI_FIR_RESULT res;
 static ADI_FIR_HANDLE hFir;
@@ -292,7 +294,7 @@ static float OSPMRef[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
 static float OSPMAux[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
-float forgetingFactor = 0.6;
+float forgettingFactor = 0.6;
 static float filteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
 float indirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength];
 float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength] = {
@@ -473,7 +475,7 @@ int32_t AdcBuf1[BUFFER_SIZE_1761 * 2];
 #pragma align 4
 static int32_t *pRxBuffer1;
 #pragma align 4
-static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES_ALT] = { 0 };
+static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES] = { 0 };
 
 bool bAvailable;
 
@@ -492,7 +494,7 @@ static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
 #pragma align 4
 static int32_t *pRxBuffer2;
 #pragma align 4
-static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES_ALT] = { 0 };
+static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES] = { 0 };
 
 bool bAvailable1;
 
@@ -588,6 +590,9 @@ void reverseArrayf(float*, uint32_t);
 float AWGN_generator(void);
 int32_t ANCALG(void);
 int8_t DisableAllFIRChannels(void);
+void    Block_Fixed_To_Float( int * , float * , float *  );
+
+void    Block_Float_To_Fixed( int * , float * , float *  );
 /* DAC callback */
 void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg);
 
@@ -804,7 +809,7 @@ void MixerEnable(bool bEnable) {
 
 		/* enable the record mixer (right) */
 		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				0x5B); /* 0 dB */
+				0x7F); /* 0 dB */
 		CheckResult(result1);
 		//RISING EDGE BCLK POLARITY
 		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
@@ -816,7 +821,7 @@ void MixerEnable(bool bEnable) {
 
 		/* enable the record mixer (right) */
 		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				0x5B); /* 0 dB */
+				0x7F); /* 0 dB */
 		CheckResult(result2);
 #endif
 		/* disable the output mixer (left) */
@@ -1996,7 +2001,7 @@ int main(void) {
 #endif
 
 	while (!bExit) {
-		if (bEvent) {
+		if (1) {
 			switch (eMode) {
 			case SUBMIT_TX_BUFFER:
 
@@ -2361,7 +2366,7 @@ uint32_t ProcessBuffers(void) {
 	 *  0 if success, other values for error
 	 *
 	 */
-/*
+
 	// re-submit processed buffer from callback
 	if (pRxBuffer1 != NULL) {
 
@@ -2384,38 +2389,75 @@ uint32_t ProcessBuffers(void) {
 		adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC,
 		AUDIO_BUFFER_SIZE);
 	}
-*/
+
 #ifdef USE_ADAU1761_2
 	// process ADC to DAC buffer
 
-	if ((sRxBuffer1 != NULL && sRxBuffer2 != NULL && (pDAC != NULL))) {
+	if ((pRxBuffer1 != NULL && pRxBuffer2 != NULL && (pDAC != NULL))) {
 		DacCount++;
-		memcpy(&sRxBuffer1[0], pRxBuffer1, BUFFER_SIZE_1761);
-		memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
+		//memcpy(&sRxBuffer1[0], pRxBuffer1, BUFFER_SIZE_1761);
+		//memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
 		pDst = (int32_t *) pDAC;
 		uint32_t k = 0;
 		uint32_t j = 0;
 
-	for(int r=0; r< NUM_AUDIO_SAMPLES_ALT;r+=NUM_AUDIO_SAMPLES){
+#pragma vector_for
+		for (int32_t i = 0,  j = NUM_AUDIO_SAMPLES/2 -1; i < NUM_AUDIO_SAMPLES/2, j>=0; i++,j--) {
+		refSignal[j]  = conv_float_by((pRxBuffer1[2*i]<<16)>>8, -15)  ;
+		errorSignal[0][j]  = conv_float_by((pRxBuffer1[2*i+1]<<16)>>8, -15)  ;
+		errorSignal[1][j]  = conv_float_by((pRxBuffer2[2*i]<<16)>>8, -15)  ;
+		errorSignal[2][j]  = conv_float_by((pRxBuffer2[2*i+1]<<16)>>8, -15)  ;
+		}
+/*
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
 
 			if (i % 2 == 0) {
-				pSrcR1[i - k] = (sRxBuffer1[i+r]) <<16;
-				pSrcL2[i - k] = (sRxBuffer2[i+r] << 16) ;
+				pSrcR1[i - k] = (sRxBuffer1[i]) <<16;
+				pSrcL2[i - k] = (sRxBuffer2[i] << 16) ;
 				j++;
 			} else {
 				//original pSrcR1[i - j] = sRxBuffer1[i] << 8;
-				pSrcL1[i - j] = (sRxBuffer1[i+r]) <<16 ;
-				pSrcR2[i - j] = (sRxBuffer2[i+r]) <<16;
+				pSrcL1[i - j] = (sRxBuffer1[i]) <<16 ;
+				pSrcR2[i - j] = (sRxBuffer2[i]) <<16;
 				k++;
 			}
 		}
 
-		//for( int i=0; i<5000000; i++);
-		ANCALG();
-	}
 
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_ALT / 2; i++) {
+			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+				refSignal[i] = conv_float_by(pSrcR1[i], -23);
+			}
+
+
+			//conv_float_temp[controlLength];
+			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+				errorSignal[0][i] = conv_float_by(pSrcL1[i], -23);
+				errorSignal[1][i] = conv_float_by(pSrcL2[i], -23);
+				errorSignal[2][i] = conv_float_by(pSrcR2[i], -23);
+
+			}
+*/
+		/*
+		Block_Fixed_To_Float(sRxBuffer1, errorSignal[0],refSignal);
+		Block_Fixed_To_Float(sRxBuffer2, errorSignal[1],errorSignal[2]);
+		*/
+			/*
+		reverseArrayf(refSignal, NUM_AUDIO_SAMPLES/2);
+		reverseArrayf(errorSignal[0], NUM_AUDIO_SAMPLES/2);
+		reverseArrayf(errorSignal[1], NUM_AUDIO_SAMPLES/2);
+		reverseArrayf(errorSignal[2], NUM_AUDIO_SAMPLES/2);
+		*/
+
+		//for( int i=0; i<5000000; i++);
+
+
+		//ANCALG();
+
+
+
+
+#pragma vector_for
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 			//TDM8 SHIFT <<8
 			/*
 			 outputSignal1[i]=outputSignal1[i];
@@ -2447,13 +2489,13 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ =  conv_fix_by(outputSignal1[i], 12) <<8;// >> 16;
 			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-10) << 8;
 			*/
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8 ;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;
+			*pDst++ = (conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
+			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
+			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
+			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
+			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
 			*pDst++ = 0;
-			*pDst++ =( conv_fix_by(AWGN_generator(), 14)) <<8;
+			*pDst++ =( conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
 			*pDst++ = 0;
 		}
 		/*
@@ -2507,6 +2549,7 @@ uint32_t ProcessBuffers(void) {
 }
 
 void reverseArray(int32_t arr[], uint32_t size) {
+#pragma SIMD_for
 	for (uint32_t i = 0; i < (size / 2); i++) {
 		int32_t temp = arr[i];
 		arr[i] = arr[size - i - 1];
@@ -2516,6 +2559,7 @@ void reverseArray(int32_t arr[], uint32_t size) {
 }
 
 void reverseArrayf(float arr[], uint32_t size) {
+#pragma SIMD_for
 	for (uint32_t i = 0; i < (size / 2); i++) {
 		float temp = arr[i];
 		arr[i] = arr[size - i - 1];
@@ -2676,12 +2720,6 @@ int32_t ANCALG(void) {
 	ADI_FIR_RESULT res;
 	int8_t disableAllFirChannelsResult = 0;
 	int8_t refResult = 0;
-
-	reverseArray(pSrcL1, NUM_AUDIO_SAMPLES / 2);
-
-	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-		refSignal[i] = conv_float_by(pSrcL1[i], -23);
-	}
 
 #ifdef LowPassFilter
 	res = adi_fir_SubmitInputCircBuffer(hChannelRef, refSignal,
@@ -3453,32 +3491,30 @@ int32_t ANCALG(void) {
 	memcpy(&OSPMAux[5][1], OSPMOutputBuff26, OSPMWindowSize * 4u);
 	memcpy(&OSPMAux[5][2], OSPMOutputBuff36, OSPMWindowSize * 4u);
 #endif
-	reverseArray(pSrcR1, NUM_AUDIO_SAMPLES / 2);
-	reverseArray(pSrcL2, NUM_AUDIO_SAMPLES / 2);
-	reverseArray(pSrcR2, NUM_AUDIO_SAMPLES / 2);
+	  //cycle_t start_count=0;
 
-	//conv_float_temp[controlLength];
-	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-		errorSignal[0][i] = conv_float_by(pSrcR1[i], -23);
-		errorSignal[1][i] = conv_float_by(pSrcL2[i], -23);
-		errorSignal[2][i] = conv_float_by(pSrcR2[i], -23);
+	 // cycle_t final_count=0;
+	//START_CYCLE_COUNT(start_count);
 
-	}
-
+#pragma vector_for
 	for (int32_t i = 0; i < OSPMLength; i++) {
 
+#pragma vector_for
 		for (int32_t k = 0; k < numErrorSignal; k++) {
 			float OSPMAuxTemp = 0;
 			for (int32_t j = 0; j < numControlSignal; j++) {
 				OSPMAuxTemp += OSPMAux[j][k][i];
 			}
-			filteredErrorSignal[k][i] = errorSignal[k][i];
+			filteredErrorSignal[k][i] = errorSignal[k][i]+OSPMAuxTemp;
 		}
 	}
 
 //INDIRECT ERROR SIGNAL
+#pragma vector_for
 	for (uint32_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
 		for (uint32_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for
 			for (uint32_t i = 0; i < OSPMLength; i++) {
 				indirectErrorSignal[j][k][i] = filteredErrorSignal[k][i]
 						+ OSPMAux[j][k][i];
@@ -3487,58 +3523,66 @@ int32_t ANCALG(void) {
 	}
 
 	//	power of OSPMAWGNSignal
+#pragma vector_for
 	for (uint32_t i = 0; i < OSPMLength; i++) {
-		powerOSPMAWGNSignal[0][i] = forgetingFactor * powerOSPMAWGNSignal[0][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal1[i]
+		powerOSPMAWGNSignal[0][i] = forgettingFactor * powerOSPMAWGNSignal[0][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal1[i]
 						* OSPMAWGNSignal1[i];
-		powerOSPMAWGNSignal[1][i] = forgetingFactor * powerOSPMAWGNSignal[1][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal2[i]
+		powerOSPMAWGNSignal[1][i] = forgettingFactor * powerOSPMAWGNSignal[1][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal2[i]
 						* OSPMAWGNSignal2[i];
-		powerOSPMAWGNSignal[2][i] = forgetingFactor * powerOSPMAWGNSignal[2][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal3[i]
+		powerOSPMAWGNSignal[2][i] = forgettingFactor * powerOSPMAWGNSignal[2][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal3[i]
 						* OSPMAWGNSignal3[i];
 
 #if (numControlSignal ==6)
-		powerOSPMAWGNSignal[3][i] = forgetingFactor * powerOSPMAWGNSignal[3][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal4[i]
+		powerOSPMAWGNSignal[3][i] = forgettingFactor * powerOSPMAWGNSignal[3][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal4[i]
 						* OSPMAWGNSignal4[i];
-		powerOSPMAWGNSignal[4][i] = forgetingFactor * powerOSPMAWGNSignal[4][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal5[i]
+		powerOSPMAWGNSignal[4][i] = forgettingFactor * powerOSPMAWGNSignal[4][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal5[i]
 						* OSPMAWGNSignal5[i];
-		powerOSPMAWGNSignal[5][i] = forgetingFactor * powerOSPMAWGNSignal[5][i]
-				+ (1.0 - forgetingFactor) * OSPMAWGNSignal6[i]
+		powerOSPMAWGNSignal[5][i] = forgettingFactor * powerOSPMAWGNSignal[5][i]
+				+ (1.0 - forgettingFactor) * OSPMAWGNSignal6[i]
 						* OSPMAWGNSignal6[i];
 
 #endif
 
 	}
 	//	power of filteredErrorSignal
+#pragma vector_for
 	for (uint32_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for
 		for (uint32_t i = 0; i < OSPMLength; i++) {
-			powerFilteredErrorSignal[k][i] = forgetingFactor
+			powerFilteredErrorSignal[k][i] = forgettingFactor
 					*  powerFilteredErrorSignal[k][i]
-					+  (1.0 - forgetingFactor)
+					+  (1.0 - forgettingFactor)
 							*  filteredErrorSignal[k][i]
 							*  filteredErrorSignal[k][i];
 		}
 	}
 
 	//power of indirectErrorSignal
+#pragma vector_for
 	for (uint32_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
 		for (uint32_t k = 0; k < numErrorSignal; k++) {
-
+#pragma vector_for
 			for (uint32_t i = 0; i < OSPMLength; i++) {
-				powerIndirectErrorSignal[j][k][i] = forgetingFactor
+				powerIndirectErrorSignal[j][k][i] = forgettingFactor
 						* powerIndirectErrorSignal[j][k][i]
-						+ ((1.0 - forgetingFactor)
+						+ ((1.0 - forgettingFactor)
 								*  indirectErrorSignal[j][k][i]
 								* indirectErrorSignal[j][k][i]);
 			}
 		}
 	}
 	//stepSizeS
+#pragma vector_for
 	for (uint32_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
 	for (uint32_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for
 		for (uint32_t i = 0; i < OSPMLength; i++) {
 			stepSizeS[j][k][i] = ( powerOSPMAWGNSignal[j][i]
 					*  stepSizeSMin)
@@ -3548,7 +3592,9 @@ int32_t ANCALG(void) {
 	}
 
 	//OSPMAWGNGain
+#pragma vector_for
 	for (uint32_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
 		for (uint32_t i = 0; i < OSPMLength; i++) {
 			OSPMAWGNGain[j][i] =
 					( powerFilteredErrorSignal[0][i]
@@ -3567,6 +3613,7 @@ int32_t ANCALG(void) {
 	}
 
 	//OSPM Coeff
+#pragma vector_for
 	for (uint32_t i = 0; i < OSPMLength; i++) {
 		OSPMCoeffBuff11[i] = OSPMCoeffBuff11[i]
 				+ (stepSizeS[0][0][i] * OSPMAux[0][0][i]
@@ -3670,7 +3717,7 @@ int32_t ANCALG(void) {
 #endif
 
 	//Control Coeff
-
+#pragma vector_for
 	for (uint32_t i = 0; i < controlLength; i++) {
 
 		controlCoeffBuff1[i] =  controlCoeffBuff1[i]
@@ -3756,7 +3803,7 @@ int32_t ANCALG(void) {
 #endif
 	}
 */
-
+#pragma vector_for
 	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 		outputSignal1[i] = OSPMAWGNSignal1[i];
 		outputSignal2[i] = OSPMAWGNSignal2[i];
@@ -3768,7 +3815,9 @@ int32_t ANCALG(void) {
 		outputSignal6[i] =  OSPMAWGNSignal6[i];
 #endif
 	}
-
+	//STOP_CYCLE_COUNT(final_count,start_count);
+	//PRINT_CYCLES("\nNumber of cycles:",final_count);
+	/*
 	reverseArrayf(outputSignal1, NUM_AUDIO_SAMPLES / 2);
 	reverseArrayf(outputSignal2, NUM_AUDIO_SAMPLES / 2);
 	reverseArrayf(outputSignal3, NUM_AUDIO_SAMPLES / 2);
@@ -3778,7 +3827,7 @@ int32_t ANCALG(void) {
 	reverseArrayf(outputSignal6, NUM_AUDIO_SAMPLES / 2);
 
 #endif
-
+*/
 	return 0;
 
 }
@@ -3845,12 +3894,12 @@ void VolControl() {
 
 }
 
-
+/*
 void    Block_Fixed_To_Float( int * Fixed_In, float * Float_Out_L, float * Float_Out_R )
 {
     int i;
     #pragma SIMD_for
-    for (i=0;i<1;i++) //AUDIO_BLOCKSIZE
+    for (i=0;i<NUM_AUDIO_SAMPLES/2;i++) //AUDIO_BLOCKSIZE
     {
         Float_Out_L[i]  = ((float) (Fixed_In[2*i]<<8))   * (1.0/2147483648.0);
         Float_Out_R[i]  = ((float) (Fixed_In[2*i+1]<<8)) * (1.0/2147483648.0);
@@ -3861,9 +3910,9 @@ void    Block_Float_To_Fixed( int * Fixed_Out, float * Float_In_L, float * Float
 {
     int i;
     #pragma SIMD_for
-    for (i=0;i<1;i++)
+    for (i=0;i<NUM_AUDIO_SAMPLES/2;i++)
     {
         Fixed_Out[2*i]   = ((int) (2147483648.0*Float_In_L[i]))>>8;
         Fixed_Out[2*i+1] = ((int) (2147483648.0*Float_In_R[i]))>>8;
     }
-}
+}*/

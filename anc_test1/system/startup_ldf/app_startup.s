@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 startup code generated on Aug 19, 2021 at 16:37:10.
+** ADSP-SC589 startup code generated on Sep 15, 2021 at 16:23:41.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.

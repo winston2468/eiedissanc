@@ -6,19 +6,19 @@
 #define __ANC_TEST1_H__
 
 #define LowPassFilter
-#define NUM_AUDIO_SAMPLES       2048u
-#define NUM_AUDIO_SAMPLES_ALT      8192u
+#define NUM_AUDIO_SAMPLES       512u
+
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define controlLength 1024u
-#define controlWindowSize 1024u
-#define OSPMLength 1024u
-#define OSPMWindowSize 1024u
+#define controlLength 256u
+#define controlWindowSize 256u
+#define OSPMLength 256u
+#define OSPMWindowSize 256u
 #define numErrorSignal 3
-#define numControlSignal 3
+#define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ALT*sizeof(uint32_t))
-#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES_ALT/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
+#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES*sizeof(uint32_t))
+#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
 
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
