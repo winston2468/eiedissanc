@@ -6,14 +6,16 @@
 #define __ANC_TEST1_H__
 
 #define LowPassFilter
-#define NUM_AUDIO_SAMPLES       512u
+#define NUM_AUDIO_SAMPLES       1024u
 
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define controlLength 256u
-#define controlWindowSize 256u
-#define OSPMLength 256u
-#define OSPMWindowSize 256u
+#define refLength 64u
+#define refWindowSize 64u
+#define controlLength 64u
+#define controlWindowSize 64u
+#define OSPMLength 64u
+#define OSPMWindowSize 64u
 #define numErrorSignal 3
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)

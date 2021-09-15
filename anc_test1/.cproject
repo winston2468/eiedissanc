@@ -71,7 +71,7 @@
 								<option id="compiler.option.profilehardware.285019110" name="Gather profile using hardware (-prof-hw)" superClass="compiler.option.profilehardware" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="compiler.option.inlining.1968490610" name="Inlining (fewer calls but larger code image)" superClass="compiler.option.inlining" useByScannerDiscovery="false" value="compiler.option.inlining.enumerated.automatic" valueType="enumerated"/>
 								<option id="compiler.option.codesize.1964257580" name="Optimize for code size/speed (0 - smallest, 100 - fastest) (-Ov)" superClass="compiler.option.codesize" useByScannerDiscovery="false" value="100" valueType="string"/>
-								<option id="compiler.option.interprocdoptim.434680365" name="Interprocedural optimization (-ipa)" superClass="compiler.option.interprocdoptim" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="compiler.option.interprocdoptim.434680365" name="Interprocedural optimization (-ipa)" superClass="compiler.option.interprocdoptim" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<inputType id="compiler.inputType.663269820" name="C/C++ Source" superClass="compiler.inputType"/>
 							</tool>
 							<tool id="sharc.toolchain.linker.1667429023" name="CrossCore SHARC Linker" superClass="sharc.toolchain.linker">

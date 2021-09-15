@@ -70,11 +70,12 @@ uint8_t cc=0;
 uint32_t sampleCount=0;
 #pragma align 4
 static float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES / 2];
+static float errorSignalOSPM[numErrorSignal][OSPMLength];
 
 #pragma align 4
-static float conv_float_control_temp[controlLength];
+static float conv_float_control_temp[NUM_AUDIO_SAMPLES / 2];
 #pragma align 4
-static float conv_float_OSPM_temp[OSPMLength];
+static float conv_float_OSPM_temp[NUM_AUDIO_SAMPLES / 2];
 
 #pragma align 4
 uint8_t ConfigMemoryOSPM[ADI_FIR_CONFIG_MEMORY_SIZE];
@@ -501,7 +502,7 @@ bool bAvailable1;
 #endif
 
 bool bAvailableDAC;
-
+#pragma align 4
 int32_t *pSrc;
 #pragma align 4
 int32_t pSrcL1[NUM_AUDIO_SAMPLES / 2];
@@ -513,10 +514,12 @@ int32_t pSrcL2[NUM_AUDIO_SAMPLES / 2];
 int32_t pSrcR2[NUM_AUDIO_SAMPLES / 2];
 
 #pragma align 4
-static float refSignal[NUM_AUDIO_SAMPLES / 2] = {0};
+static float refSignal[NUM_AUDIO_SAMPLES/2] = {0};
+static float refSignalLP[refLength] = {0};
+static float refSignalControl[controlLength] = {0};
 
 
-
+#pragma align 4
 int32_t *pDst;
 
 static uint8_t DacMasterVolume = 0; //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
@@ -973,8 +976,8 @@ int32_t FIR_init() {
 #endif
 	}
 #ifdef LowPassFilter
-	channelRef.nTapLength = NUM_AUDIO_SAMPLES / 2;
-	channelRef.nWindowSize = NUM_AUDIO_SAMPLES / 2;
+	channelRef.nTapLength = refLength;
+	channelRef.nWindowSize = refWindowSize;
 	channelRef.eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
 	channelRef.nSamplingRatio = 1u; /*!< Sampling Ratio */
 	channelRef.nGroupNum = 0u; /*!< Group Number of the Channel - Channels in groups 0 will always be
@@ -2400,29 +2403,40 @@ uint32_t ProcessBuffers(void) {
 		pDst = (int32_t *) pDAC;
 		uint32_t k = 0;
 		uint32_t j = 0;
-
+/*
 #pragma vector_for
+
 		for (int32_t i = 0,  j = NUM_AUDIO_SAMPLES/2 -1; i < NUM_AUDIO_SAMPLES/2, j>=0; i++,j--) {
 		refSignal[j]  = conv_float_by((pRxBuffer1[2*i]<<16)>>8, -15)  ;
 		errorSignal[0][j]  = conv_float_by((pRxBuffer1[2*i+1]<<16)>>8, -15)  ;
 		errorSignal[1][j]  = conv_float_by((pRxBuffer2[2*i]<<16)>>8, -15)  ;
 		errorSignal[2][j]  = conv_float_by((pRxBuffer2[2*i+1]<<16)>>8, -15)  ;
 		}
-/*
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES; i++) {
+
+#pragma vector_for
+		for (int32_t i = 0,  j = 0; i < refLength, j<NUM_AUDIO_SAMPLES/2; i++,j+=((NUM_AUDIO_SAMPLES/2)/(refLength))) {
+		refSignalLP[i]  = refSignal[j];
+		errorSignalOSPM[0][j]  = errorSignal[0][j];
+		errorSignalOSPM[1][j]  = errorSignal[0][j];
+		errorSignalOSPM[2][j]  = errorSignal[0][j];
+		}
+
+
+*/
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/2; i++) {
 
 			if (i % 2 == 0) {
-				pSrcR1[i - k] = (sRxBuffer1[i]) <<16;
-				pSrcL2[i - k] = (sRxBuffer2[i] << 16) ;
+				pSrcL1[i - k] = (pRxBuffer1[i]) <<16;
+				pSrcL2[i - k] = (pRxBuffer2[i] << 16) ;
 				j++;
 			} else {
 				//original pSrcR1[i - j] = sRxBuffer1[i] << 8;
-				pSrcL1[i - j] = (sRxBuffer1[i]) <<16 ;
-				pSrcR2[i - j] = (sRxBuffer2[i]) <<16;
+				pSrcR1[i - j] = (pRxBuffer1[i]) <<16 ;
+				pSrcR2[i - j] = (pRxBuffer2[i]) <<16;
 				k++;
 			}
 		}
-
+/*
 
 			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 				refSignal[i] = conv_float_by(pSrcR1[i], -23);
@@ -2489,6 +2503,7 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ =  conv_fix_by(outputSignal1[i], 12) <<8;// >> 16;
 			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-10) << 8;
 			*/
+/*
 			*pDst++ = (conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
 			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
 			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
@@ -2497,6 +2512,17 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ = 0;
 			*pDst++ =( conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
 			*pDst++ = 0;
+		 */
+
+			 *pDst++ = (int32_t) pSrcL1[i] >>8;
+			 *pDst++ = (int32_t) pSrcR1[i] >>8;
+			 *pDst++ = (int32_t) pSrcL1[i] >>8;
+			 *pDst++ = (int32_t) pSrcR1[i] >>8;
+			 *pDst++ = (int32_t) pSrcL1[i] >>8;
+			 *pDst++ = (int32_t) pSrcR1[i] >>8;
+			 *pDst++ = (int32_t) pSrcL1[i] >>8;
+			 *pDst++ = (int32_t) pSrcR1[i] >>8;
+
 		}
 		/*
 		 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
@@ -3788,31 +3814,29 @@ int32_t ANCALG(void) {
 			controlCoeffBuff6, 1);
 
 #endif
-
-	/*
-
-	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-		outputSignal1[i] = controlOutputBuff1_temp[i] + OSPMAWGNSignal1[i];
-		outputSignal2[i] = controlOutputBuff2_temp[i] + OSPMAWGNSignal2[i];
-		outputSignal3[i] = controlOutputBuff3_temp[i] + OSPMAWGNSignal3[i];
+/*
+#pragma vector_for
+	for (uint32_t i = 0, j=0; i < NUM_AUDIO_SAMPLES / 2, j <controlLength; i+=4, j++) {
+		outputSignal1[i] = controlOutputBuff1_temp[j] +OSPMAWGNSignal1[j];
+		outputSignal2[i] = controlOutputBuff2_temp[j] +OSPMAWGNSignal2[j];
+		outputSignal3[i] =  controlOutputBuff3_temp[j] +OSPMAWGNSignal3[j];
 
 #if (numControlSignal ==6)
-		outputSignal4[i] = controlOutputBuff4_temp[i] + OSPMAWGNSignal4[i];
-		outputSignal5[i] = controlOutputBuff5_temp[i] + OSPMAWGNSignal5[i];
-		outputSignal6[i] = controlOutputBuff6_temp[i] + OSPMAWGNSignal6[i];
+		outputSignal4[i] = controlOutputBuff4_temp[j] +OSPMAWGNSignal4[j];
+		outputSignal5[i] =  controlOutputBuff5_temp[j] +OSPMAWGNSignal5[j];
+		outputSignal6[i] =  controlOutputBuff6_temp[j] +OSPMAWGNSignal6[j];
 #endif
-	}
 */
 #pragma vector_for
-	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
-		outputSignal1[i] = OSPMAWGNSignal1[i];
-		outputSignal2[i] = OSPMAWGNSignal2[i];
-		outputSignal3[i] =  OSPMAWGNSignal3[i];
+	for (uint32_t i = 0, j=0; i < NUM_AUDIO_SAMPLES / 2, j <controlLength; i+=4, j++) {
+		outputSignal1[i] = controlOutputBuff1_temp[j] +OSPMAWGNSignal1[j];
+		outputSignal2[i] = controlOutputBuff2_temp[j] +OSPMAWGNSignal2[j];
+		outputSignal3[i] =  controlOutputBuff3_temp[j] +OSPMAWGNSignal3[j];
 
 #if (numControlSignal ==6)
-		outputSignal4[i] = OSPMAWGNSignal4[i];
-		outputSignal5[i] =  OSPMAWGNSignal5[i];
-		outputSignal6[i] =  OSPMAWGNSignal6[i];
+		outputSignal4[i] = controlOutputBuff4_temp[j] +OSPMAWGNSignal4[j];
+		outputSignal5[i] =  controlOutputBuff5_temp[j] +OSPMAWGNSignal5[j];
+		outputSignal6[i] =  controlOutputBuff6_temp[j] +OSPMAWGNSignal6[j];
 #endif
 	}
 	//STOP_CYCLE_COUNT(final_count,start_count);
