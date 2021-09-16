@@ -6,24 +6,39 @@
 #define __ANC_TEST1_H__
 
 #define LowPassFilter
-#define NUM_AUDIO_SAMPLES       1024u
-
+#define LowPassFilter2
+#define NUM_AUDIO_SAMPLES_ADC       512u
+#define NUM_AUDIO_SAMPLES_DAC       128u
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define refLength 64u
-#define refWindowSize 64u
-#define controlLength 64u
-#define controlWindowSize 64u
-#define OSPMLength 64u
-#define OSPMWindowSize 64u
+#define refLength 128u
+#define refInputSize 128u
+#define refWindowSize 128u
+#define refOutputSize 128u
+#define controlLength 128
+#define controlInputSize 128u
+#define controlWindowSize 128u
+#define controlOutputSize 128u
+#define OSPMLength 128
+#define OSPMInputSize 128u
+#define OSPMWindowSize 128u
+#define OSPMOutputSize 128u
 #define numErrorSignal 3
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES*sizeof(uint32_t))
-#define AUDIO_BUFFER_SIZE 	        ((NUM_AUDIO_SAMPLES/2)*NUM_DAC_CHANNELS*sizeof(uint32_t))
+#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
+    /* Clock C numASRC * 64 * Fs Hz */
+#define pcgCLKDIV 8u
+  /* FS C kHz */
+#define pcgFSDIV 256u
+
+
+
+
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_12KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -43,7 +58,7 @@
 #define SPORT_0B_DMA1_SPU_PID 67
 
 /* Macro to specify delay count for DAC reset */
-#define DELAY_COUNT             (100000u)
+#define DELAY_COUNT             (1000000u)
 
 /* TWI device instance used for communicating with the codec device */
 #define TWI_DEV_NUM            0

@@ -36,7 +36,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <drivers/fir/adi_fir.h>
-
+#include <drivers/asrc/adi_asrc.h>
+#include <services/pcg/adi_pcg.h>
 #ifdef __ADSPARM__
 #include <runtime/cache/adi_cache.h>
 
@@ -62,6 +63,18 @@
 /* select input source */
 #define USE_LINE_IN
 //#define USE_MICROPHONE
+uint8_t AsrcMemory4[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc4;
+uint8_t AsrcMemory5[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc5;
+uint8_t AsrcMemory6[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc6;
+uint8_t AsrcMemory7[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc7;
+
+/* PCG - C */
+uint8_t PcgMemory[ADI_PCG_MEMORY_SIZE];
+static ADI_PCG_HANDLE phPcg;
 
 
 /* ----------------------------   FIR Configuration ------------------------------------------- */
@@ -69,13 +82,13 @@
 uint8_t cc=0;
 uint32_t sampleCount=0;
 #pragma align 4
-static float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES / 2];
+static float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_ADC / 2];
 static float errorSignalOSPM[numErrorSignal][OSPMLength];
 
 #pragma align 4
-static float conv_float_control_temp[NUM_AUDIO_SAMPLES / 2];
+static float conv_float_control_temp[controlLength];
 #pragma align 4
-static float conv_float_OSPM_temp[NUM_AUDIO_SAMPLES / 2];
+static float conv_float_OSPM_temp[controlLength];
 
 #pragma align 4
 uint8_t ConfigMemoryOSPM[ADI_FIR_CONFIG_MEMORY_SIZE];
@@ -153,29 +166,29 @@ static float AWGN_generator_temp[numControlSignal] = { 0 };
 #pragma align 4
 //static float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES]={0};
 #pragma align 4
-static float outputSignal1[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal1[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static float outputSignal2[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal2[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static float outputSignal3[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal3[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static float outputSignal4[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal4[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static float outputSignal5[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal5[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static float outputSignal6[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float outputSignal6[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal1_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal1_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal2_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal2_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal3_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal3_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal4_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal4_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal5_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal5_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 #pragma align 4
-static int32_t outputSignal6_temp[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static int32_t outputSignal6_temp[NUM_AUDIO_SAMPLES_DAC] = { 0 };
 
 static ADI_FIR_RESULT res;
 static ADI_FIR_HANDLE hFir;
@@ -193,13 +206,13 @@ static ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
 
 #pragma align 4
-static float refInputBuff[NUM_AUDIO_SAMPLES / 2] = { 0 };
+static float refInputBuff[refLength] = { 0 };
 
-float refCoeffBuff[NUM_AUDIO_SAMPLES / 2] = {
+float refCoeffBuff[refLength] = {
 #include "data/lowpass_filter_500_1000.dat"
 		};
 
-ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(refOutputSize,
 		float)];
 #endif
 
@@ -208,24 +221,24 @@ ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
 static float controlInputBuff[controlLength] = { 0 };
 
 ADI_CACHE_ALIGN float controlOutputBuff1[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 ADI_CACHE_ALIGN float controlOutputBuff2[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 ADI_CACHE_ALIGN float controlOutputBuff3[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 ADI_CACHE_ALIGN float controlOutputBuff4[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 ADI_CACHE_ALIGN float controlOutputBuff5[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 ADI_CACHE_ALIGN float controlOutputBuff6[ADI_CACHE_ROUND_UP_SIZE(
-		controlWindowSize, float)];
+		controlOutputSize, float)];
 
-static float controlOutputBuff1_temp[controlLength] = { 0 };
-static float controlOutputBuff2_temp[controlLength] = { 0 };
-static float controlOutputBuff3_temp[controlLength] = { 0 };
-static float controlOutputBuff4_temp[controlLength] = { 0 };
-static float controlOutputBuff5_temp[controlLength] = { 0 };
-static float controlOutputBuff6_temp[controlLength] = { 0 };
+static float controlOutputBuff1_temp[controlOutputSize] = { 0 };
+static float controlOutputBuff2_temp[controlOutputSize] = { 0 };
+static float controlOutputBuff3_temp[controlOutputSize] = { 0 };
+static float controlOutputBuff4_temp[controlOutputSize] = { 0 };
+static float controlOutputBuff5_temp[controlOutputSize] = { 0 };
+static float controlOutputBuff6_temp[controlOutputSize] = { 0 };
 
 static float controlCoeffBuff1[controlLength] = { 0 };
 static float controlCoeffBuff2[controlLength] = { 0 };
@@ -260,23 +273,23 @@ static float OSPMCoeffBuff31[OSPMLength] = { 0 };
 static float OSPMCoeffBuff32[OSPMLength] = { 0 };
 static float OSPMCoeffBuff33[OSPMLength] = { 0 };
 
-ADI_CACHE_ALIGN float OSPMOutputBuff11[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff11[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff12[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff12[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff13[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff13[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff21[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff21[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff22[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff22[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff23[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff23[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff31[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff31[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff32[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff32[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
-ADI_CACHE_ALIGN float OSPMOutputBuff33[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
+ADI_CACHE_ALIGN float OSPMOutputBuff33[ADI_CACHE_ROUND_UP_SIZE(OSPMOutputSize,
 		float)];
 
 static float AWGNSample[OSPMLength] = { 0 };
@@ -291,9 +304,9 @@ static float OSPMAWGNSignal3[OSPMLength] = { 0 };
 static float powerOSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
 
 
-static float OSPMRef[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
+static float OSPMRef[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 
-static float OSPMAux[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
+static float OSPMAux[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 
 float forgettingFactor = 0.6;
 static float filteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
@@ -429,13 +442,6 @@ ADI_CACHE_ALIGN float OSPMOutputBuff36[ADI_CACHE_ROUND_UP_SIZE(OSPMWindowSize,
 		float)];
 
 #pragma align 4
-ADI_FIR_CHANNEL_PARAMS channelAux4;
-#pragma align 4
-ADI_FIR_CHANNEL_PARAMS channelAux5;
-#pragma align 4
-ADI_FIR_CHANNEL_PARAMS channelAuxl6;
-
-#pragma align 4
 float OSPMAWGNSignal4[OSPMLength] = { 0 };
 #pragma align 4
 float OSPMAWGNSignal5[OSPMLength] = { 0 };
@@ -452,7 +458,6 @@ float OSPMAWGNSignal6[OSPMLength] = { 0 };
 #define REC_MIX_RIGHT_REG   (0x400C)
 
 
-
 /* codec device instance to be tested */
 #define ADAU1761_DEV_NUM          0
 
@@ -460,7 +465,7 @@ float OSPMAWGNSignal6[OSPMLength] = { 0 };
 
 /* used for exit timeout */
 //#define MAXCOUNT (50000000000u)
-#define MAXCOUNT (50000000000u)
+//#define MAXCOUNT (50000000u)
 /*=============  D A T A  =============*/
 
 #pragma align(4)
@@ -472,13 +477,9 @@ static uint8_t codecMem1[ADI_ADAU1761_MEMORY_SIZE];
 /* adau1761 device handle */
 static ADI_ADAU1761_HANDLE hADAU1761_1;
 #pragma align 4
-int32_t AdcBuf1[BUFFER_SIZE_1761 * 2];
-#pragma align 4
+int32_t AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 2];
 static int32_t *pRxBuffer1;
-#pragma align 4
-static int32_t sRxBuffer1[NUM_AUDIO_SAMPLES] = { 0 };
 
-bool bAvailable;
 
 #ifdef USE_ADAU1761_2
 
@@ -486,40 +487,33 @@ static ADI_ADAU1761_HANDLE hADAU1761_2;
 
 #define ADAU1761_DEV_NUM1          1
 #pragma align 4
-int32_t AdcBuf2[BUFFER_SIZE_1761 * 2];
+int32_t AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 2];
 
 #pragma align(4)
 static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
 
 static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
-#pragma align 4
-static int32_t *pRxBuffer2;
-#pragma align 4
-static int32_t sRxBuffer2[NUM_AUDIO_SAMPLES] = { 0 };
 
-bool bAvailable1;
+static int32_t *pRxBuffer2;
 
 #endif
 
-bool bAvailableDAC;
-#pragma align 4
+
 int32_t *pSrc;
 #pragma align 4
-int32_t pSrcL1[NUM_AUDIO_SAMPLES / 2];
+int32_t pSrcL1[NUM_AUDIO_SAMPLES_ADC / 2];
 #pragma align 4
-int32_t pSrcR1[NUM_AUDIO_SAMPLES / 2];
+int32_t pSrcR1[NUM_AUDIO_SAMPLES_ADC / 2];
 #pragma align 4
-int32_t pSrcL2[NUM_AUDIO_SAMPLES / 2];
+int32_t pSrcL2[NUM_AUDIO_SAMPLES_ADC / 2];
 #pragma align 4
-int32_t pSrcR2[NUM_AUDIO_SAMPLES / 2];
+int32_t pSrcR2[NUM_AUDIO_SAMPLES_ADC / 2];
 
-#pragma align 4
-static float refSignal[NUM_AUDIO_SAMPLES/2] = {0};
+
+static float refSignal[refLength] = {0};
 static float refSignalLP[refLength] = {0};
 static float refSignalControl[controlLength] = {0};
 
-
-#pragma align 4
 int32_t *pDst;
 
 static uint8_t DacMasterVolume = 0; //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
@@ -535,11 +529,7 @@ typedef enum {
 	SUBMIT_TX_BUFFER,
 } MODE;
 
-typedef enum {
-	VOL_SAME, VOL_UP, VOL_DOWN
-} VOL_CONTROL;
 
-static VOL_CONTROL eVolControl = VOL_SAME;
 
 static MODE eMode = NONE;
 
@@ -548,7 +538,7 @@ static uint32_t gpioMemory[GPIO_MEMORY_SIZE];
 static bool bError;
 static uint32_t count;
 
-static bool bEvent;
+volatile bool bEvent;
 
 /* Twi  */
 uint32_t TwiMemory[ADI_TWI_MEMORY_SIZE];
@@ -571,7 +561,7 @@ volatile bool bEventError = false;
 
 /* Dac linear buffer that is divided into 2 sub buffers; ping and pong  */
 #pragma align(4)
-int32_t DacBuf[AUDIO_BUFFER_SIZE * 2];
+int32_t DacBuf[NUM_AUDIO_SAMPLES_DAC *NUM_DAC_CHANNELS * 2];
 
 /* Memory required for the SPU operation */
 static uint32_t SpuMemory[ADI_SPU_MEMORY_SIZE];
@@ -591,6 +581,9 @@ int32_t FIR_init(void);
 void reverseArray(int32_t*, uint32_t);
 void reverseArrayf(float*, uint32_t);
 float AWGN_generator(void);
+uint32_t SpuInit(void);
+uint32_t PcgInit(void);
+uint32_t AsrcDacInit(void);
 int32_t ANCALG(void);
 int8_t DisableAllFIRChannels(void);
 void    Block_Fixed_To_Float( int * , float * , float *  );
@@ -624,19 +617,11 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 		//pADC = (void *)pGetADC;
 		//AdcCount++;
 		pRxBuffer1 = pArg;
-
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
-		//printf("test1");
 		break;
 	default:
-		eMode = SUBMIT_RX_BUFFER;
-		bEvent = true;
-		pRxBuffer1 = pArg;
-		printf("test0 %d \n", (int) Event);
-		/*pRxBuffer1 = pArg;
-		 eMode = SUBMIT_RX_BUFFER;
-		 bEvent = true;*/
+		printf("test1");
 		break;
 	}
 }
@@ -648,19 +633,12 @@ static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
 		//AdcCount++;
 		pRxBuffer2 = pArg;
-
 		eMode = SUBMIT_RX_BUFFER;
 		bEvent = true;
+
 		break;
 	default:
-		eMode = SUBMIT_RX_BUFFER;
-		bEvent = true;
-		pRxBuffer1 = pArg;
-		printf("test1 %d \n", (int) Event);
-		/*pRxBuffer2 = pArg;
-		 eMode = SUBMIT_RX_BUFFER;
-		 bEvent = true;
-		 */
+		printf("test2");
 		break;
 
 	}
@@ -675,7 +653,6 @@ void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 			//LED on
 			adi_gpio_Set(LED1_PORT, LED1_PIN);
 
-			eVolControl = VOL_UP;
 			bEvent = true;
 		}
 	}
@@ -684,7 +661,6 @@ void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 		if (PinIntData & PUSH_BUTTON2_PINT_PIN) {
 			//LED on
 			adi_gpio_Set(LED2_PORT, LED2_PIN);
-			eVolControl = VOL_DOWN;
 			bEvent = true;
 		}
 	}
@@ -929,6 +905,7 @@ int32_t FIR_init() {
 			OSPMAWGNGain[j][i] = 1;
 		}
 	}
+	reverseArrayf(refCoeffBuff,sizeof(refCoeffBuff));
 	/*
 	 for (int32_t j = 0; j < numControlSignal; j++) {
 	 for (int32_t k = 0; k < numErrorSignal; k++) {
@@ -986,7 +963,7 @@ int32_t FIR_init() {
 
 	channelRef.pInputBuffBase = (void *) refInputBuff; /*!< Pointer to the base of the input circular buffer */
 	channelRef.pInputBuffIndex = (void *) refInputBuff; /*!< Pointer to the current index of the input circular buffer */
-	channelRef.nInputBuffCount = NUM_AUDIO_SAMPLES / 2; /*!< Number of elements in the input circular buffer */
+	channelRef.nInputBuffCount = refInputSize; /*!< Number of elements in the input circular buffer */
 	channelRef.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelRef.pCoefficientBase = (void *) refCoeffBuff; /*!< Pointer to the start of the coefficient buffer */
@@ -995,7 +972,7 @@ int32_t FIR_init() {
 
 	channelRef.pOutputBuffBase = (void *) refOutputBuff; /*!< Pointer to the base of the output circular buffer */
 	channelRef.pOutputBuffIndex = (void *) refOutputBuff; /*!< Pointer to the current index of the output circular buffer */
-	channelRef.nOutputBuffCount = NUM_AUDIO_SAMPLES / 2; /*!< Number of elements in the output circular buffer */
+	channelRef.nOutputBuffCount = refWindowSize; /*!< Number of elements in the output circular buffer */
 	channelRef.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 #endif
 
@@ -1009,7 +986,7 @@ int32_t FIR_init() {
 
 	channelControl1.pInputBuffBase = (void *) controlInputBuff; /*!< Pointer to the base of the input circular buffer */
 	channelControl1.pInputBuffIndex = (void *) controlInputBuff; /*!< Pointer to the current index of the input circular buffer */
-	channelControl1.nInputBuffCount = controlWindowSize; /*!< Number of elements in the input circular buffer */
+	channelControl1.nInputBuffCount = controlInputSize; /*!< Number of elements in the input circular buffer */
 	channelControl1.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelControl1.pCoefficientBase = (void *) controlCoeffBuff1; /*!< Pointer to the start of the coefficient buffer */
@@ -1029,7 +1006,6 @@ int32_t FIR_init() {
 
 	channelControl2.pOutputBuffBase = (void *) controlOutputBuff2; /*!< Pointer to the base of the output circular buffer */
 	channelControl2.pOutputBuffIndex = (void *) controlOutputBuff2; /*!< Pointer to the current index of the output circular buffer */
-	channelControl2.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
 	channelControl2.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl3 = channelControl1;
@@ -1040,7 +1016,6 @@ int32_t FIR_init() {
 
 	channelControl3.pOutputBuffBase = (void *) controlOutputBuff3; /*!< Pointer to the base of the output circular buffer */
 	channelControl3.pOutputBuffIndex = (void *) controlOutputBuff3; /*!< Pointer to the current index of the output circular buffer */
-	channelControl3.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
 	channelControl3.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM11.nTapLength = OSPMLength;
@@ -1053,7 +1028,7 @@ int32_t FIR_init() {
 
 	channelOSPM11.pInputBuffBase = (void *) OSPMInputBuff11; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM11.pInputBuffIndex = (void *) OSPMInputBuff11; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM11.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
+	channelOSPM11.nInputBuffCount = OSPMInputSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM11.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM11.pCoefficientBase = (void *) OSPMCoeffBuff11; /*!< Pointer to the start of the coefficient buffer */
@@ -1069,7 +1044,6 @@ int32_t FIR_init() {
 
 	channelOSPM12.pInputBuffBase = (void *) OSPMInputBuff12; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM12.pInputBuffIndex = (void *) OSPMInputBuff12; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM12.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM12.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM12.pCoefficientBase = (void *) OSPMCoeffBuff12; /*!< Pointer to the start of the coefficient buffer */
@@ -1078,14 +1052,12 @@ int32_t FIR_init() {
 
 	channelOSPM12.pOutputBuffBase = (void *) OSPMOutputBuff12; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM12.pOutputBuffIndex = (void *) OSPMOutputBuff12; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM12.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM12.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM13 = channelOSPM11;
 
 	channelOSPM13.pInputBuffBase = (void *) OSPMInputBuff13; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM13.pInputBuffIndex = (void *) OSPMInputBuff13; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM13.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM13.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM13.pCoefficientBase = (void *) OSPMCoeffBuff13; /*!< Pointer to the start of the coefficient buffer */
@@ -1094,14 +1066,12 @@ int32_t FIR_init() {
 
 	channelOSPM13.pOutputBuffBase = (void *) OSPMOutputBuff13; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM13.pOutputBuffIndex = (void *) OSPMOutputBuff13; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM13.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM13.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM21 = channelOSPM11;
 
 	channelOSPM21.pInputBuffBase = (void *) OSPMInputBuff21; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM21.pInputBuffIndex = (void *) OSPMInputBuff21; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM21.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM21.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM21.pCoefficientBase = (void *) OSPMCoeffBuff21; /*!< Pointer to the start of the coefficient buffer */
@@ -1110,14 +1080,12 @@ int32_t FIR_init() {
 
 	channelOSPM21.pOutputBuffBase = (void *) OSPMOutputBuff21; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM21.pOutputBuffIndex = (void *) OSPMOutputBuff21; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM21.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM21.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM22 = channelOSPM11;
 
 	channelOSPM22.pInputBuffBase = (void *) OSPMInputBuff22; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM22.pInputBuffIndex = (void *) OSPMInputBuff22; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM22.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM22.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM22.pCoefficientBase = (void *) OSPMCoeffBuff22; /*!< Pointer to the start of the coefficient buffer */
@@ -1126,14 +1094,12 @@ int32_t FIR_init() {
 
 	channelOSPM22.pOutputBuffBase = (void *) OSPMOutputBuff22; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM22.pOutputBuffIndex = (void *) OSPMOutputBuff22; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM22.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM22.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM23 = channelOSPM11;
 
 	channelOSPM23.pInputBuffBase = (void *) OSPMInputBuff23; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM23.pInputBuffIndex = (void *) OSPMInputBuff23; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM23.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM23.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM23.pCoefficientBase = (void *) OSPMCoeffBuff23; /*!< Pointer to the start of the coefficient buffer */
@@ -1142,14 +1108,12 @@ int32_t FIR_init() {
 
 	channelOSPM23.pOutputBuffBase = (void *) OSPMOutputBuff23; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM23.pOutputBuffIndex = (void *) OSPMOutputBuff23; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM23.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM23.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM31 = channelOSPM11;
 
 	channelOSPM31.pInputBuffBase = (void *) OSPMInputBuff31; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM31.pInputBuffIndex = (void *) OSPMInputBuff31; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM31.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM31.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM31.pCoefficientBase = (void *) OSPMCoeffBuff31; /*!< Pointer to the start of the coefficient buffer */
@@ -1158,14 +1122,12 @@ int32_t FIR_init() {
 
 	channelOSPM31.pOutputBuffBase = (void *) OSPMOutputBuff31; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM31.pOutputBuffIndex = (void *) OSPMOutputBuff31; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM31.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM31.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM32 = channelOSPM11;
 
 	channelOSPM32.pInputBuffBase = (void *) OSPMInputBuff32; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM32.pInputBuffIndex = (void *) OSPMInputBuff32; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM32.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM32.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM32.pCoefficientBase = (void *) OSPMCoeffBuff32; /*!< Pointer to the start of the coefficient buffer */
@@ -1174,14 +1136,12 @@ int32_t FIR_init() {
 
 	channelOSPM32.pOutputBuffBase = (void *) OSPMOutputBuff32; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM32.pOutputBuffIndex = (void *) OSPMOutputBuff32; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM32.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM32.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM33 = channelOSPM11;
 
 	channelOSPM33.pInputBuffBase = (void *) OSPMInputBuff33; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM33.pInputBuffIndex = (void *) OSPMInputBuff33; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM33.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM33.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM33.pCoefficientBase = (void *) OSPMCoeffBuff33; /*!< Pointer to the start of the coefficient buffer */
@@ -1190,7 +1150,6 @@ int32_t FIR_init() {
 
 	channelOSPM33.pOutputBuffBase = (void *) OSPMOutputBuff33; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM33.pOutputBuffIndex = (void *) OSPMOutputBuff33; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM33.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM33.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 #if (numControlSignal == 6)
@@ -1203,7 +1162,6 @@ int32_t FIR_init() {
 
 	channelControl4.pOutputBuffBase = (void *) controlOutputBuff4; /*!< Pointer to the base of the output circular buffer */
 	channelControl4.pOutputBuffIndex = (void *) controlOutputBuff4; /*!< Pointer to the current index of the output circular buffer */
-	channelControl4.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
 	channelControl4.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl5 = channelControl1;
@@ -1214,7 +1172,6 @@ int32_t FIR_init() {
 
 	channelControl5.pOutputBuffBase = (void *) controlOutputBuff5; /*!< Pointer to the base of the output circular buffer */
 	channelControl5.pOutputBuffIndex = (void *) controlOutputBuff5; /*!< Pointer to the current index of the output circular buffer */
-	channelControl5.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
 	channelControl5.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelControl6 = channelControl1;
@@ -1225,14 +1182,12 @@ int32_t FIR_init() {
 
 	channelControl6.pOutputBuffBase = (void *) controlOutputBuff6; /*!< Pointer to the base of the output circular buffer */
 	channelControl6.pOutputBuffIndex = (void *) controlOutputBuff6; /*!< Pointer to the current index of the output circular buffer */
-	channelControl6.nOutputBuffCount = controlWindowSize; /*!< Number of elements in the output circular buffer */
 	channelControl6.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM14 = channelOSPM11;
 
 	channelOSPM14.pInputBuffBase = (void *) OSPMInputBuff14; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM14.pInputBuffIndex = (void *) OSPMInputBuff14; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM14.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM14.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM14.pCoefficientBase = (void *) OSPMCoeffBuff14; /*!< Pointer to the start of the coefficient buffer */
@@ -1241,14 +1196,12 @@ int32_t FIR_init() {
 
 	channelOSPM14.pOutputBuffBase = (void *) OSPMOutputBuff14; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM14.pOutputBuffIndex = (void *) OSPMOutputBuff14; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM14.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM14.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM15 = channelOSPM11;
 
 	channelOSPM15.pInputBuffBase = (void *) OSPMInputBuff15; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM15.pInputBuffIndex = (void *) OSPMInputBuff15; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM15.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM15.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM15.pCoefficientBase = (void *) OSPMCoeffBuff15; /*!< Pointer to the start of the coefficient buffer */
@@ -1257,14 +1210,12 @@ int32_t FIR_init() {
 
 	channelOSPM15.pOutputBuffBase = (void *) OSPMOutputBuff15; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM15.pOutputBuffIndex = (void *) OSPMOutputBuff15; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM15.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM15.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM16 = channelOSPM11;
 
 	channelOSPM16.pInputBuffBase = (void *) OSPMInputBuff16; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM16.pInputBuffIndex = (void *) OSPMInputBuff16; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM16.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM16.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM16.pCoefficientBase = (void *) OSPMCoeffBuff16; /*!< Pointer to the start of the coefficient buffer */
@@ -1273,14 +1224,12 @@ int32_t FIR_init() {
 
 	channelOSPM16.pOutputBuffBase = (void *) OSPMOutputBuff16; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM16.pOutputBuffIndex = (void *) OSPMOutputBuff16; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM16.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM16.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM24 = channelOSPM11;
 
 	channelOSPM24.pInputBuffBase = (void *) OSPMInputBuff24; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM24.pInputBuffIndex = (void *) OSPMInputBuff24; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM24.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM24.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM24.pCoefficientBase = (void *) OSPMCoeffBuff24; /*!< Pointer to the start of the coefficient buffer */
@@ -1289,14 +1238,12 @@ int32_t FIR_init() {
 
 	channelOSPM24.pOutputBuffBase = (void *) OSPMOutputBuff24; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM24.pOutputBuffIndex = (void *) OSPMOutputBuff24; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM24.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM24.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM25 = channelOSPM11;
 
 	channelOSPM25.pInputBuffBase = (void *) OSPMInputBuff25; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM25.pInputBuffIndex = (void *) OSPMInputBuff25; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM25.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM25.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM25.pCoefficientBase = (void *) OSPMCoeffBuff25; /*!< Pointer to the start of the coefficient buffer */
@@ -1305,14 +1252,12 @@ int32_t FIR_init() {
 
 	channelOSPM25.pOutputBuffBase = (void *) OSPMOutputBuff25; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM25.pOutputBuffIndex = (void *) OSPMOutputBuff25; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM25.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM25.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM26 = channelOSPM11;
 
 	channelOSPM26.pInputBuffBase = (void *) OSPMInputBuff26; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM26.pInputBuffIndex = (void *) OSPMInputBuff26; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM26.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM26.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM26.pCoefficientBase = (void *) OSPMCoeffBuff26; /*!< Pointer to the start of the coefficient buffer */
@@ -1321,14 +1266,12 @@ int32_t FIR_init() {
 
 	channelOSPM26.pOutputBuffBase = (void *) OSPMOutputBuff26; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM26.pOutputBuffIndex = (void *) OSPMOutputBuff26; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM26.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM26.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM34 = channelOSPM11;
 
 	channelOSPM34.pInputBuffBase = (void *) OSPMInputBuff34; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM34.pInputBuffIndex = (void *) OSPMInputBuff34; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM34.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM34.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM34.pCoefficientBase = (void *) OSPMCoeffBuff34; /*!< Pointer to the start of the coefficient buffer */
@@ -1337,14 +1280,12 @@ int32_t FIR_init() {
 
 	channelOSPM34.pOutputBuffBase = (void *) OSPMOutputBuff34; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM34.pOutputBuffIndex = (void *) OSPMOutputBuff34; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM34.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM34.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM35 = channelOSPM11;
 
 	channelOSPM35.pInputBuffBase = (void *) OSPMInputBuff35; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM35.pInputBuffIndex = (void *) OSPMInputBuff35; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM35.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM35.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM35.pCoefficientBase = (void *) OSPMCoeffBuff35; /*!< Pointer to the start of the coefficient buffer */
@@ -1353,14 +1294,12 @@ int32_t FIR_init() {
 
 	channelOSPM35.pOutputBuffBase = (void *) OSPMOutputBuff35; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM35.pOutputBuffIndex = (void *) OSPMOutputBuff35; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM35.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM35.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	channelOSPM36 = channelOSPM11;
 
 	channelOSPM36.pInputBuffBase = (void *) OSPMInputBuff36; /*!< Pointer to the base of the input circular buffer */
 	channelOSPM36.pInputBuffIndex = (void *) OSPMInputBuff36; /*!< Pointer to the current index of the input circular buffer */
-	channelOSPM36.nInputBuffCount = OSPMWindowSize; /*!< Number of elements in the input circular buffer */
 	channelOSPM36.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
 
 	channelOSPM36.pCoefficientBase = (void *) OSPMCoeffBuff36; /*!< Pointer to the start of the coefficient buffer */
@@ -1369,7 +1308,6 @@ int32_t FIR_init() {
 
 	channelOSPM36.pOutputBuffBase = (void *) OSPMOutputBuff36; /*!< Pointer to the base of the output circular buffer */
 	channelOSPM36.pOutputBuffIndex = (void *) OSPMOutputBuff36; /*!< Pointer to the current index of the output circular buffer */
-	channelOSPM36.nOutputBuffCount = OSPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOSPM36.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 #endif
@@ -1767,78 +1705,49 @@ int main(void) {
 
 	/* Software Switch Configuration for the EZ-BOARD */
 	ConfigSoftSwitches();
+	if (Result == 0u) {
+		Result = SpuInit();
+	}
+	if (Result == 0u) {
+		Result = PcgInit();
+	}
+	if (Result == 0u) {
+		Result = AsrcDacInit();
+	}
+
+
 
 	configGpio();
-
-	//Initialize SPU Service
-	if (adi_spu_Init(0u, SpuMemory, NULL, NULL, &hSpu) != ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to initialize SPU service\n");
-		return (ADI_SPU_FAILURE);
-	}
-	/*
-	 // Make SPORT 4A to generate secure transactions
-	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_SPU_PID, true)
-	 != ADI_SPU_SUCCESS) {
-	 DBG_MSG("Failed to enable Master secure for SPORT 4A\n");
-	 return (ADI_SPU_FAILURE);
-	 }
-	 */
-
-	/* Make SPORT 4B to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 4B\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/*
-	 // Make SPORT 4A DMA to generate secure transactions
-	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_DMA10_SPU_PID, true)
-	 != ADI_SPU_SUCCESS) {
-	 DBG_MSG("Failed to enable Master secure for SPORT 4A DMA\n");
-	 return (ADI_SPU_FAILURE);
-	 }
-	 */
-
-	/* Make SPORT 4B DMA to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_DMA11_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 4B DMA\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/* Make SPORT 2B to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 2B\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/* Make SPORT 2B DMA to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_DMA5_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 2B DMA\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/* Make SPORT 0B to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 0B\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/* Make SPORT 0B DMA to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_DMA1_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 0B DMA\n");
-		return (ADI_SPU_FAILURE);
-	}
-
+	 /* Enable the PCG */
+		    if(Result == 0u)
+		    {
+		        Result = (uint32_t)adi_pcg_Enable(phPcg, true);
+		    }
+		    /* Enable the ASRC */
+		    if(Result == 0u)
+		    {
+		        Result = (uint32_t)adi_asrc_Enable(phAsrc4, true);
+		    }
+		    /* Enable the ASRC */
+		    if(Result == 0u)
+		    {
+		        Result = (uint32_t)adi_asrc_Enable(phAsrc5, true);
+		    }
+		    /* Enable the ASRC */
+		    if(Result == 0u)
+		    {
+		        Result = (uint32_t)adi_asrc_Enable(phAsrc6, true);
+		    }
+		    /* Enable the ASRC */
+		    if(Result == 0u)
+		    {
+		        Result = (uint32_t)adi_asrc_Enable(phAsrc7, true);
+		    }
 	// Initialize ADAU1962A
 	if (Result == 0u) {
 		Result = Adau1962aInit();
 	}
+
 
 	//DEVICE 1
 	// Open the codec driver
@@ -1862,7 +1771,7 @@ int main(void) {
 	sportRxInfo1.hDevice = NULL;
 	sportRxInfo1.pMemory = sportRxMem1;
 	sportRxInfo1.bEnableDMA = true;
-	sportRxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
+	sportRxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
 	sportRxInfo1.bEnableStreaming = true;
 
 	result1 = adi_adau1761_ConfigSPORT(hADAU1761_1, ADI_ADAU1761_SPORT_INPUT,
@@ -1891,6 +1800,8 @@ int main(void) {
 	CheckResult(result1);
 	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
 	CheckResult(result1);
+	//high pass 2 hz filter
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
 
 #if defined(USE_LINE_IN)
 	result1 = adi_adau1761_SelectInputSource(hADAU1761_1,
@@ -1938,7 +1849,7 @@ int main(void) {
 	sportRxInfo2.hDevice = NULL;
 	sportRxInfo2.pMemory = sportRxMem2;
 	sportRxInfo2.bEnableDMA = true;
-	sportRxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
+	sportRxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
 	sportRxInfo2.bEnableStreaming = true;
 
 	result2 = adi_adau1761_ConfigSPORT(hADAU1761_2, ADI_ADAU1761_SPORT_INPUT,
@@ -1965,10 +1876,12 @@ int main(void) {
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x00);
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
 	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
 	CheckResult(result1);
+	//high pass 2 hz filter
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
 #if defined(USE_LINE_IN)
 	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
 			ADI_ADAU1761_INPUT_ADC);
@@ -2004,34 +1917,8 @@ int main(void) {
 #endif
 
 	while (!bExit) {
-		if (1) {
+		if (bEvent) {
 			switch (eMode) {
-			case SUBMIT_TX_BUFFER:
-
-				if (pRxBuffer1 != NULL) {
-
-					// re-submit the ADC buffer
-					adi_adau1761_SubmitRxBuffer(hADAU1761_1, pRxBuffer1,
-					BUFFER_SIZE_1761);
-
-				}
-#ifdef USE_ADAU1761_2
-				if (pRxBuffer2 != NULL) {
-
-					// re-submit the ADC buffer
-					adi_adau1761_SubmitRxBuffer(hADAU1761_2, pRxBuffer2,
-					BUFFER_SIZE_1761);
-
-				}
-#endif
-				if (pGetDAC != NULL) {
-					/* re-submit the DAC buffer */
-					adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC,
-					AUDIO_BUFFER_SIZE);
-				}
-
-				break;
-
 			case SUBMIT_RX_BUFFER:
 				//VolControl();
 				Result = ProcessBuffers();
@@ -2060,21 +1947,21 @@ int main(void) {
 
 				//submit ping pong buffer
 				result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
-						&AdcBuf1[BUFFER_SIZE_1761 * 0u],
+						&AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 0u],
 						BUFFER_SIZE_1761);
 				CheckResult(result1);
 				result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
-						&AdcBuf1[BUFFER_SIZE_1761 * 1u],
+						&AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 1u],
 						BUFFER_SIZE_1761);
 				CheckResult(result1);
 
 #ifdef USE_ADAU1761_2
 				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
-						&AdcBuf2[BUFFER_SIZE_1761 * 0u],
+						&AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 0u],
 						BUFFER_SIZE_1761);
 				CheckResult(result2);
 				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
-						&AdcBuf2[BUFFER_SIZE_1761 * 1u],
+						&AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 1u],
 						BUFFER_SIZE_1761);
 				CheckResult(result2);
 #endif
@@ -2103,12 +1990,13 @@ int main(void) {
 			}
 			bEvent = false;
 		}
-
-		/* wait for push button interrupts - exit the loop after a while */
+/*
+		// wait for push button interrupts - exit the loop after a while
 		if (count > MAXCOUNT) {
 			bExit = true;
 		}
 		count++;
+		*/
 	}
 
 	//Close devices
@@ -2316,14 +2204,14 @@ uint32_t Adau1962aSubmitBuffers(void) {
 
 	/* submit ping buffer */
 	if ((uint32_t) adi_adau1962a_SubmitBuffer(phAdau1962a,
-			&DacBuf[AUDIO_BUFFER_SIZE * 0u], AUDIO_BUFFER_SIZE) != 0u) {
+			&DacBuf[NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS * 0u], AUDIO_BUFFER_SIZE) != 0u) {
 		/* return error */
 		return 1u;
 	}
 
 	/* submit pong buffer */
 	if ((uint32_t) adi_adau1962a_SubmitBuffer(phAdau1962a,
-			&DacBuf[AUDIO_BUFFER_SIZE * 1u], AUDIO_BUFFER_SIZE) != 0u) {
+			&DacBuf[NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS * 1u], AUDIO_BUFFER_SIZE) != 0u) {
 		/* return error */
 		return 1u;
 	}
@@ -2397,22 +2285,21 @@ uint32_t ProcessBuffers(void) {
 	// process ADC to DAC buffer
 
 	if ((pRxBuffer1 != NULL && pRxBuffer2 != NULL && (pDAC != NULL))) {
-		DacCount++;
+		//DacCount++;
 		//memcpy(&sRxBuffer1[0], pRxBuffer1, BUFFER_SIZE_1761);
 		//memcpy(&sRxBuffer2[0], pRxBuffer2, BUFFER_SIZE_1761);
 		pDst = (int32_t *) pDAC;
-		uint32_t k = 0;
-		uint32_t j = 0;
-/*
-#pragma vector_for
 
-		for (int32_t i = 0,  j = NUM_AUDIO_SAMPLES/2 -1; i < NUM_AUDIO_SAMPLES/2, j>=0; i++,j--) {
-		refSignal[j]  = conv_float_by((pRxBuffer1[2*i]<<16)>>8, -15)  ;
-		errorSignal[0][j]  = conv_float_by((pRxBuffer1[2*i+1]<<16)>>8, -15)  ;
-		errorSignal[1][j]  = conv_float_by((pRxBuffer2[2*i]<<16)>>8, -15)  ;
-		errorSignal[2][j]  = conv_float_by((pRxBuffer2[2*i+1]<<16)>>8, -15)  ;
+#pragma vector_for(4)
+
+		for (int32_t i = 0,  j = NUM_AUDIO_SAMPLES_ADC/2 -1; i < NUM_AUDIO_SAMPLES_ADC/2, j>-1; i++,j--) {
+		refSignal[i]  = conv_float_by((pRxBuffer1[2*i]<<8), -1)  ;
+		errorSignal[0][i]  = conv_float_by((pRxBuffer1[2*i+1]<<8), -1)  ;
+		errorSignal[1][i]  = conv_float_by((pRxBuffer2[2*i]<<8), -1)  ;
+		errorSignal[2][i]  = conv_float_by((pRxBuffer2[2*i+1]<<8), -1)  ;
 		}
 
+		/*
 #pragma vector_for
 		for (int32_t i = 0,  j = 0; i < refLength, j<NUM_AUDIO_SAMPLES/2; i++,j+=((NUM_AUDIO_SAMPLES/2)/(refLength))) {
 		refSignalLP[i]  = refSignal[j];
@@ -2423,19 +2310,21 @@ uint32_t ProcessBuffers(void) {
 
 
 */
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES/2; i++) {
+/*
+		for (uint32_t i = 0, j=0,k=0; i < NUM_AUDIO_SAMPLES; i++) {
 
 			if (i % 2 == 0) {
-				pSrcL1[i - k] = (pRxBuffer1[i]) <<16;
-				pSrcL2[i - k] = (pRxBuffer2[i] << 16) ;
+				pSrcL1[i - k] = pRxBuffer1[i] <<8;
+				pSrcL2[i - k] = pRxBuffer2[i] <<8;
 				j++;
 			} else {
 				//original pSrcR1[i - j] = sRxBuffer1[i] << 8;
-				pSrcR1[i - j] = (pRxBuffer1[i]) <<16 ;
-				pSrcR2[i - j] = (pRxBuffer2[i]) <<16;
+				pSrcR1[i - j] = pRxBuffer1[i] <<8;
+				pSrcR2[i - j] = pRxBuffer2[i] <<8;
 				k++;
 			}
 		}
+		*/
 /*
 
 			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
@@ -2465,13 +2354,13 @@ uint32_t ProcessBuffers(void) {
 		//for( int i=0; i<5000000; i++);
 
 
-		//ANCALG();
+		ANCALG();
 
-
+		reverseArrayf(conv_float_control_temp,sizeof(conv_float_control_temp));
 
 
 #pragma vector_for
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_DAC; i++) {
 			//TDM8 SHIFT <<8
 			/*
 			 outputSignal1[i]=outputSignal1[i];
@@ -2504,26 +2393,27 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ = (int32_t) 0; //conv_fix_by( outputSignal1[i],-10) << 8;
 			*/
 /*
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
-			*pDst++ = (conv_fix_by(AWGN_generator(), 14)) <<8;//<<8 ;
-			*pDst++ = 0;
-			*pDst++ =( conv_fix_by(AWGN_generator(), 14))<<8 ;//<<8 ;
-			*pDst++ = 0;
-		 */
+			*pDst++ = (conv_fix_by(refSignal[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 1)) >>8;
+			*pDst++ = (conv_fix_by(refSignal[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 1)) >>8;
+			*pDst++ = (conv_fix_by(refSignal[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 1)) >>8;
+			*pDst++ = (conv_fix_by(refSignal[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 1)) >>8;
+*/
 
-			 *pDst++ = (int32_t) pSrcL1[i] >>8;
-			 *pDst++ = (int32_t) pSrcR1[i] >>8;
-			 *pDst++ = (int32_t) pSrcL1[i] >>8;
-			 *pDst++ = (int32_t) pSrcR1[i] >>8;
-			 *pDst++ = (int32_t) pSrcL1[i] >>8;
-			 *pDst++ = (int32_t) pSrcR1[i] >>8;
-			 *pDst++ = (int32_t) pSrcL1[i] >>8;
-			 *pDst++ = (int32_t) pSrcR1[i] >>8;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1)) >>8;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1)) >>8;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1)) >>8;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1))>>8 ;
+			*pDst++ = (conv_fix_by(conv_float_control_temp[i], 1)) >>8;
 
 		}
+
 		/*
 		 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES / 2; i++) {
 		 //TDM8 SHIFT <<8
@@ -2575,7 +2465,7 @@ uint32_t ProcessBuffers(void) {
 }
 
 void reverseArray(int32_t arr[], uint32_t size) {
-#pragma SIMD_for
+#pragma vector_for
 	for (uint32_t i = 0; i < (size / 2); i++) {
 		int32_t temp = arr[i];
 		arr[i] = arr[size - i - 1];
@@ -2585,7 +2475,7 @@ void reverseArray(int32_t arr[], uint32_t size) {
 }
 
 void reverseArrayf(float arr[], uint32_t size) {
-#pragma SIMD_for
+#pragma vector_for
 	for (uint32_t i = 0; i < (size / 2); i++) {
 		float temp = arr[i];
 		arr[i] = arr[size - i - 1];
@@ -2749,7 +2639,7 @@ int32_t ANCALG(void) {
 
 #ifdef LowPassFilter
 	res = adi_fir_SubmitInputCircBuffer(hChannelRef, refSignal,
-			refSignal, NUM_AUDIO_SAMPLES / 2, 1);
+			refSignal, NUM_AUDIO_SAMPLES_ADC / 2, 1);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_SubmitInputCircBuffer failed\n");
 		return -1;
@@ -2777,12 +2667,12 @@ int32_t ANCALG(void) {
 	//memcpy(&conv_float_OSPM_temp, refOutputBuff, sizeof(refOutputBuff));
 
 	memcpy(&conv_float_control_temp, refOutputBuff,
-			(NUM_AUDIO_SAMPLES/2)*4u);
-	memcpy(&conv_float_OSPM_temp, refOutputBuff, (NUM_AUDIO_SAMPLES/2)*4u);
+			refOutputSize*4u);
+	memcpy(&conv_float_OSPM_temp, refOutputBuff, refOutputSize*4u);
 #else
 	memcpy(&conv_float_control_temp, refSignal,
-			(NUM_AUDIO_SAMPLES/2)*4u);
-	memcpy(&conv_float_OSPM_temp, refSignal, (NUM_AUDIO_SAMPLES/2)*4u);
+			refOutputSize*4u);
+	memcpy(&conv_float_OSPM_temp, refSignal, refOutputSize*4u);
 #endif
 
 
@@ -3109,17 +2999,17 @@ int32_t ANCALG(void) {
 	}
 
 	memcpy(&controlOutputBuff1_temp, controlOutputBuff1,
-			sizeof(controlOutputBuff1));
+			controlOutputSize*4u);
 	memcpy(&controlOutputBuff2_temp, controlOutputBuff2,
-			sizeof(controlOutputBuff2));
+			controlOutputSize*4u);
 	memcpy(&controlOutputBuff3_temp, controlOutputBuff3,
-			sizeof(controlOutputBuff3));
+			controlOutputSize*4u);
 	memcpy(&controlOutputBuff4_temp, controlOutputBuff4,
-			sizeof(controlOutputBuff4));
+			controlOutputSize*4u);
 	memcpy(&controlOutputBuff5_temp, controlOutputBuff5,
-			sizeof(controlOutputBuff5));
+			controlOutputSize*4u);
 	memcpy(&controlOutputBuff6_temp, controlOutputBuff6,
-			sizeof(controlOutputBuff6));
+			controlOutputSize*4u);
 	memcpy(&OSPMRef[0][0], OSPMOutputBuff11, OSPMWindowSize * 4u);
 	memcpy(&OSPMRef[0][1], OSPMOutputBuff21, OSPMWindowSize * 4u);
 	memcpy(&OSPMRef[0][2], OSPMOutputBuff31, OSPMWindowSize * 4u);
@@ -3523,15 +3413,12 @@ int32_t ANCALG(void) {
 	//START_CYCLE_COUNT(start_count);
 
 #pragma vector_for
-	for (int32_t i = 0; i < OSPMLength; i++) {
-
-#pragma vector_for
+	for (int32_t i = 0; i < OSPMOutputSize; i++) {
+#pragma SIMD_for
 		for (int32_t k = 0; k < numErrorSignal; k++) {
-			float OSPMAuxTemp = 0;
-			for (int32_t j = 0; j < numControlSignal; j++) {
-				OSPMAuxTemp += OSPMAux[j][k][i];
-			}
-			filteredErrorSignal[k][i] = errorSignal[k][i]+OSPMAuxTemp;
+
+			filteredErrorSignal[k][i] = errorSignal[k][i]-
+					(OSPMAux[0][k][i]+OSPMAux[1][k][i]+OSPMAux[2][k][i]+OSPMAux[3][k][i]+OSPMAux[4][k][i]+OSPMAux[5][k][i]);
 		}
 	}
 
@@ -3541,7 +3428,7 @@ int32_t ANCALG(void) {
 #pragma vector_for
 		for (uint32_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
-			for (uint32_t i = 0; i < OSPMLength; i++) {
+			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 				indirectErrorSignal[j][k][i] = filteredErrorSignal[k][i]
 						+ OSPMAux[j][k][i];
 			}
@@ -3550,7 +3437,7 @@ int32_t ANCALG(void) {
 
 	//	power of OSPMAWGNSignal
 #pragma vector_for
-	for (uint32_t i = 0; i < OSPMLength; i++) {
+	for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 		powerOSPMAWGNSignal[0][i] = forgettingFactor * powerOSPMAWGNSignal[0][i]
 				+ (1.0 - forgettingFactor) * OSPMAWGNSignal1[i]
 						* OSPMAWGNSignal1[i];
@@ -3579,7 +3466,7 @@ int32_t ANCALG(void) {
 #pragma vector_for
 	for (uint32_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
-		for (uint32_t i = 0; i < OSPMLength; i++) {
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 			powerFilteredErrorSignal[k][i] = forgettingFactor
 					*  powerFilteredErrorSignal[k][i]
 					+  (1.0 - forgettingFactor)
@@ -3594,7 +3481,7 @@ int32_t ANCALG(void) {
 #pragma vector_for
 		for (uint32_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
-			for (uint32_t i = 0; i < OSPMLength; i++) {
+			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 				powerIndirectErrorSignal[j][k][i] = forgettingFactor
 						* powerIndirectErrorSignal[j][k][i]
 						+ ((1.0 - forgettingFactor)
@@ -3609,7 +3496,7 @@ int32_t ANCALG(void) {
 #pragma vector_for
 	for (uint32_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
-		for (uint32_t i = 0; i < OSPMLength; i++) {
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 			stepSizeS[j][k][i] = ( powerOSPMAWGNSignal[j][i]
 					*  stepSizeSMin)
 					/  powerIndirectErrorSignal[j][k][i];
@@ -3621,7 +3508,7 @@ int32_t ANCALG(void) {
 #pragma vector_for
 	for (uint32_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
-		for (uint32_t i = 0; i < OSPMLength; i++) {
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 			OSPMAWGNGain[j][i] =
 					( powerFilteredErrorSignal[0][i]
 							+ powerFilteredErrorSignal[1][i]
@@ -3640,7 +3527,7 @@ int32_t ANCALG(void) {
 
 	//OSPM Coeff
 #pragma vector_for
-	for (uint32_t i = 0; i < OSPMLength; i++) {
+	for (uint32_t i = 0; i < OSPMOutputSize; i++) {
 		OSPMCoeffBuff11[i] = OSPMCoeffBuff11[i]
 				+ (stepSizeS[0][0][i] * OSPMAux[0][0][i]
 						* filteredErrorSignal[0][i]);
@@ -3744,7 +3631,7 @@ int32_t ANCALG(void) {
 
 	//Control Coeff
 #pragma vector_for
-	for (uint32_t i = 0; i < controlLength; i++) {
+	for (uint32_t i = 0; i < controlOutputSize; i++) {
 
 		controlCoeffBuff1[i] =  controlCoeffBuff1[i]
 				+ stepSizeW[0]
@@ -3828,15 +3715,15 @@ int32_t ANCALG(void) {
 #endif
 */
 #pragma vector_for
-	for (uint32_t i = 0, j=0; i < NUM_AUDIO_SAMPLES / 2, j <controlLength; i+=4, j++) {
-		outputSignal1[i] = controlOutputBuff1_temp[j] +OSPMAWGNSignal1[j];
-		outputSignal2[i] = controlOutputBuff2_temp[j] +OSPMAWGNSignal2[j];
-		outputSignal3[i] =  controlOutputBuff3_temp[j] +OSPMAWGNSignal3[j];
+	for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_DAC; i++) {
+		outputSignal1[i] = controlOutputBuff1_temp[i] +OSPMAWGNSignal1[i];
+		outputSignal2[i] = controlOutputBuff2_temp[i] +OSPMAWGNSignal2[i];
+		outputSignal3[i] =  controlOutputBuff3_temp[i] +OSPMAWGNSignal3[i];
 
 #if (numControlSignal ==6)
-		outputSignal4[i] = controlOutputBuff4_temp[j] +OSPMAWGNSignal4[j];
-		outputSignal5[i] =  controlOutputBuff5_temp[j] +OSPMAWGNSignal5[j];
-		outputSignal6[i] =  controlOutputBuff6_temp[j] +OSPMAWGNSignal6[j];
+		outputSignal4[i] = controlOutputBuff4_temp[i] +OSPMAWGNSignal4[i];
+		outputSignal5[i] =  controlOutputBuff5_temp[i] +OSPMAWGNSignal5[i];
+		outputSignal6[i] =  controlOutputBuff6_temp[i] +OSPMAWGNSignal6[i];
 #endif
 	}
 	//STOP_CYCLE_COUNT(final_count,start_count);
@@ -3874,49 +3761,18 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		/* store pointer to the processed buffer that caused the callback */
 		pGetDAC = pArg;
 		pDAC = (void *) pGetDAC;
+		//eMode=SUBMIT_RX_BUFFER;
+		//bEvent=true;
 		break;
 	default:
-		if (bEventError == false)
-			printf("dead %d", nEvent);
 
-		bEventError = true;
 		//eMode = SUBMIT_RX_BUFFER;
 		//bEvent = true;
 		break;
 	}
 }
 
-void VolControl() {
-	ADI_ADAU1962A_RESULT eResult;
-	switch (eVolControl) {
-	case VOL_UP:
-		//VOL
-		if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
-				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
-				!= ADI_ADAU1962A_SUCCESS) {
-			printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
-					eResult);
-		}
-		eVolControl = VOL_SAME;
-		break;
-	case VOL_DOWN:
-		//VOL
-		if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
-				ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
-				!= ADI_ADAU1962A_SUCCESS) {
-			printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
-					eResult);
-		}
-		eVolControl = VOL_SAME;
-		break;
-	default:
-		//LED off
-		adi_gpio_Clear(LED1_PORT, LED1_PIN);
-		adi_gpio_Clear(LED2_PORT, LED2_PIN);
-		break;
-	}
 
-}
 
 /*
 void    Block_Fixed_To_Float( int * Fixed_In, float * Float_Out_L, float * Float_Out_R )
@@ -3940,3 +3796,242 @@ void    Block_Float_To_Fixed( int * Fixed_Out, float * Float_In_L, float * Float
         Fixed_Out[2*i+1] = ((int) (2147483648.0*Float_In_R[i]))>>8;
     }
 }*/
+
+/*
+ * Opens and initializes PCG Device.
+ *
+ * Parameters
+ *  None
+ *
+ * Returns
+ *  0 if success, other values for error
+ *
+ */
+uint32_t PcgInit(void)
+{
+    uint32_t Result = 0u;
+
+    /* Init PCG
+     *
+     * Using ext clk 24.576MHz
+     *
+     * CLK = numASRC * 64 * Fs Hz
+     * FS = 24 kHz
+     */
+
+    uint32_t DeviceNum;
+#if defined(__ADSPBF707_FAMILY__) || defined(__ADSPSC589_FAMILY__)
+    DeviceNum = 2u; /* PCG C */
+#elif defined(__ADSPSC573_FAMILY__)
+    DeviceNum = 0u; /* PCG A */
+#else
+#error "processor not supported"
+#endif
+
+    /* Open PCG */
+    if( adi_pcg_Open(DeviceNum,
+                     &PcgMemory[0],
+                     ADI_PCG_MEMORY_SIZE,
+                     &phPcg) != ADI_PCG_SUCCESS)
+    {
+        Result = 1u;
+    }
+
+
+    /* Select FS and clock outputs for PCG */
+    if((uint32_t)adi_pcg_SelectOutput(phPcg, ADI_PCG_OUT_CLK_FS) != 0u)
+    {
+        /* return error */
+        return 1u;
+    }
+
+    /* Set the PCG input clock source to external*/
+    if((uint32_t)adi_pcg_ClockSource(phPcg, ADI_PCG_CLK_EXT) != 0u)
+    {
+        /* return error */
+        return 1u;
+    }
+
+    /* Set the PCG input fs to external */
+    if((uint32_t)adi_pcg_FrameSyncSource(phPcg, ADI_PCG_FS_EXT) != 0u)
+    {
+        /* return error */
+        return 1u;
+    }
+
+    /* Clock C numASRC * 64 * Fs Hz */
+    if((uint32_t)adi_pcg_ClockDivide(phPcg, pcgCLKDIV) != 0u)
+    {
+        /* return error */
+        return 1u;
+    }
+    /* FS C kHz */
+    if((uint32_t)adi_pcg_FrameSyncDivide(phPcg, pcgFSDIV) != 0u)
+    {
+        /* return error */
+        return 1u;
+    }
+
+    return Result;
+}
+
+
+/*
+ * Opens and initializes ASRC Device.
+ *
+ * Parameters
+ *  None
+ *
+ * Returns
+ *  0 if success, other values for error
+ *
+ */
+uint32_t AsrcDacInit(void)
+{
+    uint32_t Result = 0u;
+    ADI_ASRC_SPORT_CONFIG SportConfig;
+
+
+
+
+    uint32_t nBlockNum;
+#if defined(__ADSPBF707_FAMILY__) || defined(__ADSPSC589_FAMILY__)
+    nBlockNum = 1u;
+#elif defined(__ADSPSC573_FAMILY__)
+    nBlockNum = 0u;
+#else
+#error "processor not supported"
+#endif
+    /* For ADSP-SC573 family processors, open ASRC 0.  Otherwise open ASRC 4 */
+    if( adi_asrc_Open(nBlockNum,
+    				  0u,
+                      &AsrcMemory4[0],
+                      ADI_ASRC_MEMORY_SIZE,
+                      &phAsrc4) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+    /* For ADSP-SC573 family processors, open ASRC 1.  Otherwise open ASRC 5 */
+    if( adi_asrc_Open(nBlockNum,
+    				  1u,
+                      &AsrcMemory5[0],
+                      ADI_ASRC_MEMORY_SIZE,
+                      &phAsrc5) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+    /* For ADSP-SC573 family processors, open ASRC 2.  Otherwise open ASRC 6 */
+    if( adi_asrc_Open(nBlockNum,
+    				  2u,
+                      &AsrcMemory6[0],
+                      ADI_ASRC_MEMORY_SIZE,
+                      &phAsrc6) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+
+    /* For ADSP-SC573 family processors, open ASRC 3.  Otherwise open ASRC 7 */
+    if( adi_asrc_Open(nBlockNum,
+    				  3u,
+                      &AsrcMemory7[0],
+                      ADI_ASRC_MEMORY_SIZE,
+                      &phAsrc7) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+
+
+    //adi_asrc_SetMatchPhaseMode(phAsrc6, true);
+    if( adi_asrc_SetSerialFormat(phAsrc4, ADI_ASRC_INPUT_TDM, ADI_ASRC_OUTPUT_TDM, ADI_ASRC_WORD_LENGTH_24) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+    if( adi_asrc_SetSerialFormat(phAsrc5, ADI_ASRC_INPUT_TDM, ADI_ASRC_OUTPUT_TDM, ADI_ASRC_WORD_LENGTH_24) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+    if( adi_asrc_SetSerialFormat(phAsrc6, ADI_ASRC_INPUT_TDM, ADI_ASRC_OUTPUT_TDM, ADI_ASRC_WORD_LENGTH_24) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+    if( adi_asrc_SetSerialFormat(phAsrc7, ADI_ASRC_INPUT_TDM, ADI_ASRC_OUTPUT_TDM, ADI_ASRC_WORD_LENGTH_24) != ADI_ASRC_SUCCESS)
+    {
+        Result = 1u;
+    }
+
+
+    return Result;
+}
+
+
+uint32_t SpuInit(void)
+{
+    uint32_t Result = 0u;
+
+//Initialize SPU Service
+if (adi_spu_Init(0u, SpuMemory, NULL, NULL, &hSpu) != ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to initialize SPU service\n");
+	return (ADI_SPU_FAILURE);
+}
+/*
+ // Make SPORT 4A to generate secure transactions
+ if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_SPU_PID, true)
+ != ADI_SPU_SUCCESS) {
+ DBG_MSG("Failed to enable Master secure for SPORT 4A\n");
+ return (ADI_SPU_FAILURE);
+ }
+ */
+
+/* Make SPORT 4B to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 4B\n");
+	return (ADI_SPU_FAILURE);
+}
+
+/*
+ // Make SPORT 4A DMA to generate secure transactions
+ if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_DMA10_SPU_PID, true)
+ != ADI_SPU_SUCCESS) {
+ DBG_MSG("Failed to enable Master secure for SPORT 4A DMA\n");
+ return (ADI_SPU_FAILURE);
+ }
+ */
+
+/* Make SPORT 4B DMA to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_DMA11_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 4B DMA\n");
+	return (ADI_SPU_FAILURE);
+}
+
+/* Make SPORT 2B to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 2B\n");
+	return (ADI_SPU_FAILURE);
+}
+
+/* Make SPORT 2B DMA to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_DMA5_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 2B DMA\n");
+	return (ADI_SPU_FAILURE);
+}
+
+/* Make SPORT 0B to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 0B\n");
+	return (ADI_SPU_FAILURE);
+}
+
+/* Make SPORT 0B DMA to generate secure transactions */
+if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_DMA1_SPU_PID, true)
+		!= ADI_SPU_SUCCESS) {
+	DBG_MSG("Failed to enable Master secure for SPORT 0B DMA\n");
+	return (ADI_SPU_FAILURE);
+}
+return (Result);
+}
+
