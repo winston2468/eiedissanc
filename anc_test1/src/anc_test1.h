@@ -8,21 +8,22 @@
 #define LowPassFilter
 #define LowPassFilter2
 #define NUM_AUDIO_SAMPLES_ADC       512u
-#define NUM_AUDIO_SAMPLES_DAC       128u
+#define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
+#define NUM_AUDIO_SAMPLES_DAC       256u
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define refLength 128u
-#define refInputSize 128u
-#define refWindowSize 128u
-#define refOutputSize 128u
-#define controlLength 128
-#define controlInputSize 128u
-#define controlWindowSize 128u
-#define controlOutputSize 128u
-#define OSPMLength 128
-#define OSPMInputSize 128u
-#define OSPMWindowSize 128u
-#define OSPMOutputSize 128u
+#define refLength 256u
+#define refInputSize (refLength + refWindowSize - 1)
+#define refWindowSize 256u
+#define refOutputSize 256u
+#define controlLength 256u
+#define controlInputSize (controlLength + controlWindowSize - 1)
+#define controlWindowSize 256u
+#define controlOutputSize 256u
+#define OSPMLength 256u
+#define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
+#define OSPMWindowSize 256u
+#define OSPMOutputSize 256u
 #define numErrorSignal 3
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
