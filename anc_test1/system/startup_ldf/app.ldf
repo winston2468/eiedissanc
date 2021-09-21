@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 core 1 linker description file generated on Sep 15, 2021 at 16:23:41.
+** ADSP-SC589 core 1 linker description file generated on Sep 21, 2021 at 17:07:48.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -211,13 +211,13 @@ MEMORY
    //  4. Due to anomaly 20-00-0019 some memory in DDR-A and DDR-B cannot be
    //     used for VISA code execution.
 
-   // ----------------------- 256MB DMC0(DDR-A) ---------------------------------
-   // 256MB DMC0 DDR SDRAM memory is partitioned as follows:
+   // ----------------------- 1GB DMC0(DDR-A) -----------------------------------
+   // 1GB DMC0 DDR SDRAM memory is partitioned as follows:
    //   DDR-A part1 : SHARC0 NW code, 6MB
    //   DDR-A part2 : SHARC0 data, 4MB
    //   DDR-A part3 : SHARC0 VISA code, 6MB (reduced for 20000019 workaround)
-   //   DDR-A part4 : SHARC0 data, 128MB
-   //   DDR-A part5 : SHARC1 data, 112MB
+   //   DDR-A part4 : SHARC0 data, 496MB
+   //   DDR-A part5 : SHARC1 BW data, 512MB
    mem_DMC0_SDRAM_A1       { TYPE(BW RAM) START(0x80000000) END(0x805fffff) WIDTH(8) }
    mem_DMC0_SDRAM_A2       { TYPE(BW RAM) START(0x80600000) END(0x809fffff) WIDTH(8) }
    #if defined(__WORKAROUND_20000019)
@@ -225,15 +225,15 @@ MEMORY
    #else
    mem_DMC0_SDRAM_A3       { TYPE(BW RAM) START(0x80a00000) END(0x80ffffff) WIDTH(8) }
    #endif
-   mem_DMC0_SDRAM_A4       { TYPE(BW RAM) START(0x81000000) END(0x88ffffff) WIDTH(8) }
-   mem_DMC0_SDRAM_A5       { TYPE(BW RAM) START(0x89000000) END(0x8fffffff) WIDTH(8) }
+   mem_DMC0_SDRAM_A4       { TYPE(BW RAM) START(0x81000000) END(0x9fffffff) WIDTH(8) }
+   mem_DMC0_SDRAM_A5       { TYPE(BW RAM) START(0xa0000000) END(0xbfffffff) WIDTH(8) }
 
-   // ----------------------- 256MB DMC1(DDR-B) ---------------------------------
-   // 256MB DMC1 DDR SDRAM memory is partitioned as follows:
+   // ----------------------- 1GB DMC1(DDR-B) -----------------------------------
+   // 1GB DMC1 DDR SDRAM memory is partitioned as follows:
    //   DDR-B part1 : SHARC1 NW code, 6MB
    //   DDR-B part2 : SHARC1 data, 4MB
    //   DDR-B part3 : SHARC1 VISA code, 6MB (reduced for 20000019 workaround)
-   //   DDR-B part4 : ARM, 240MB
+   //   DDR-B part4 : ARM, 1008MB
    mem_DMC1_SDRAM_B1       { TYPE(BW RAM) START(0xc0000000) END(0xc05fffff) WIDTH(8) }
    mem_DMC1_SDRAM_B2       { TYPE(BW RAM) START(0xc0600000) END(0xc09fffff) WIDTH(8) }
    #if defined(__WORKAROUND_20000019)
@@ -241,7 +241,7 @@ MEMORY
    #else
    mem_DMC1_SDRAM_B3       { TYPE(BW RAM) START(0xc0A00000) END(0xc0ffffff) WIDTH(8) }
    #endif
-   mem_DMC1_SDRAM_B4       { TYPE(BW RAM) START(0xc1000000) END(0xcfffffff) WIDTH(8) }
+   mem_DMC1_SDRAM_B4       { TYPE(BW RAM) START(0xc1000000) END(0xffffffff) WIDTH(8) }
 
   #define MY_SDRAM_NWCODE_MEM mem_DMC0_SDRAM_A1
   #define MY_SDRAM_DATA1_MEM  mem_DMC0_SDRAM_A2

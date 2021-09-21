@@ -86,22 +86,22 @@
 			<heap_stack-configuration>
 				<crt_and_ldf>
 					<propertygroup name="mandatory">
-						<property name="si_revision" value="any"/>
+						<property name="si_revision" value="1.0"/>
 						<property name="processor" value="ADSP-SC589"/>
 						<property name="product_name" value="CrossCore(R) Embedded Studio"/>
 					</propertygroup>
 					<ldf>
 						<propertygroup name="system_heap" value="L3">
-							<property name="size_units" value="MB"/>
 							<property name="size" value="4"/>
+							<property name="size_units" value="MB"/>
 							<property name="customized" value="false"/>
 							<property name="align" value="4"/>
 						</propertygroup>
 						<propertygroup name="system_stack" value="L1">
 							<property name="size_units" value="kB"/>
 							<property name="size" value="4"/>
-							<property name="align" value="64"/>
 							<property name="customized" value="false"/>
+							<property name="align" value="64"/>
 						</propertygroup>
 						<propertygroup name="supervisor_stack" value="L1">
 							<property name="size_units" value="kB"/>

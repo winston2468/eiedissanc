@@ -5,36 +5,37 @@
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
 
-#define LowPassFilter
+//#define LowPassFilter
 #define LowPassFilter2
 #define NUM_AUDIO_SAMPLES_ADC       512u
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
-#define NUM_AUDIO_SAMPLES_DAC       256u
+#define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define refLength 256u
+#define refLength NUM_AUDIO_SAMPLES_ADC_SINGLE
 #define refInputSize (refLength + refWindowSize - 1)
-#define refWindowSize 256u
-#define refOutputSize 256u
-#define controlLength 256u
+#define refWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define refOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define controlLength NUM_AUDIO_SAMPLES_ADC_SINGLE
 #define controlInputSize (controlLength + controlWindowSize - 1)
-#define controlWindowSize 256u
-#define controlOutputSize 256u
-#define OSPMLength 256u
+#define controlWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define controlOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define OSPMLength NUM_AUDIO_SAMPLES_ADC_SINGLE
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
-#define OSPMWindowSize 256u
-#define OSPMOutputSize 256u
+#define OSPMWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define OSPMOutputSize 256
 #define numErrorSignal 3
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
-    /* Clock C numASRC * 64 * Fs Hz */
+    /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
   /* FS C kHz */
 #define pcgFSDIV 256u
 
 
+#define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)
 
 
 
@@ -138,6 +139,20 @@
 #define PE_LEN  (6u)
 
 
+/* ADSP-SC589 Processor family */
+#if defined(__ADSPSC589_FAMILY__)
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       /* Stream 0 */
+/* SPU PID for MDMA0 Source */
+#define MDMA0_SRC_DMA8_SPU_PID      (88u)
+/* SPU PID for MDMA0 Destination */
+#define MDMA0_DST_DMA9_SPU_PID      (89u)
+
+#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S0)       /* Stream 0 */
+/* SPU PID for MDMA1 Source */
+#define MDMA1_SRC_DMA18_SPU_PID      (90u)
+/* SPU PID for MDMA1 Destination */
+#define MDMA1_DST_DMA19_SPU_PID      (91u)
+#endif /* __ADSPSC589_FAMILY__ */
 
 
 
