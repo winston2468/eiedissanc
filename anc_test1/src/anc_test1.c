@@ -1600,10 +1600,10 @@ uint32_t ProcessBuffers(void) {
 		while (bMemCopyInProgress);
 #pragma vector_for(4)
 		for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-			refSignal[i] = conv_float_by((pRxBuffer1[2 * i] << 8), -23);
-			errorSignal[0][i] = conv_float_by((pRxBuffer1[2 * i + 1] << 8), -23);
-			errorSignal[1][i] = conv_float_by((pRxBuffer2[2 * i] << 8), -23);
-			errorSignal[2][i] = conv_float_by((pRxBuffer2[2 * i + 1] << 8), -23);
+			refSignal[i] = conv_float_by((pRxBuffer1[2 * i] << 8), -15);
+			errorSignal[0][i] = conv_float_by((pRxBuffer1[2 * i + 1] << 8), -15);
+			errorSignal[1][i] = conv_float_by((pRxBuffer2[2 * i] << 8), -15);
+			errorSignal[2][i] = conv_float_by((pRxBuffer2[2 * i + 1] << 8), -15);
 
 
 		}
@@ -1618,7 +1618,7 @@ uint32_t ProcessBuffers(void) {
 
 
 
-		    /* Initialize flag */
+		    // Initialize flag
 		    bMemCopyInProgress = true;
 			eResult = adi_mdma_Copy1D (hMemDmaStream,
 				                                   (void *)&refSignalPastFuture[(refLength/2)],
@@ -1639,7 +1639,7 @@ uint32_t ProcessBuffers(void) {
 
 		//memcpy(&refSignalPastFuture[(refInputSize + 1) / 2], refSignal, ((refInputSize + 1) / 2 - 1) * 4u);
 
-		ANCALG_1();
+		//ANCALG_1();
 
 
 
@@ -1647,14 +1647,14 @@ uint32_t ProcessBuffers(void) {
 		for (int32_t i=0; i < NUM_AUDIO_SAMPLES_DAC;i++) {
 			//TDM8 SHIFT <<8
 
-			*pDst++ = (conv_fix_by(refSignal[i], 15)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15)) ;
-			*pDst++ = (conv_fix_by(refSignal[i], 7)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-			*pDst++ = (conv_fix_by(refSignal[i], 7));
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-			*pDst++ = (conv_fix_by(refSignal[i], 7)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
+			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 10)) ;
+			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(refSignal[i], 10));
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
 /*
 			*pDst++ = (conv_fix_by(outputSignal[0][i], 13)) ;
 			*pDst++ = (conv_fix_by(outputSignal[1][i], 13)) ;
@@ -1677,7 +1677,7 @@ uint32_t ProcessBuffers(void) {
 		}
 
 
-		ANCALG_2();
+		//ANCALG_2();
 		//memcpy(&refSignalPastFuture[0], refSignal, (refInputSize + 1) / 2 * 4u);
 		//DMACopy_4Bytes_1D(refSignalPastFuture, refSignal , 0, 0, refLength);
 	    /* Initialize flag */
