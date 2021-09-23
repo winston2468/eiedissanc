@@ -40,7 +40,7 @@
 
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_8KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector

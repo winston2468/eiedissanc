@@ -1015,13 +1015,14 @@ int main(void) {
 	if (Result == 0u) {
 		Result = DMAInit();
 	}
-
+/*
 	if (Result == 0u) {
 		Result = PcgInit();
 	}
 	if (Result == 0u) {
 		Result = AsrcDacInit();
 	}
+	*/
 	// adi_int_EnableInt ( ADI_CID_FLTOI , true);
 	// adi_int_EnableInt ( ADI_CID_FLTUI , true);
 	// adi_int_EnableInt ( ADI_CID_FLTII , true);
@@ -1267,26 +1268,28 @@ int main(void) {
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
 				}
-				/* Enable the PCG */
+				/*
+				// Enable the PCG
 				if (Result == 0u) {
 					Result = (uint32_t) adi_pcg_Enable(phPcg, true);
 				}
-				/* Enable the ASRC */
+				// Enable the ASRC
 				if (Result == 0u) {
 					Result = (uint32_t) adi_asrc_Enable(phAsrc4, true);
 				}
-				/* Enable the ASRC */
+				// Enable the ASRC
 				if (Result == 0u) {
 					Result = (uint32_t) adi_asrc_Enable(phAsrc5, true);
 				}
-				/* Enable the ASRC */
+				// Enable the ASRC
 				if (Result == 0u) {
 					Result = (uint32_t) adi_asrc_Enable(phAsrc6, true);
 				}
-				/* Enable the ASRC */
+				// Enable the ASRC
 				if (Result == 0u) {
 					Result = (uint32_t) adi_asrc_Enable(phAsrc7, true);
 				}
+				*/
 				// Enable data flow for the DAC
 				if ((uint32_t) adi_adau1962a_Enable(phAdau1962a, true) != 0u) {
 					// return error
@@ -2424,7 +2427,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		//bEvent=true;
 		break;
 	default:
-
+		printf("err");
 		//eMode = SUBMIT_RX_BUFFER;
 		//bEvent = true;
 		break;
