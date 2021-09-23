@@ -4,7 +4,7 @@
 
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
-
+#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 //#define LowPassFilter
 #define LowPassFilter2
 #define NUM_AUDIO_SAMPLES_ADC       512u
@@ -30,9 +30,9 @@
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
-#define pcgCLKDIV 8u
-  /* FS C kHz */
-#define pcgFSDIV 256u
+#define pcgCLKDIV 12u
+  /* FS (24.576 MHz /Fs) / numASRC */
+#define pcgFSDIV 3072u
 
 
 #define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)
@@ -40,7 +40,7 @@
 
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_12KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_8KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
