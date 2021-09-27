@@ -34,7 +34,7 @@
 								<inputType id="assembler.input.929675620" name="Assembler Source" superClass="assembler.input"/>
 							</tool>
 							<tool id="sharc.toolchain.compiler.829371286" name="CrossCore SHARC C/C++ Compiler" superClass="sharc.toolchain.compiler">
-								<option id="compiler.option.optimization.417212619" name="Enable optimization (-O)" superClass="compiler.option.optimization" useByScannerDiscovery="false"/>
+								<option id="compiler.option.optimization.417212619" name="Enable optimization (-O)" superClass="compiler.option.optimization" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="compiler.option.debugcode.801430799" name="Generate debug information (-g)" superClass="compiler.option.debugcode" useByScannerDiscovery="false"/>
 								<option id="compiler.option.proc.306344908" name="-proc" superClass="compiler.option.proc" value=" ADSP-SC589" valueType="string"/>
 								<option id="compiler.option.sirevision.1516204698" name="-si-revision" superClass="compiler.option.sirevision" value=" 1.0" valueType="string"/>

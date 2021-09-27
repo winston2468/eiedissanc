@@ -152,14 +152,17 @@ float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength] = {
 float powerFilteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
 float stepSizeS[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
-#ifdef LowPassFilter
-float refOutputBuff[refOutputSize];
-#endif
 
 float controlOutputBuff[numControlSignal][controlOutputSize];
-
 float OSPMOutputBuff[numControlSignal][numErrorSignal][OSPMOutputSize];
+
 #pragma alignment_region_end
+
+#ifdef LowPassFilter
+ADI_CACHE_ALIGN float refOutputBuff[ADI_CACHE_ROUND_UP_SIZE(refOutputSize, float)];;
+#endif
+
+
 
  ADI_FIR_RESULT res;
  ADI_FIR_HANDLE hFir;
@@ -174,6 +177,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
 
 #endif
+
 
 
 float forgettingFactor = 0.6;
@@ -1481,15 +1485,6 @@ uint32_t ProcessBuffers(void) {
 		}
 
 
-		/*
-#pragma vector_for(numErrorSignal)
-		for (uint8_t j = 0; j < numErrorSignal; j++) {
-			reverseArrayf(errorSignal[j], NUM_AUDIO_SAMPLES_ADC_SINGLE);
-		}*/
-		//DMACopy_4Bytes_1D(refSignalPastFuture, refSignal, (refLength/2), 0 , (refLength -1) );
-
-
-
 		    /* Initialize flag */
 		    bMemCopyInProgress = true;
 			eResult = adi_mdma_Copy1D (hMemDmaStream,
@@ -1508,12 +1503,9 @@ uint32_t ProcessBuffers(void) {
 			while (bMemCopyInProgress);
 
 
-
-		//memcpy(&refSignalPastFuture[(refInputSize + 1) / 2], refSignal, ((refInputSize + 1) / 2 - 1) * 4u);
-
 		ANCALG_1();
 
-/*
+
 
 		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
 			//TDM8 SHIFT <<8
@@ -1527,8 +1519,8 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ = (conv_fix_by(refSignal[i], 7)) ;
 			*pDst++ = (conv_fix_by(errorSignal[0][i], 7));
 
-		}*/
-
+		}
+/*
 
 		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
 			//TDM8 SHIFT <<8
@@ -1543,10 +1535,11 @@ uint32_t ProcessBuffers(void) {
 			*pDst++ = 0 ;
 
 		}
+*/
 
 		ANCALG_2();
-		//memcpy(&refSignalPastFuture[0], refSignal, (refInputSize + 1) / 2 * 4u);
-		//DMACopy_4Bytes_1D(refSignalPastFuture, refSignal , 0, 0, refLength);
+
+
 	    /* Initialize flag */
 	    bMemCopyInProgress = true;
 		eResult = adi_mdma_Copy1D (hMemDmaStream,
