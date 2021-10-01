@@ -1569,7 +1569,7 @@ uint32_t ProcessBuffers(void) {
 	 *  0 if success, other values for error
 	 *
 	 */
-	ADI_DMA_RESULT      eResult = ADI_DMA_SUCCESS;
+	//ADI_DMA_RESULT      eResult = ADI_DMA_SUCCESS;
 	// re-submit processed buffer from callback
 	if (pADC1 != NULL) {
 
@@ -1600,13 +1600,13 @@ uint32_t ProcessBuffers(void) {
 	if ((pRxBuffer1 != NULL && pRxBuffer2 != NULL && (pDAC != NULL))) {
 		//DacCount++;
 		pDst = (int32_t *) pDAC;
-		while (bMemCopyInProgress);
+		//while (bMemCopyInProgress);
 #pragma vector_for(4)
 		for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-			refSignal[i] = conv_float_by((pRxBuffer1[2 * i] << 8), -15);
-			errorSignal[0][i] = conv_float_by((pRxBuffer1[2 * i + 1] << 8), -15);
-			errorSignal[1][i] = conv_float_by((pRxBuffer2[2 * i] << 8), -15);
-			errorSignal[2][i] = conv_float_by((pRxBuffer2[2 * i + 1] << 8), -15);
+			refSignal[i] = conv_float_by((pRxBuffer1[2 * i] << 8), -10);
+			errorSignal[0][i] = conv_float_by((pRxBuffer1[2 * i + 1] << 8), -10);
+			errorSignal[1][i] = conv_float_by((pRxBuffer2[2 * i] << 8), -10);
+			errorSignal[2][i] = conv_float_by((pRxBuffer2[2 * i + 1] << 8), -10);
 
 
 		}
@@ -1620,7 +1620,7 @@ uint32_t ProcessBuffers(void) {
 		//DMACopy_4Bytes_1D(refSignalPastFuture, refSignal, (refLength/2), 0 , (refLength -1) );
 
 
-
+/*
 		    // Initialize flag
 		    bMemCopyInProgress = true;
 			eResult = adi_mdma_Copy1D (hMemDmaStream,
@@ -1629,7 +1629,7 @@ uint32_t ProcessBuffers(void) {
 				                                   MEMCOPY_MSIZE,
 												   (refLength -1));
 
-		    /* IF (Failure) */
+		    // IF (Failure)
 		    if (eResult != ADI_DMA_SUCCESS)
 		    {
 		    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
@@ -1643,21 +1643,21 @@ uint32_t ProcessBuffers(void) {
 		//memcpy(&refSignalPastFuture[(refInputSize + 1) / 2], refSignal, ((refInputSize + 1) / 2 - 1) * 4u);
 
 		//ANCALG_1();
-
+		    */
 
 
 #pragma vector_for(8)
 		for (int32_t i=0; i < NUM_AUDIO_SAMPLES_DAC;i++) {
 			//TDM8 SHIFT <<8
 
+			*pDst++ = (conv_fix_by(refSignal[i], 5)) ;
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 5)) ;
 			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 10)) ;
-			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 5));
 			*pDst++ = (conv_fix_by(refSignal[i], 10));
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 5));
 			*pDst++ = (conv_fix_by(refSignal[i], 10)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(errorSignal[0][i], 5));
 /*
 			*pDst++ = (conv_fix_by(outputSignal[0][i], 13)) ;
 			*pDst++ = (conv_fix_by(outputSignal[1][i], 13)) ;
@@ -1683,7 +1683,8 @@ uint32_t ProcessBuffers(void) {
 		//ANCALG_2();
 		//memcpy(&refSignalPastFuture[0], refSignal, (refInputSize + 1) / 2 * 4u);
 		//DMACopy_4Bytes_1D(refSignalPastFuture, refSignal , 0, 0, refLength);
-	    /* Initialize flag */
+/*
+		// Initialize flag
 	    bMemCopyInProgress = true;
 		eResult = adi_mdma_Copy1D (hMemDmaStream,
 			                                   (void *)&refSignalPastFuture[0],
@@ -1691,14 +1692,14 @@ uint32_t ProcessBuffers(void) {
 			                                   MEMCOPY_MSIZE,
 											   refLength);
 
-	    /* IF (Failure) */
+	    // IF (Failure)
 	    if (eResult != ADI_DMA_SUCCESS)
 	    {
 	    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
 	    }
 
 
-
+*/
 
 
 	}

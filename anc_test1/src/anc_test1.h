@@ -40,7 +40,7 @@
 
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -108,7 +108,7 @@
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(32000u)
+#define SAMPLE_RATE_A   			(48000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
