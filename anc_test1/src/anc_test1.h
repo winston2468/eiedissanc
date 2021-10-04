@@ -4,10 +4,11 @@
 
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
-
-//#define LowPassFilter
+//#define ControlFIRA
+#define LowPassFilter
 #define LowPassFilter2
 #define NUM_AUDIO_SAMPLES_ADC       512u
+#define NUM_AUDIO_SAMPLES_ADC_1979      (NUM_AUDIO_SAMPLES_ADC/2*4)
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
 //#define TAP_LENGTH 128u
@@ -28,11 +29,12 @@
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_ADC_1979*4*sizeof(int32_t))
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
-#define pcgCLKDIV 8u
+#define pcgCLKDIV 2u
   /* FS C kHz */
-#define pcgFSDIV 256u
+#define pcgFSDIV 512u
 
 
 #define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)
@@ -40,7 +42,7 @@
 
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_12KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -101,6 +103,17 @@
 /* GPIO pin within the port to which LED 2 is connected to */
 #define LED2_PIN                    (ADI_GPIO_PIN_13)
 
+/*
+ * ADC settings
+ */
+/* ADAU1979 SPORT config parameters */
+#define LR_B_CLK_MASTER_1979    (true)
+#define BCLK_RISING_1979 	    (true)
+#ifdef TDM_MODE
+#define LRCLK_HI_LO_1979 	    (false)
+#else
+#define LRCLK_HI_LO_1979 	    (true)
+#endif
 
 /*
  * DAC settings
@@ -108,7 +121,7 @@
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(32000u)
+#define SAMPLE_RATE_A   			(48000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)

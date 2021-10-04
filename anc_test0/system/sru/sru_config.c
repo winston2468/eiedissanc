@@ -1,6 +1,6 @@
 /*
  **
- ** sru_config.c source file generated on September 16, 2021 at 15:10:19.
+ ** sru_config.c source file generated on October 6, 2021 at 10:20:07.
  **
  ** Copyright (C) 2014-2021 Analog Devices Inc., All Rights Reserved.
  **
@@ -272,47 +272,45 @@ int32_t adi_SRU_Init(void)
     /* Connections:
      *    DAI1_PB12_O - SPT4A_CLK_I (non-default)
      *    DAI1_PB13_O - SPT5A_CLK_I
-     *    PCG0_CLKC_O - SPT4B_CLK_I (non-default)
+     *    DAI1_PB02_O - SPT4B_CLK_I (non-default)
      *    DAI1_PB13_O - SPT5B_CLK_I
      *    DAI1_PB19_O - SPT6B_CLK_I
      *    DAI1_PB19_O - SPT6A_CLK_I
      */
-    *pREG_DAI1_CLK0 = 0x2526338buL;
-
-    /* Connections:
-     *    PCG0_CLKC_O - SRC4_CLK_IP_I (non-default)
-     *    DAI1_PB02_O - SRC6_CLK_OP_I (non-default)
-     *    DAI1_PB02_O - SRC4_CLK_OP_I (non-default)
-     *    PCG0_CLKC_O - SRC6_CLK_IP_I (non-default)
-     *    PCG0_CLKC_O - SRC5_CLK_IP_I (non-default)
-     *    DAI1_PB02_O - SRC5_CLK_OP_I (non-default)
-     */
-    *pREG_DAI1_CLK1 = 0x03c0f03cuL;
-
-    /* Connections:
-     *    PCG0_CLKC_O - SRC7_CLK_IP_I (non-default)
-     *    DAI1_PB02_O - SRC7_CLK_OP_I (non-default)
-     *    DAI1_LOW - SPDIF1_TX_CLK_I
-     */
-    *pREG_DAI1_CLK2 = 0x3def783cuL;
+    *pREG_DAI1_CLK0 = 0x2526302buL;
 
 #if defined(SRU_FULL_INIT)
+    /* Connections:
+     *    DAI1_LOW - SRC4_CLK_IP_I
+     *    DAI1_LOW - SRC6_CLK_OP_I
+     *    DAI1_LOW - SRC4_CLK_OP_I
+     *    DAI1_LOW - SRC5_CLK_IP_I
+     *    DAI1_LOW - SRC6_CLK_IP_I
+     *    DAI1_LOW - SRC5_CLK_OP_I
+     */
+    *pREG_DAI1_CLK1 = 0x3def7bdeuL;
+
+    /* Connections:
+     *    DAI1_LOW - SRC7_CLK_IP_I
+     *    DAI1_LOW - SRC7_CLK_OP_I
+     *    DAI1_LOW - SPDIF1_TX_CLK_I
+     */
+    *pREG_DAI1_CLK2 = 0x3def7bdeuL;
+
     /* Connections:
      *    DAI1_LOW - SPDIF1_TX_HFCLK_I
      */
     *pREG_DAI1_CLK3 = 0x3def7bdeuL;
-#endif /* defined(SRU_FULL_INIT) */
 
     /* Connections:
-     *    DAI1_PB03_O - PCG0_EXTCLKC_I (non-default)
+     *    DAI1_LOW - PCG0_EXTCLKC_I
      *    DAI1_LOW - PCG0_EXTCLKD_I
      *    DAI1_LOW - SPDIF1_TX_EXT_SYNC_I
      *    DAI1_LOW - PCG0_SYNC_CLKC_I
      *    DAI1_LOW - PCG0_SYNC_CLKD_I
      */
-    *pREG_DAI1_CLK4 = 0x3def7bc2uL;
+    *pREG_DAI1_CLK4 = 0x3def7bdeuL;
 
-#if defined(SRU_FULL_INIT)
     /* Connections:
      *    DAI1_LOW - SPT7B_CLK_I
      *    DAI1_LOW - SPT7A_CLK_I
@@ -341,22 +339,22 @@ int32_t adi_SRU_Init(void)
 #endif /* defined(SRU_FULL_INIT) */
 
     /* Connections:
-     *    SRC4_TDM_IP_O - SRC5_DAT_IP_I (non-default)
+     *    DAI1_LOW - SRC5_DAT_IP_I (non-default)
      *    DAI1_PB18_O - SPT6B_D1_I
      *    DAI1_PB17_O - SPT6B_D0_I
-     *    SPT4B_D0_O - SRC4_DAT_IP_I (non-default)
-     *    SRC5_TDM_IP_O - SRC6_DAT_IP_I (non-default)
+     *    DAI1_LOW - SRC4_DAT_IP_I (non-default)
+     *    DAI1_LOW - SRC6_DAT_IP_I (non-default)
      */
-    *pREG_DAI1_DAT2 = 0x25916450uL;
+    *pREG_DAI1_DAT2 = 0x3efbe450uL;
 
     /* Connections:
      *    DAI1_LOW - SRC4_TDM_OP_I (non-default)
-     *    SRC6_DAT_OP_O - SRC7_TDM_OP_I (non-default)
-     *    SRC5_DAT_OP_O - SRC6_TDM_OP_I (non-default)
-     *    SRC6_TDM_IP_O - SRC7_DAT_IP_I (non-default)
-     *    SRC4_DAT_OP_O - SRC5_TDM_OP_I (non-default)
+     *    DAI1_LOW - SRC7_TDM_OP_I (non-default)
+     *    DAI1_LOW - SRC6_TDM_OP_I (non-default)
+     *    DAI1_LOW - SRC7_DAT_IP_I (non-default)
+     *    DAI1_LOW - SRC5_TDM_OP_I (non-default)
      */
-    *pREG_DAI1_DAT3 = 0x22860fa6uL;
+    *pREG_DAI1_DAT3 = 0x3efbefbeuL;
 
     /* Connections:
      *    DAI1_LOW - SPDIF1_TX_DAT_I (non-default)
@@ -380,32 +378,32 @@ int32_t adi_SRU_Init(void)
 
     /* Connections:
      *    DAI1_LOW - SPT6B_FS_I (non-default)
+     *    DAI1_PB04_O - SPT4B_FS_I (non-default)
      *    DAI1_PB14_O - SPT5A_FS_I
-     *    PCG0_FSC_O - SPT4B_FS_I (non-default)
      *    DAI1_LOW - SPT6A_FS_I (non-default)
      *    DAI1_PB14_O - SPT5B_FS_I
      *    DAI1_PB20_O - SPT4A_FS_I (non-default)
      */
-    *pREG_DAI1_FS0 = 0x3de6b793uL;
+    *pREG_DAI1_FS0 = 0x3de6b473uL;
 
+#if defined(SRU_FULL_INIT)
     /* Connections:
-     *    DAI1_PB04_O - SRC4_FS_OP_I (non-default)
-     *    PCG0_FSC_O - SRC6_FS_IP_I (non-default)
-     *    PCG0_FSC_O - SRC5_FS_IP_I (non-default)
-     *    DAI1_PB04_O - SRC6_FS_OP_I (non-default)
-     *    PCG0_FSC_O - SRC4_FS_IP_I (non-default)
-     *    DAI1_PB04_O - SRC5_FS_OP_I (non-default)
+     *    DAI1_LOW - SRC4_FS_OP_I
+     *    DAI1_LOW - SRC6_FS_IP_I
+     *    DAI1_LOW - SRC5_FS_IP_I
+     *    DAI1_LOW - SRC6_FS_OP_I
+     *    DAI1_LOW - SRC4_FS_IP_I
+     *    DAI1_LOW - SRC5_FS_OP_I
      */
-    *pREG_DAI1_FS1 = 0x07c1f07cuL;
+    *pREG_DAI1_FS1 = 0x3def7bdeuL;
 
     /* Connections:
      *    DAI1_LOW - SPDIF1_TX_FS_I
-     *    DAI1_PB04_O - SRC7_FS_OP_I (non-default)
-     *    PCG0_FSC_O - SRC7_FS_IP_I (non-default)
+     *    DAI1_LOW - SRC7_FS_OP_I
+     *    DAI1_LOW - SRC7_FS_IP_I
      */
-    *pREG_DAI1_FS2 = 0x3def787cuL;
+    *pREG_DAI1_FS2 = 0x3def7bdeuL;
 
-#if defined(SRU_FULL_INIT)
     /* Connections:
      *    DAI1_LOW - SPT7B_FS_I
      *    DAI1_LOW - SPT7A_FS_I
@@ -440,13 +438,13 @@ int32_t adi_SRU_Init(void)
 #endif /* defined(SRU_FULL_INIT) */
 
     /* Connections:
-     *    DAI1_LOW - DAI1_PBEN05_I (non-default)
+     *    DAI1_HIGH - DAI1_PBEN05_I (non-default)
      *    DAI1_HIGH - DAI1_PBEN01_I (non-default)
      *    DAI1_LOW - DAI1_PBEN02_I (non-default)
-     *    DAI1_LOW - DAI1_PBEN04_I (non-default)
      *    DAI1_LOW - DAI1_PBEN03_I (non-default)
+     *    DAI1_LOW - DAI1_PBEN04_I (non-default)
      */
-    *pREG_DAI1_PBEN0 = 0x00000001uL;
+    *pREG_DAI1_PBEN0 = 0x01000001uL;
 
     /* Connections:
      *    SPT5A_D1_PBEN_O - DAI1_PBEN10_I
@@ -480,18 +478,18 @@ int32_t adi_SRU_Init(void)
     /* Connections:
      *    DAI1_LOW - DAI1_PB04_I (non-default)
      *    DAI1_LOW - DAI1_PB02_I (non-default)
-     *    SPT4B_CLK_O - DAI1_PB03_I (non-default)
-     *    SRC7_DAT_OP_O - DAI1_PB01_I (non-default)
+     *    DAI1_LOW - DAI1_PB03_I (non-default)
+     *    SPT4B_D0_O - DAI1_PB01_I (non-default)
      */
-    *pREG_DAI1_PIN0 = 0x0fc87f40uL;
+    *pREG_DAI1_PIN0 = 0x0fdfbf16uL;
 
     /* Connections:
-     *    SPT4B_FS_O - DAI1_PB08_I
+     *    DAI1_LOW - DAI1_PB08_I (non-default)
      *    DAI1_LOW - DAI1_PB06_I (non-default)
      *    DAI1_LOW - DAI1_PB07_I (non-default)
-     *    DAI1_LOW - DAI1_PB05_I (non-default)
+     *    SPT4B_D1_O - DAI1_PB05_I (non-default)
      */
-    *pREG_DAI1_PIN1 = 0x04ffbf7euL;
+    *pREG_DAI1_PIN1 = 0x0fdfbf17uL;
 
     /* Connections:
      *    SPT5A_D0_O - DAI1_PB09_I
