@@ -7,7 +7,7 @@
 //#define ControlFIRA
 #define LowPassFilter
 #define LowPassFilter2
-#define NUM_AUDIO_SAMPLES_ADC       512u
+#define NUM_AUDIO_SAMPLES_ADC       2048u
 #define NUM_AUDIO_SAMPLES_ADC_1979      (NUM_AUDIO_SAMPLES_ADC/2*4)
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -24,7 +24,7 @@
 #define OSPMLength NUM_AUDIO_SAMPLES_ADC_SINGLE
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
 #define OSPMWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define OSPMOutputSize 256
+#define OSPMOutputSize 1024
 #define numErrorSignal 3
 #define numControlSignal 6
 #define NUM_DAC_CHANNELS				(8u)
@@ -42,7 +42,7 @@
 
 
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -121,7 +121,7 @@
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(48000u)
+#define SAMPLE_RATE_A   			(32000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)

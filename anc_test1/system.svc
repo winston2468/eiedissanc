@@ -194,7 +194,7 @@ It provides information needed to link your code. It can be used to configure me
 					</propertygroup>
 					<propertygroup name="pmcache" value="true">
 						<property name="disabled" value="false"/>
-						<property name="size_in_KB" value="32"/>
+						<property name="size_in_KB" value="64"/>
 					</propertygroup>
 					<propertygroup name="dmcache" value="true">
 						<property name="disabled" value="false"/>

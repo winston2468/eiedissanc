@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 core 1 linker description file generated on Sep 21, 2021 at 17:07:48.
+** ADSP-SC589 core 1 linker description file generated on Oct 06, 2021 at 16:41:03.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -155,8 +155,8 @@ MEMORY
    // The data cache attached to block 2 caches all the external memory access
    // requests for the PM bus. If the size of the cache is 128KB, the whole
    // of block 2 is cache.
-   // 32 KB at the end of block 2 is PM cache
-   mem_block2_bw           { TYPE(BW RAM) START(0x00300000) END(0x00317fff) WIDTH(8) }
+   // 64 KB at the end of block 2 is PM cache
+   mem_block2_bw           { TYPE(BW RAM) START(0x00300000) END(0x0030ffff) WIDTH(8) }
 
    // ----------------------- L1-Block 3 RAM (1 MBit) --------------------------
    // The instruction cache is attached to block 3.
@@ -784,7 +784,7 @@ PROCESSOR SC589_CORE_1
     // The values used match the bits in the L1C0_CFG register size bits or
     // -1 if cache is off.
 
-      ___ldf_pmcachesize = 1; // 32 KB PM cache
+      ___ldf_pmcachesize = 2; // 64 KB PM cache
       
       /*$VDSG<insert-new-sections-for-l1_block2>                */
       /* Text inserted between these $VDSG comments will be preserved */
