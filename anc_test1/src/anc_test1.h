@@ -4,6 +4,8 @@
 
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
+
+#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 //#define ControlFIRA
 #define LowPassFilter
 #define LowPassFilter2
@@ -25,8 +27,8 @@
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
 #define OSPMWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
 #define OSPMOutputSize 1024
-#define numErrorSignal 3
-#define numControlSignal 6
+#define numErrorSignal 2
+#define numControlSignal 2
 #define NUM_DAC_CHANNELS				(8u)
 #define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))

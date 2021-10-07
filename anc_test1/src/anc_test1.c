@@ -143,8 +143,8 @@ float OSPMRef[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 
 float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_DAC] = { 0 };
 
-float OSPMAWGNGain[numControlSignal][OSPMLength] = { 0 };
-float OSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
+ float OSPMAWGNGain[numControlSignal][OSPMLength] = { 0 };
+ float OSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
 float powerOSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
 float filteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
 float indirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength];
@@ -537,24 +537,24 @@ void MixerEnable(bool bEnable) {
 	if (bEnable) {
 		/* enable the record mixer (left) */
 		//0x5B 0 db
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x5B); /* +6 dB */
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x13); /* -12 dB */
 		CheckResult(result1);
 
 		/* enable the record mixer (right) */
 		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				0x5B); /* 0 dB */
+				0x13); /* 0 dB */
 		CheckResult(result1);
 		//RISING EDGE BCLK POLARITY
 		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
 		//CheckResult(result);
 #ifdef USE_ADAU1761_2
 		/* enable the record mixer (left) */
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,0x5B); /* 6 dB */
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,0x13); /* -12 dB */
 		CheckResult(result2);
 
 		/* enable the record mixer (right) */
 		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				0x5B); /* 0 dB */
+				0x13); /* 0 dB */
 		CheckResult(result2);
 #endif
 		/* disable the output mixer (left) */
@@ -1057,7 +1057,7 @@ int main(void) {
 				//Result = ProcessBufferADC2();
 				break;
 			case SUBMIT_RX_BUFFER:
-				ANCALG_2();
+				//ANCALG_2();
 				//ProcessBufferDAC();
 				break;
 			case START_RECORDING:
@@ -1553,13 +1553,12 @@ void ProcessBufferADC1(uint32_t iid, void* handlerArg) {
 #pragma vector_for(2)
 
 	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-		refSignal[i] = conv_float_by((pADC1Buffer[2 * i] << 8), -20);
-		errorSignal[0][i] = conv_float_by((pADC1Buffer[2 * i + 1] << 8), -20);
+		refSignal[i] = conv_float_by((pADC1Buffer[2 * i] << 8), -25);
+		errorSignal[0][i] = conv_float_by((pADC1Buffer[2 * i + 1] << 8), -21);
 
 	}
 
 	ADC1Flag = true;
-	ADC2Flag = true;
 	if(ADC1Flag && ADC2Flag &&DACFlag){
 		adi_sec_Raise(INTR_SOFT7);
 	}
@@ -1585,8 +1584,8 @@ void ProcessBufferADC2(uint32_t iid, void* handlerArg) {
 		//while (bMemCopyInProgress);
 #pragma vector_for(2)
 	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-		errorSignal[1][i] = conv_float_by((pADC2Buffer[2 * i] << 8), -20);
-		errorSignal[2][i] = conv_float_by((pADC2Buffer[2 * i + 1] << 8), -20);
+		errorSignal[1][i] = conv_float_by((pADC2Buffer[2 * i] << 8), -21);
+		//errorSignal[2][i] = conv_float_by((pADC2Buffer[2 * i + 1] << 8), -25);
 	}
 
 
@@ -1621,13 +1620,13 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 	#ifdef LowPassFilter
 		// ---------------------------------------   Enable Channels -----------------------------------------------
 		eResult = adi_mdma_IsCopyInProgress (hMemDmaStream, &bMemCopyInProgressANCALG2);
-
+/*
 		if(bMemCopyInProgressANCALG2){
 			while(bMemCopyInProgress);
 		}
 		else if (!bMemCopyInProgressANCALG2){
 			bMemCopyInProgressANCALG2Flag = true;
-		}
+		}*/
 
 	    bMemCopyInProgress = true;
 		eResult = adi_mdma_Copy1D (hMemDmaStream,
@@ -1664,7 +1663,7 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 	#pragma vector_for
 
 			for (uint32_t i = 0; i < OSPMLength; i++) {
-				OSPMAWGNSignal[j][i] = (float) OSPMAWGNGain[j][i]
+				OSPMAWGNSignal[j][i] = constrain(( OSPMAWGNGain[j][i]), -30,30)
 						* (float) AWGN_generator();
 
 			}
@@ -1697,8 +1696,8 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 		for (uint8_t j = 0; j < numControlSignal; j++) {
 	#pragma vector_for
 			for (uint32_t i = 0, l= NUM_AUDIO_SAMPLES_DAC-1; i < NUM_AUDIO_SAMPLES_DAC, l< NUM_AUDIO_SAMPLES_DAC*2; i++, l ++) {
-				outputSignal[j][i] = OSPMAWGNSignal[j][i];
-						//controlOutputBuff[j][l] + OSPMAWGNSignal[j][i];
+				//outputSignal[j][i] = OSPMAWGNSignal[j][i];
+				outputSignal[j][i] = controlOutputBuff[j][l] + OSPMAWGNSignal[j][i]*10000;
 			}
 
 		}
@@ -1724,23 +1723,24 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
 			//TDM8 SHIFT <<8
 
-			*pDst++ = (conv_fix_by(outputSignal[0][i], 15)) ;
-			*pDst++ = (conv_fix_by(outputSignal[1][i], 15)) ;
-			*pDst++ = (conv_fix_by(outputSignal[2][i], 15)) ;
-			*pDst++ = (conv_fix_by(outputSignal[3][i], 15)) ;
-			*pDst++ = (conv_fix_by(outputSignal[4][i], 15)) ;
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 1)) ;
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 1)) ;
+			*pDst++ = 0;
+			*pDst++ = 0;
 			*pDst++ = 0 ;
-			*pDst++ = (conv_fix_by(outputSignal[5][i], 15)) ;
+			*pDst++ = 0 ;
+			*pDst++ = 0 ;
 			*pDst++ = 0 ;
 
 		}
 
 
 
-		//ANCALG_2();
-		 if (bMemCopyInProgressANCALG2Flag){
+	ANCALG_2();
+
+		/*if (bMemCopyInProgressANCALG2Flag){
 			bMemCopyInProgress = true;
-		}
+		}*/
 
 	    ADC1Flag = false;
 	    ADC2Flag = false;
@@ -2384,8 +2384,8 @@ int32_t ANCALG_2(void) {
 			for (uint8_t j = 0; j < numControlSignal; j++) {
 				OSPMAuxSumTemp += OSPMOutputBuff[j][k][i];
 			}
-			filteredErrorSignal[k][i] = errorSignal[k][i] - OSPMAuxSumTemp;
-
+			filteredErrorSignal[k][i] =
+		  (errorSignal[k][i] - OSPMAuxSumTemp);
 		}
 	}
 
@@ -2396,8 +2396,9 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				indirectErrorSignal[j][k][i] = filteredErrorSignal[k][i]
-						+ OSPMOutputBuff[j][k][i];
+				indirectErrorSignal[j][k][i] =
+				(filteredErrorSignal[k][i]
+													+ OSPMOutputBuff[j][k][i]);
 			}
 		}
 	}
@@ -2407,10 +2408,10 @@ int32_t ANCALG_2(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for(OSPMOutputSize)
 		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-			powerOSPMAWGNSignal[j][i] = forgettingFactor
+			 powerOSPMAWGNSignal[j][i] = (forgettingFactor
 					* powerOSPMAWGNSignal[j][i]
 					+ (1.0 - forgettingFactor) * OSPMAWGNSignal[j][i]
-							* OSPMAWGNSignal[j][i];
+							* OSPMAWGNSignal[j][i]);
 		}
 	}
 
@@ -2419,10 +2420,11 @@ int32_t ANCALG_2(void) {
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-			powerFilteredErrorSignal[k][i] = forgettingFactor
-					* powerFilteredErrorSignal[k][i]
-					+ (1.0 - forgettingFactor) * filteredErrorSignal[k][i]
-							* filteredErrorSignal[k][i];
+			powerFilteredErrorSignal[k][i] =
+					(forgettingFactor
+							* powerFilteredErrorSignal[k][i]
+							+ (1.0 - forgettingFactor) * filteredErrorSignal[k][i]
+									* filteredErrorSignal[k][i]);
 		}
 	}
 
@@ -2433,11 +2435,15 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				powerIndirectErrorSignal[j][k][i] = forgettingFactor
-						* powerIndirectErrorSignal[j][k][i]
-						+ (1.0 - forgettingFactor)
-								* indirectErrorSignal[j][k][i]
-								* indirectErrorSignal[j][k][i];
+				powerIndirectErrorSignal[j][k][i] =
+						(forgettingFactor
+								* powerIndirectErrorSignal[j][k][i]
+								+ (1.0 - forgettingFactor)
+										* indirectErrorSignal[j][k][i]
+										* indirectErrorSignal[j][k][i]);
+
+
+
 			}
 		}
 	}
@@ -2449,8 +2455,9 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				stepSizeS[j][k][i] = (powerOSPMAWGNSignal[j][i] * stepSizeSMin)
-						/ powerIndirectErrorSignal[j][k][i];
+				stepSizeS[j][k][i] =
+						((powerOSPMAWGNSignal[j][i] * stepSizeSMin)
+								/ powerIndirectErrorSignal[j][k][i]);
 			}
 		}
 	}
@@ -2468,8 +2475,9 @@ int32_t ANCALG_2(void) {
 				powerpowerIndirectErrorSignalTemp +=
 						powerIndirectErrorSignal[j][k][i];
 			}
-			OSPMAWGNGain[j][i] = powerFilteredErrorSignalSumTemp
-					/ powerpowerIndirectErrorSignalTemp;
+			OSPMAWGNGain[j][i] = constrain((powerFilteredErrorSignalSumTemp
+					/ powerpowerIndirectErrorSignalTemp), -30,30);
+
 		}
 	}
 
@@ -2486,9 +2494,9 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (int32_t i = 0, l=OSPMOutputSize-1; i < OSPMOutputSize, l>(-1); i++,l--) {
-				OSPMCoeffBuff[j][k][l] = OSPMCoeffBuff[j][k][l]
+				OSPMCoeffBuff[j][k][l] = constrain((OSPMCoeffBuff[j][k][l]
 						+ (stepSizeS[j][k][i] * OSPMAWGNSignal[j][i]
-								* filteredErrorSignal[k][i]);
+								* filteredErrorSignal[k][i])), -1000, 1000 );
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOSPM[j][k],
 					OSPMCoeffBuff[j][k], OSPMCoeffBuff[j][k], 1);
@@ -2507,8 +2515,8 @@ int32_t ANCALG_2(void) {
 				filteredErrorSignal_OSPMRef_SumTemp += filteredErrorSignal[k][i]
 						* OSPMRef[j][k][i];
 			}
-			controlCoeffBuff[j][l] = controlCoeffBuff[j][l]
-					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp;
+			controlCoeffBuff[j][l] =  constrain((controlCoeffBuff[j][l]
+					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp), -1000,1000);
 
 		}
 	}
@@ -2518,8 +2526,7 @@ int32_t ANCALG_2(void) {
 		while (bMemCopyInProgress);
 #endif
 
-    // Initialize flag
-    bMemCopyInProgress = true;
+
     // Populate 2D Memory transfer instance for source channel
     Src_2DMemXfer.pStartAddress    = &OSPMAWGNSignal[0][0];
     Src_2DMemXfer.YCount           = numControlSignal;                    // Configure YCount for 2D transfer
@@ -2533,7 +2540,8 @@ int32_t ANCALG_2(void) {
     Dest_2DMemXfer.YModify         = 4;
     Dest_2DMemXfer.XCount          = OSPMLength;
     Dest_2DMemXfer.XModify         = 4;
-
+    // Initialize flag
+    bMemCopyInProgress = true;
     eResult = adi_mdma_Copy2D (hMemDmaStream,
     							MEMCOPY_MSIZE,
                                &Dest_2DMemXfer,
