@@ -4,7 +4,12 @@
 
 #ifndef __ANC_TEST1_H__
 #define __ANC_TEST1_H__
+#include "PKIC.h"
+#include "TRNG.h"
 
+
+
+void SPE1_ISR();
 #define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 //#define ControlFIRA
 #define LowPassFilter
@@ -156,13 +161,13 @@
 
 /* ADSP-SC589 Processor family */
 #if defined(__ADSPSC589_FAMILY__)
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       /* Stream 0 */
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       /* Stream 3 */
 /* SPU PID for MDMA0 Source */
 #define MDMA0_SRC_DMA8_SPU_PID      (88u)
 /* SPU PID for MDMA0 Destination */
 #define MDMA0_DST_DMA9_SPU_PID      (89u)
 
-#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S0)       /* Stream 0 */
+#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S2)       /* Stream 2 */
 /* SPU PID for MDMA1 Source */
 #define MDMA1_SRC_DMA18_SPU_PID      (90u)
 /* SPU PID for MDMA1 Destination */
