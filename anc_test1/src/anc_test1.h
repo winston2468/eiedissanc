@@ -10,11 +10,11 @@
 
 
 void SPE1_ISR();
-#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
+
 //#define ControlFIRA
 #define LowPassFilter
 #define LowPassFilter2
-#define NUM_AUDIO_SAMPLES_ADC       2048u
+#define NUM_AUDIO_SAMPLES_ADC       2048
 #define NUM_AUDIO_SAMPLES_ADC_1979      (NUM_AUDIO_SAMPLES_ADC/2*4)
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -39,9 +39,9 @@ void SPE1_ISR();
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_ADC_1979*4*sizeof(int32_t))
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
-#define pcgCLKDIV 2u
-  /* FS C kHz */
-#define pcgFSDIV 512u
+#define pcgCLKDIV 8u
+  /* FS 24.576 MHz /Fs kHz */
+#define pcgFSDIV 2048u
 
 
 #define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)

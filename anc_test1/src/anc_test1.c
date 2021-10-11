@@ -110,12 +110,15 @@ static ADI_DMA_2D_MEM_TRANSFER Dest_2DMemXfer;
 
 
 float refSignal[NUM_AUDIO_SAMPLES_ADC_SINGLE] = { 0 };
-
+float refSignal_store[NUM_AUDIO_SAMPLES_ADC_SINGLE] = { 0 };
+float dummy14[10]={0};
 float refSignalPastFuture[refInputSize+1] = { 0 };
-
+float dummy11[10]={0};
 float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_ADC / 2] = { 0 };
 
 float OSPMAWGNSignalPastFuture[numControlSignal][OSPMInputSize] = { 0 };
+float dummy20[10]={0};
+float errorSignal_store[numErrorSignal][NUM_AUDIO_SAMPLES_ADC / 2] = { 0 };
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
@@ -130,47 +133,57 @@ float refState[refLength+1] = { 0 };
 float controlInputBuff[controlInputSize+1] = { 0 };
 
 //float pm controlCoeffBuff[numControlSignal][controlLength] = { 0 };
-float dummy6[100]={0};
+
 float pm controlCoeffBuff1[controlLength] = { 0 };
-float dummy7[100]={0};
+
 float pm controlCoeffBuff2[controlLength] = { 0 };
 //float controlOutputBuff[numControlSignal][controlInputSize+1] = { 0 };
-float dummy4[100]={0};
+
 float controlOutputBuff1[controlInputSize+1] = { 0 };
-float dummy5[100]={0};
+
 float controlOutputBuff2[controlInputSize+1] = { 0 };
-float dummy2[100]={0};
+
 //float controlState[numControlSignal][controlLength+1] = { 0 };
 float controlState1[controlLength+1] = { 0 };
-float dummy8[100]={0};
+
 float controlState2[controlLength+1] = { 0 };
-float dummy9[100]={0};
+
 uint8_t ConfigMemoryOSPM[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryOSPM[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
 ADI_FIR_CHANNEL_PARAMS channelOSPM[numControlSignal][numErrorSignal];
+
 float OSPMInputBuff[OSPMInputSize] = { 0 };
+
 float OSPMCoeffBuff[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
 float OSPMRef[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 //float OSPMAux[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
-
+float dummy7[20]={0};
 float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_DAC] = { 0 };
-float dummy[100] = {0};
- float OSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
- float dummy1[100] = {0};
+float dummy1[20]={0};
+float OSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
+
 float filteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
+
+float OSPMAWGNGain[numControlSignal][OSPMLength] = { 0 };
+float powerOSPMAWGNSignal[numControlSignal][OSPMLength] = { 0 };
+float indirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength];
+float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OSPMLength] = {
+		0 };
+float powerFilteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
+float stepSizeS[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
 
 
+float dummy21[10]={0};
 float OSPMOutputBuff[numControlSignal][numErrorSignal][OSPMOutputSize];
-
-
+float dummy23[10]={0};
 #pragma alignment_region_end
 
 #ifdef LowPassFilter
 #pragma align (4)
 float refOutputBuff[refInputSize+1]={0};
-
+float dummy18[10]={0};
 #endif
 
 
@@ -192,7 +205,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 unsigned int *randSeed;
  unsigned int randSeedInt = 0;
 float forgettingFactor = 0.6;
-float stepSizeSMin = 0.001;
+float stepSizeSMin = 0.00001;
 
 /* the ADAU1761 Rec Mixer Left 0 register */
 #define REC_MIX_LEFT_REG    (0x400A)
@@ -323,6 +336,19 @@ uint32_t Adau1962aInit(void);
 uint32_t    Adau1979SubmitBuffers(void);
 /* Submit buffers to DAC */
 uint32_t Adau1962aSubmitBuffers(void);
+float constrain(float input, float low, float high){
+	if (input > high){
+		return high;
+	}
+	else if (input < low){
+		return low;
+	}
+	else{
+		return input;
+	}
+
+
+};
 void ProcessBufferADC1(uint32_t iid, void* handlerArg);
 void ProcessBufferADC2(uint32_t iid, void* handlerArg);
 void ProcessBufferDAC(uint32_t iid, void* handlerArg);
@@ -720,7 +746,7 @@ int32_t FIR_init() {
 	ADI_FIR_RESULT res;
 
 
-
+	//reverseArrayf(refCoeffBuff, sizeof(refCoeffBuff));
 	/*
 	 for (int32_t j = 0; j < numControlSignal; j++) {
 	 for (int32_t k = 0; k < numErrorSignal; k++) {
@@ -730,6 +756,23 @@ int32_t FIR_init() {
 	 }
 	 }
 	 */
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+		for (int32_t i = 0; i < OSPMLength; i++) {
+			powerOSPMAWGNSignal[j][i] = 0.0001;
+		}
+		for (uint8_t k = 0; k < numErrorSignal; k++) {
+			for (int32_t i = 0; i < OSPMLength; i++) {
+				powerIndirectErrorSignal[j][k][i] = 1.0;
+				OSPMAWGNGain[j][i] = 0.00001;
+			}
+		}
+	}
+
+	for (uint8_t k = 0; k < numErrorSignal; k++) {
+		for (int32_t i = 0; i < OSPMLength; i++) {
+			powerFilteredErrorSignal[k][i] = 1.0;
+		}
+	}
 
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
@@ -741,16 +784,16 @@ int32_t FIR_init() {
 		*/
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
-				OSPMCoeffBuff[j][k][i] = 0.0000001;
+				OSPMCoeffBuff[j][k][i] = 1;
 			}
 		}
 	}
 
 	for (int32_t i = 0; i < controlLength; i++) {
-		controlCoeffBuff1[i] = 0.0000001;		//0.0000001;
+		controlCoeffBuff1[i] = 1;		//0.0000001;
 	}
 	for (int32_t i = 0; i < controlLength; i++) {
-		controlCoeffBuff2[i] = 0.0000001;		//0.0000001;
+		controlCoeffBuff2[i] = 1;		//0.0000001;
 	}
 
 #ifdef LowPassFilter
@@ -923,6 +966,10 @@ int main(void) {
 	if (Result == 0u) {
 		Result = DMAInit();
 	}
+
+
+
+	configGpio();
 /*
 	if (Result == 0u) {
 		Result = PcgInit();
@@ -930,9 +977,6 @@ int main(void) {
 	if (Result == 0u) {
 		Result = AsrcDacInit();
 	}
-*/
-	configGpio();
-	/*
 	// Enable the PCG
 	if (Result == 0u) {
 		Result = (uint32_t) adi_pcg_Enable(phPcg, true);
@@ -1773,6 +1817,23 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 	    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
 	    }
 
+#ifdef LowPassFilter
+		for (int32_t i = 0; i < refLength; i++) {
+					refState[i] = 0;
+				}
+#endif
+
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+
+		 for (int32_t i = 0; i < controlLength; i++) {
+		 /*
+		controlState[j][i] = 0;
+		*/
+
+		controlState1[i] = 0;
+		controlState2[i] = 0;
+		 }
+	}
 		while (bMemCopyInProgress);
 
 		//memcpy(&refInputBuff[0],refSignal, 4*NUM_AUDIO_SAMPLES_ADC_SINGLE);
@@ -1782,6 +1843,7 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 		for(uint8_t j =0; j<numControlSignal; j++){
 		firf(refOutputBuff, &controlOutputBuff[j], controlCoeffBuff[j], controlState[j], controlInputSize+1, controlLength);
 		}*/
+
 		firf(refOutputBuff, controlOutputBuff1, controlCoeffBuff1, controlState1, controlInputSize+1, controlLength);
 		firf(refOutputBuff, controlOutputBuff2, controlCoeffBuff2, controlState2, controlInputSize+1, controlLength);
 	#else
@@ -1793,11 +1855,9 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 	#endif
 	#pragma vector_for
 		for (uint8_t j = 0; j < numControlSignal; j++) {
-#pragma vector_for
-			for (uint32_t i = 0, l=OSPMLength; i < OSPMLength, l <(OSPMLength*2-1); i++,l++) {
-				OSPMAWGNSignal[j][i] = 1
+			for (uint32_t i = 0; i < OSPMLength; i++) {
+				OSPMAWGNSignal[j][i] = OSPMAWGNGain[j][i]
 						* (float) AWGN_generator();
-				OSPMAWGNSignalPastFuture[j][l] = OSPMAWGNSignal[j][i];
 			}
 
 /*
@@ -1837,11 +1897,11 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 */
 
 #pragma vector_for
-		for (uint32_t i = 0, l= NUM_AUDIO_SAMPLES_DAC-1; i < NUM_AUDIO_SAMPLES_DAC, l< NUM_AUDIO_SAMPLES_DAC*2; i++, l ++) {
+		for (uint32_t i = 0, l= NUM_AUDIO_SAMPLES_DAC-1; i < NUM_AUDIO_SAMPLES_DAC, l< NUM_AUDIO_SAMPLES_DAC*2-2; i++, l ++) {
 			//outputSignal[j][i] = OSPMAWGNSignal[j][i];
-			outputSignal[0][i] = controlOutputBuff1[l] + OSPMAWGNSignal[0][i]*10000.0//
+			outputSignal[0][i] = controlOutputBuff1[l] + OSPMAWGNSignal[0][i]*10//
 					;
-			outputSignal[1][i] = controlOutputBuff2[l] + OSPMAWGNSignal[1][i]*10000.0//
+			outputSignal[1][i] = controlOutputBuff2[l] + OSPMAWGNSignal[1][i]*10//
 					;
 		}
 
@@ -1865,13 +1925,13 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
 			//TDM8 SHIFT <<8
 
-			*pDst++ = (conv_fix_by(outputSignal[0][i], 5)) ;
-			*pDst++ = (conv_fix_by(outputSignal[1][i], 5)) ;
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 15)) ;
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 15)) ;
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0 ;
 			*pDst++ = 0 ;
-			*pDst++ = 0 ;
+			*pDst++ = 0;
 			*pDst++ = 0 ;
 
 		}
@@ -2343,13 +2403,32 @@ int32_t ANCALG_2(void) {
 
 
 
+
+
 #else
+
+    /* Initialize flag */
+    bMemCopyInProgress = true;
+	eResult = adi_mdma_Copy1D (hMemDmaStream,
+		                                   (void *)&refSignal_store[0],
+		                                   (void *)&refSignal[0],
+		                                   MEMCOPY_MSIZE,
+										   (refLength)
+										   );
+
+    /* IF (Failure) */
+    if (eResult != ADI_DMA_SUCCESS)
+    {
+    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
+    }
+	while (bMemCopyInProgress);
+
 
 		    /* Initialize flag */
 		    bMemCopyInProgress = true;
 			eResult = adi_mdma_Copy1D (hMemDmaStream,
 				                                   (void *)&refSignalPastFuture[(refLength/2)],
-				                                   (void *)&refSignal[0],
+				                                   (void *)&refSignal_store[0],
 				                                   MEMCOPY_MSIZE,
 												   (refLength -1)
 												   );
@@ -2362,8 +2441,6 @@ int32_t ANCALG_2(void) {
 
 
 			while (bMemCopyInProgress);
-
-
 #pragma vector_for
 	for(uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
@@ -2377,7 +2454,12 @@ int32_t ANCALG_2(void) {
 			}
 		}
 	}
+
+
+
 #endif
+
+
 
 
 
@@ -2394,11 +2476,14 @@ int32_t ANCALG_2(void) {
 		}
 	}
 
-	bOSPMFIRInProgress = true;
+
 	res = adi_fir_EnableConfig(hConfigOSPM, true);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
+	}
+	else{
+		bOSPMFIRInProgress = true;
 	}
 
 
@@ -2453,7 +2538,22 @@ int32_t ANCALG_2(void) {
 
 	}
 
+#pragma vector_for
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (uint32_t i = 0, l=OSPMLength; i < OSPMLength, l <(OSPMLength*2-1); i++,l++) {
+			OSPMAWGNSignalPastFuture[j][l] = OSPMAWGNSignal[j][i];
 
+		}
+	}
+#pragma vector_for
+	for (uint8_t j = 0; j < numErrorSignal; j++) {
+#pragma vector_for
+		for (uint32_t i = 0; i < OSPMLength; i++) {
+			errorSignal_store[j][i]= errorSignal[j][i];
+
+		}
+	}
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			res = adi_fir_SubmitInputCircBuffer(hChannelOSPM[j][k],
@@ -2479,34 +2579,39 @@ int32_t ANCALG_2(void) {
 
 		}
 	}
-	bOSPMFIRInProgress = true;
+
 	res = adi_fir_EnableConfig(hConfigOSPM, true);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
+	else{
+		bOSPMFIRInProgress = true;
+	}
+
+
 
 #ifndef LowPassFilter
-	    // Initialize flag
-	    bMemCopyInProgress = true;
-		eResult = adi_mdma_Copy1D (hMemDmaStream,
-			                                   (void *)&refSignalPastFuture[0],
-			                                   (void *)&refSignal[0],
-			                                   MEMCOPY_MSIZE,
-											   refLength);
+		    // Initialize flag
+		    bMemCopyInProgress = true;
+			eResult = adi_mdma_Copy1D (hMemDmaStream,
+				                                   (void *)&refSignalPastFuture[0],
+				                                   (void *)&refSignal_store[0],
+				                                   MEMCOPY_MSIZE,
+												   refLength);
 
-	    // IF (Failure)
-	    if (eResult != ADI_DMA_SUCCESS)
-	    {
-	    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-	    }
+		    // IF (Failure)
+		    if (eResult != ADI_DMA_SUCCESS)
+		    {
+		    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
 
+		    }
+		    while (bMemCopyInProgress);
 #endif
 
 
-	while(bOSPMFIRInProgress);
 
-
+		while(bOSPMFIRInProgress);
 	//cycle_t start_count=0;
 
 	// cycle_t final_count=0;
@@ -2523,11 +2628,105 @@ int32_t ANCALG_2(void) {
 				OSPMAuxSumTemp += OSPMOutputBuff[j][k][i];
 			}
 			filteredErrorSignal[k][i] =
-		  (errorSignal[k][i] - OSPMAuxSumTemp);
+		  (errorSignal_store[k][i] - OSPMAuxSumTemp);
 		}
 	}
 
 
+
+
+
+	//INDIRECT ERROR SIGNAL
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for(numErrorSignal)
+		for (uint8_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for(OSPMOutputSize)
+			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+				indirectErrorSignal[j][k][i] =
+				(filteredErrorSignal[k][i]
+													+ OSPMOutputBuff[j][k][i]);
+			}
+		}
+	}
+
+	//	power of OSPMAWGNSignal
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for(OSPMOutputSize)
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+			 powerOSPMAWGNSignal[j][i] = (forgettingFactor
+					* powerOSPMAWGNSignal[j][i]
+					+ (1.0 - forgettingFactor) * OSPMAWGNSignal[j][i]
+							* OSPMAWGNSignal[j][i]);
+		}
+	}
+
+	//	power of filteredErrorSignal
+#pragma vector_for(numErrorSignal)
+	for (uint8_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for(OSPMOutputSize)
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+			powerFilteredErrorSignal[k][i] =
+					(forgettingFactor
+							* powerFilteredErrorSignal[k][i]
+							+ (1.0 - forgettingFactor) * filteredErrorSignal[k][i]
+									* filteredErrorSignal[k][i]);
+		}
+	}
+
+	//power of indirectErrorSignal
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for(numErrorSignal)
+		for (uint8_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for(OSPMOutputSize)
+			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+				powerIndirectErrorSignal[j][k][i] =
+						(forgettingFactor
+								* powerIndirectErrorSignal[j][k][i]
+								+ (1.0 - forgettingFactor)
+										* indirectErrorSignal[j][k][i]
+										* indirectErrorSignal[j][k][i]);
+
+
+
+			}
+		}
+	}
+
+	//stepSizeS
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for(numErrorSignal)
+		for (uint8_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for(OSPMOutputSize)
+			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+				stepSizeS[j][k][i] =
+						((powerOSPMAWGNSignal[j][i] * stepSizeSMin)
+								/ powerIndirectErrorSignal[j][k][i]);
+			}
+		}
+	}
+
+	//OSPMAWGNGain
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
+			float powerFilteredErrorSignalSumTemp = 0;
+			float powerpowerIndirectErrorSignalTemp = 0;
+
+			for (uint8_t k = 0; k < numErrorSignal; k++) {
+				powerFilteredErrorSignalSumTemp +=
+						powerFilteredErrorSignal[k][i];
+				powerpowerIndirectErrorSignalTemp +=
+						powerIndirectErrorSignal[j][k][i];
+			}
+			OSPMAWGNGain[j][i] = constrain((powerFilteredErrorSignalSumTemp
+					/ powerpowerIndirectErrorSignalTemp), -100,100);
+
+		}
+	}
 
 
 
@@ -2545,8 +2744,8 @@ int32_t ANCALG_2(void) {
 #pragma vector_for(OSPMOutputSize)
 			for (int32_t i = 0, l=OSPMOutputSize-1; i < OSPMOutputSize, l>(-1); i++,l--) {
 				OSPMCoeffBuff[j][k][l] = constrain((OSPMCoeffBuff[j][k][l]
-						+ (0.001 * OSPMAWGNSignal[j][i]
-								* filteredErrorSignal[k][i])), -1000, 1000 );
+						+ (stepSizeS[j][k][i] * OSPMAWGNSignal[j][i]
+								* filteredErrorSignal[k][i])), -0.01, 0.01 );
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOSPM[j][k],
 					OSPMCoeffBuff[j][k], OSPMCoeffBuff[j][k], 1);
@@ -2581,10 +2780,10 @@ int32_t ANCALG_2(void) {
 				filteredErrorSignal_OSPMRef_SumTemp1 += filteredErrorSignal[k][i]
 							* OSPMRef[1][k][i];
 			}
-			controlCoeffBuff1[l] =  (controlCoeffBuff1[l]
-					+ stepSizeW[0] * filteredErrorSignal_OSPMRef_SumTemp);
-			controlCoeffBuff2[l] =  (controlCoeffBuff2[l]
-					+ stepSizeW[1] * filteredErrorSignal_OSPMRef_SumTemp1);
+			controlCoeffBuff1[l] =  constrain((controlCoeffBuff1[l]
+					+ stepSizeW[0] * filteredErrorSignal_OSPMRef_SumTemp*0.1), -1,1);
+			controlCoeffBuff2[l] =  constrain((controlCoeffBuff2[l]
+					+ stepSizeW[1] * filteredErrorSignal_OSPMRef_SumTemp1*0.1), -1,1);
 		}
 
 #ifndef LowPassFilter
