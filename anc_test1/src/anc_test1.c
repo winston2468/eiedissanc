@@ -41,8 +41,6 @@
 #include <drivers/asrc/adi_asrc.h>
 #include <services/pcg/adi_pcg.h>
 
-
-
 #ifdef __ADSPARM__
 #include <runtime/cache/adi_cache.h>
 
@@ -63,7 +61,7 @@
 
  #define DSTALIGN ADI_CACHE_ALIGN_MIN_4
  #define SRCALIGN _Pragma("align 4")
-*/
+ */
 
 #include <filter.h>
 #include "cycle_count.h"
@@ -87,20 +85,30 @@ static ADI_ASRC_HANDLE phAsrc7;
 uint8_t PcgMemory[ADI_PCG_MEMORY_SIZE];
 static ADI_PCG_HANDLE phPcg;
 
-
 /* DMA Stream Handle */
-static ADI_DMA_STREAM_HANDLE   hMemDmaStream;
+static ADI_DMA_STREAM_HANDLE hMemDmaStream;
 /* Source DMA Handle */
-static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel;
+static ADI_DMA_CHANNEL_HANDLE hSrcDmaChannel;
 /* Destination DMA Handle */
-static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel;
+static ADI_DMA_CHANNEL_HANDLE hDestDmaChannel;
 
+
+volatile bool bEnableOutput = true;
+volatile bool bEnableOSPM = true;
 static volatile bool bMemCopyInProgress = false;
 static volatile bool bOSPMFIRInProgress = false;
-static bool bMemCopyInProgressANCALG2 = false;
-static bool bMemCopyInProgressANCALG2Flag = false;
+
 float pm controlCoeffBuff[numControlSignal][controlLength] = { 0 };
-float controlState[numControlSignal][controlLength+1] = { 0 };
+
+float controlState[numControlSignal][controlLength + 1] = { 0 };
+
+#ifdef LowPassFilter
+
+float pm refCoeffBuff[refLength] = {
+#include "data/lowpass_filter_2000_2500.dat"
+		};
+float refState[refLength + 1] = { 0 };
+#endif
 #pragma alignment_region (4)
 /* Memory to handle DMA Stream */
 static uint8_t MemDmaStreamMem[ADI_DMA_STREAM_REQ_MEMORY];
@@ -109,37 +117,26 @@ static ADI_DMA_2D_MEM_TRANSFER Dest_2DMemXfer;
 
 /* ----------------------------   FIR Configuration ------------------------------------------- */
 
-
-
-float refSignalPastFuture[refInputSize+1] = { 0 };
+float refSignalPastFuture[refInputSize + 1] = { 0 };
 float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_ADC / 2] = { 0 };
 
 float OSPMAWGNSignalPastFuture[numControlSignal][OSPMInputSize] = { 0 };
-float dummy20[10]={0};
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
 #ifdef LowPassFilter
-float refInputBuff[refInputSize+1] = { 0 };
-float pm refCoeffBuff[refLength] = {
-#include "data/lowpass_filter_2000_2500.dat"
-		};
-float refState[refLength+1] = { 0 };
+float refInputBuff[refInputSize + 1] = { 0 };
+
 #endif
 
-
-
-float controlOutputBuff[numControlSignal][controlInputSize+1] = { 0 };
-
-
-
+float controlOutputBuff[numControlSignal][controlInputSize + 1] = { 0 };
 
 uint8_t ConfigMemoryOSPM[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryOSPM[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
 ADI_FIR_CHANNEL_PARAMS channelOSPM[numControlSignal][numErrorSignal];
-float dummy1[10]={0};
+float dummy1[10] = { 0 };
 float OSPMInputBuff[OSPMInputSize] = { 0 };
-float dummy2[10]={0};
+float dummy2[10] = { 0 };
 
 float OSPMCoeffBuff[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 
@@ -159,46 +156,34 @@ float powerFilteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
 float stepSizeS[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
 
-
-float dummy21[10]={0};
+float dummy3[10] = { 0 };
 float OSPMOutputBuff[numControlSignal][numErrorSignal][OSPMOutputSize];
-float dummy23[10]={0};
+float dummy4[10] = { 0 };
 #pragma alignment_region_end
 
 #ifdef LowPassFilter
 #pragma align (4)
-float refOutputBuff[refInputSize+1]={0};
-float dummy18[10]={0};
+float dummy5[10] = { 0 };
+float refOutputBuff[refInputSize + 1] = { 0 };
+float dummy6[10] = { 0 };
 #endif
 
-
- ADI_FIR_RESULT res;
- ADI_FIR_HANDLE hFir;
- ADI_FIR_CONFIG_HANDLE hConfigOSPM;
+ADI_FIR_RESULT res;
+ADI_FIR_HANDLE hFir;
+ADI_FIR_CONFIG_HANDLE hConfigOSPM;
 
 ADI_FIR_CHANNEL_HANDLE hChannelOSPM[numControlSignal][numErrorSignal];
-
 
 #ifdef LowPassFilter
 ADI_FIR_CONFIG_HANDLE hConfigRef;
 ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
-
 #endif
 
-
 unsigned int *randSeed;
- unsigned int randSeedInt = 0;
+unsigned int randSeedInt = 0;
 float forgettingFactor = 0.6;
 float stepSizeSMin = 0.00001;
-
-/* the ADAU1761 Rec Mixer Left 0 register */
-#define REC_MIX_LEFT_REG    (0x400A)
-/* the ADAU1761 Rec Mixer Right 0 register */
-#define REC_MIX_RIGHT_REG   (0x400C)
-
-/* codec device instance to be tested */
-#define ADAU1761_DEV_NUM          0
 
 #define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
 
@@ -207,57 +192,17 @@ float stepSizeSMin = 0.00001;
 //#define MAXCOUNT (50000000u)
 /*=============  D A T A  =============*/
 
-#pragma align(4)
-static uint8_t sportRxMem1[ADI_SPORT_DMA_MEMORY_SIZE];
+volatile bool ADCFlag = false;
 
-/* Memory required for codec driver */
-static uint8_t codecMem1[ADI_ADAU1761_MEMORY_SIZE];
-
-/* adau1761 device handle */
-static ADI_ADAU1761_HANDLE hADAU1761_1;
-#pragma align(4)
-int32_t AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 2];
-volatile void *pGetADC1 = NULL;
-void *pADC1;
-int32_t *pADC1Buffer;
-
-volatile bool ADC1Flag =false;
-
-#ifdef USE_ADAU1761_2
-
-static ADI_ADAU1761_HANDLE hADAU1761_2;
-
-#define ADAU1761_DEV_NUM1          1
-#pragma align 4
-int32_t AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 2];
-
-#pragma align(4)
-static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
-
-static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
-
-volatile void *pGetADC2 = NULL;
-void *pADC2;
-int32_t *pADC2Buffer;
-volatile bool ADC2Flag =false;
-#endif
+int32_t *pADCBuffer;
 int32_t *pSrc;
 
 int32_t *pDst;
-volatile bool DACFlag =false;
+volatile bool DACFlag = false;
 static uint8_t DacMasterVolume = 0; //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 
 typedef enum {
-	NONE,
-	START_RECORDING,
-	ENABLE_DAC,
-	STOP_RECORDING,
-	START_PLAYBACK,
-	STOP_PLAYBACK,
-	SUBMIT_RX_BUFFER,
-	SUBMIT_RX_BUFFER_ADC1,
-	SUBMIT_RX_BUFFER_ADC2,
-
+	NONE, START_RECORDING, SUBMIT_RX_BUFFER
 } MODE;
 
 static MODE eMode = NONE;
@@ -268,7 +213,7 @@ static bool bError;
 static uint32_t count;
 
 volatile bool bEvent;
-volatile uint64_t rngcount=0;
+volatile uint64_t rngcount = 0;
 /* Twi  */
 uint32_t TwiMemory[ADI_TWI_MEMORY_SIZE];
 /* ADAU1962A DAC DATA */
@@ -283,7 +228,6 @@ uint32_t Adau1979Memory[ADI_ADAU1979_MEMORY_SIZE];
 /* ADAU1979 Sport */
 uint32_t Adau1979SportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
-
 /* Counter to keep track of number of ADC/DAC buffers processed */
 volatile uint32_t AdcCount = 0u;
 volatile uint32_t DacCount = 0u;
@@ -297,8 +241,7 @@ void *pADC;
 volatile bool OSPMInProgress = false;
 /* Flag to register callback error */
 volatile bool bEventError = false;
-//int randomNumberBuff[4];
-//int randomNumberBuffOld[2];
+
 /* Dac linear buffer that is divided into 2 sub buffers; ping and pong  */
 #pragma align(4)
 int32_t DacBuf[NUM_AUDIO_SAMPLES_DAC * NUM_DAC_CHANNELS * 2];
@@ -314,47 +257,37 @@ static ADI_SPU_HANDLE hSpu;
 /* Initialize GPIO and reset peripherals */
 uint32_t GpioInit(void);
 /* Initializes ADC */
-uint32_t    Adau1979Init(void);
+uint32_t Adau1979Init(void);
 /* Initializes DAC */
 uint32_t Adau1962aInit(void);
 /* Submit buffers to ADC */
-uint32_t    Adau1979SubmitBuffers(void);
+uint32_t Adau1979SubmitBuffers(void);
 /* Submit buffers to DAC */
 uint32_t Adau1962aSubmitBuffers(void);
-float constrain(float input, float low, float high){
-	if (input > high){
+float constrain(float input, float low, float high) {
+	if (input > high) {
 		return high;
-	}
-	else if (input < low){
+	} else if (input < low) {
 		return low;
-	}
-	else{
+	} else {
 		return input;
 	}
 
+}
+;
 
-};
-void ProcessBufferADC1(uint32_t iid, void* handlerArg);
-void ProcessBufferADC2(uint32_t iid, void* handlerArg);
+void ProcessBufferADC(uint32_t iid, void* handlerArg);
 void ProcessBufferDAC(uint32_t iid, void* handlerArg);
 void VolControl(void);
 int32_t FIR_init(void);
 void reverseArrayf(float*, uint32_t);
-uint32_t Adau1962aSubmitBuffers(void);
-int32_t ANCALG_1(void);
 int32_t ANCALG_2(void);
-int32_t ANCALG_3(void);
-int32_t ANCALG_4(void);
-int32_t ANCALG_5(void);
 int8_t DisableAllOSPMChannels(void);
 float AWGN_generator(void);
 uint32_t SpuInit(void);
 uint32_t DMAInit(void);
 uint32_t PcgInit(void);
 uint32_t AsrcDacInit(void);
-void PKIC_ISR(uint32_t iid, void* handlerArg);
-void TRNG_ISR(void);
-volatile bool TRNGFlag = false;
 static void LowPassFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void ControlFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void OSPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
@@ -366,70 +299,25 @@ void AdcCallback(void *pCBParam, uint32_t nEvent, void *pArg);
 void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg);
 int rand_r_imp(unsigned int *seed);
 
-
 extern void ConfigSoftSwitches(void);
-int
-rand_r_imp (unsigned int *seed)
-{
-  unsigned int next = *seed;
-  int result;
-  next *= 1103515245;
-  next += 12345;
-  result = (unsigned int) (next / 65536) % 2048;
-  next *= 1103515245;
-  next += 12345;
-  result <<= 10;
-  result ^= (unsigned int) (next / 65536) % 1024;
-  next *= 1103515245;
-  next += 12345;
-  result <<= 10;
-  result ^= (unsigned int) (next / 65536) % 1024;
-  *seed = next;
-  return result;
-}
-/*
-void PKIC_ISR(uint32_t iid, void* handlerArg)
-{
-	int iTemp,iTemp2;
-	iTemp=Read_PKIC_Masked_Interrupt_Source();
-	iTemp2=iTemp && 0x8;
-	if((iTemp && 0x8) ==1)
-	{
-		PKIC_Interrupt_ACK(0x8);
-		TRNG_ISR();
-	}
-	else
-		PKIC_Interrupt_ACK(iTemp);
+int rand_r_imp(unsigned int *seed) {
+	unsigned int next = *seed;
+	int result;
+	next *= 1103515245;
+	next += 12345;
+	result = (unsigned int) (next / 65536) % 2048;
+	next *= 1103515245;
+	next += 12345;
+	result <<= 10;
+	result ^= (unsigned int) (next / 65536) % 1024;
+	next *= 1103515245;
+	next += 12345;
+	result <<= 10;
+	result ^= (unsigned int) (next / 65536) % 1024;
+	*seed = next;
+	return result;
 }
 
-void TRNG_ISR()
-{
-int iTemp,iTemp2,iTemp3;
-iTemp= Read_TRNG_Stat();
-if((iTemp & 0x2)==1)
-{
-
-	iTemp2= Read_Alarm_Mask();
-	iTemp3=Read_Alarm_Stop();			//Fro will be disbaled automatically.
-    if(iTemp2==iTemp3)
-    {
-    	printf("\n FRO shutdown \n");
-    	Disbale_FRO(iTemp3);
-    	Detune_FRO(iTemp3);
-    }
-    Acknowledge_Interrupt(iTemp);
-}
-if((iTemp & 0x1)==1)
-{
-	Read_TRNG_Output(randomNumberBuff);
-	TRNGFlag=true;
-	Acknowledge_Interrupt(iTemp);
-
-}
-
-asm("nop;");
-}
-*/
 static void CheckResult(ADI_ADAU1761_RESULT result) {
 	if (result != ADI_ADAU1761_SUCCESS) {
 		printf("Codec failure\n");
@@ -444,70 +332,37 @@ static void CheckGpioResult(ADI_GPIO_RESULT result) {
 	}
 }
 
-/* codec callback */
-static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
-	switch (Event) {
-	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
-		/* re-sumbit the buffer for processing */
-		//AdcCount++;
-		pGetADC1 = pArg;
-		pADC1 = (void *) pGetADC1;
-		/*
-		ADC1Flag =true;
-		if(ADC1Flag && ADC2Flag &&DACFlag){
-			eMode=SUBMIT_RX_BUFFER;
-			bEvent=true;
-		}*/
-	    adi_sec_Raise(INTR_SOFT5);
-		break;
-	default:
-		printf("test1");
-		break;
-	}
-}
-
-#ifdef USE_ADAU1761_2
-/* codec callback */
-static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
-	switch (Event) {
-	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
-		//AdcCount++;
-		pGetADC2 = pArg;
-		pADC2 = (void *) pGetADC2;
-		/*
-		ADC2Flag =true;
-		if(ADC1Flag && ADC2Flag &&DACFlag){
-			eMode=SUBMIT_RX_BUFFER;
-			bEvent=true;
-		}
-		*/
-		adi_sec_Raise(INTR_SOFT6);
-		break;
-	default:
-		printf("test2");
-		break;
-
-	}
-}
-#endif
-
 void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 		void *pCBParam) {
 	if (ePinInt == PUSH_BUTTON1_PINT) {
 		//push button 1
 		if (PinIntData & PUSH_BUTTON1_PINT_PIN) {
+			if(bEnableOutput){
 			//LED on
+			adi_gpio_Clear(LED1_PORT, LED1_PIN);
+			bEnableOutput = false;
+			}
+			else{
+			//LED off
 			adi_gpio_Set(LED1_PORT, LED1_PIN);
+			bEnableOutput = true;
+			}
 
-			//bEvent = true;
 		}
 	}
 	if (ePinInt == PUSH_BUTTON2_PINT) {
 		//push button 2
 		if (PinIntData & PUSH_BUTTON2_PINT_PIN) {
-			//LED on
+			if(bEnableOutput){
+			//LED onbEnableOSPM
+			adi_gpio_Clear(LED2_PORT, LED2_PIN);
+			bEnableOSPM = false;
+			}
+			else{
+			//LED off
 			adi_gpio_Set(LED2_PORT, LED2_PIN);
-			//bEvent = true;
+			bEnableOSPM = true;
+			}
 		}
 	}
 
@@ -620,116 +475,10 @@ void configGpio(void) {
 		;
 }
 
-void MixerEnable(bool bEnable) {
-	ADI_ADAU1761_RESULT result1;
-	ADI_ADAU1761_RESULT result2;
-	uint8_t value;
-
-#ifdef USE_LINE_IN
-	if (bEnable) {
-		/* enable the record mixer (left) */
-		//0x5B 0 db
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x13); /* -12 dB */
-		CheckResult(result1);
-
-		/* enable the record mixer (right) */
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				0x13); /* 0 dB */
-		CheckResult(result1);
-		//RISING EDGE BCLK POLARITY
-		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
-		//CheckResult(result);
-#ifdef USE_ADAU1761_2
-		/* enable the record mixer (left) */
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,0x13); /* -12 dB */
-		CheckResult(result2);
-
-		/* enable the record mixer (right) */
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				0x13); /* 0 dB */
-		CheckResult(result2);
-#endif
-		/* disable the output mixer (left) */
-		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4011, 0xFB); /* MUTE */
-		//CheckResult(result);
-		/* disable the output mixer (left) */
-		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4012, 0x3B); /* MUTE */
-		//CheckResult(result);
-		/* disable the output mixer (left) */
-		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4013, 0x68); /* MUTE */
-		//CheckResult(result);
-		/* disable the output mixer (left) */
-		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4014, 0x31); /* MUTE */
-		//CheckResult(result);
-	} else {
-		/* disable the record mixer (left) */
-		result1 = adi_adau1761_GetRegister(hADAU1761_1, REC_MIX_LEFT_REG,
-				&value);
-		CheckResult(result1);
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG,
-				value & 0xFE);
-		CheckResult(result1);
-
-		/* disable the record mixer (right) */
-		result1 = adi_adau1761_GetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				&value);
-		CheckResult(result1);
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				value & 0xFE);
-		CheckResult(result1);
-
-#ifdef USE_ADAU1761_2
-		/* disable the record mixer (left) */
-		result2 = adi_adau1761_GetRegister(hADAU1761_2, REC_MIX_LEFT_REG,
-				&value);
-		CheckResult(result2);
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,
-				value & 0xFE);
-		CheckResult(result2);
-
-		/* disable the record mixer (right) */
-		result2 = adi_adau1761_GetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				&value);
-		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				value & 0xFE);
-		CheckResult(result2);
-#endif
-
-	}
-#else
-	/* disable the record mixer (left) */
-	result1 = adi_adau1761_GetRegister (hADAU1761_1, REC_MIX_LEFT_REG, &value);
-	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, REC_MIX_LEFT_REG, value & 0xFE);
-	CheckResult(result1);
-
-	/* disable the record mixer (right) */
-	result1 = adi_adau1761_GetRegister (hADAU1761_1, REC_MIX_RIGHT_REG, &value);
-	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister (hADAU1761_1, REC_MIX_RIGHT_REG, value & 0xFE);
-	CheckResult(result1);
-#ifdef USE_ADAU1761_2
-	/* disable the record mixer (left) */
-	result2 = adi_adau1761_GetRegister (hADAU1761_2, REC_MIX_LEFT_REG, &value);
-	CheckResult(result2);
-	result2 = adi_adau1761_SetRegister (hADAU1761_2, REC_MIX_LEFT_REG, value & 0xFE);
-	CheckResult(result2);
-
-	/* disable the record mixer (right) */
-	result2 = adi_adau1761_GetRegister (hADAU1761_2, REC_MIX_RIGHT_REG, &value);
-	CheckResult(result2);
-	result2 = adi_adau1761_SetRegister (hADAU1761_2, REC_MIX_RIGHT_REG, value & 0xFE);
-	CheckResult(result2);
-#endif
-
-#endif
-}
-
 int32_t FIR_init() {
 
 	//FIR stuff
 	ADI_FIR_RESULT res;
-
 
 	//reverseArrayf(refCoeffBuff, sizeof(refCoeffBuff));
 	/*
@@ -759,41 +508,40 @@ int32_t FIR_init() {
 		}
 	}
 
-
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		stepSizeW[j] = 0.0001;
-/*
-		for (int32_t i = 0; i < controlLength; i++) {
-			controlCoeffBuff[j][i] = 0.0000001;		//0.0000001;
-		}
-		*/
+		/*
+		 for (int32_t i = 0; i < controlLength; i++) {
+		 controlCoeffBuff[j][i] = 0.0000001;		//0.0000001;
+		 }
+		 */
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
 				OSPMCoeffBuff[j][k][i] = 1;
 			}
 		}
 	}
-/*
-	for (int32_t i = 0; i < controlLength; i++) {
-		controlCoeffBuff1[i] = 1;		//0.0000001;
-		controlCoeffBuff2[i] = 1;		//0.0000001;
-	}
-*/
+	/*
+	 for (int32_t i = 0; i < controlLength; i++) {
+	 controlCoeffBuff1[i] = 1;		//0.0000001;
+	 controlCoeffBuff2[i] = 1;		//0.0000001;
+	 }
+	 */
 
 #ifdef LowPassFilter
-		for (int32_t i = 0; i < refLength; i++) {
-					refState[i] = 0;
-				}
+	for (int32_t i = 0; i < refLength; i++) {
+		refState[i] = 0;
+	}
 #endif
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
-		 for (int32_t i = 0; i < controlLength; i++) {
-		controlState[j][i] = 0;
-		controlCoeffBuff[j][i] = 0.0001;		//0.0000001;
-		//controlState1[i] = 0;
-		//controlState2[i] = 0;
-		 }
+		for (int32_t i = 0; i < controlLength; i++) {
+			controlState[j][i] = 0;
+			controlCoeffBuff[j][i] = 0.0001;		//0.0000001;
+			//controlState1[i] = 0;
+			//controlState2[i] = 0;
+		}
 	}
 
 	channelOSPM[0][0].nTapLength = OSPMLength;
@@ -867,10 +615,10 @@ int32_t FIR_init() {
 		printf("adi_fir_CreateConfig failed\n");
 		return -1;
 	}
-	res = adi_fir_RegisterCallback (hConfigOSPM, OSPMFIRCallback, NULL);
+	res = adi_fir_RegisterCallback(hConfigOSPM, OSPMFIRCallback, NULL);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf("adi_fir_RegisterCallback failed\n");
-				return -1;
+		printf("adi_fir_RegisterCallback failed\n");
+		return -1;
 	}
 
 	// ----------------------------------  Add Channels ---------------------------------------------------
@@ -895,16 +643,8 @@ int32_t FIR_init() {
 	return 0;
 }
 
-
 int main(void) {
-	ADI_ADAU1761_RESULT result1;
-	ADI_ADAU1761_SPORT_INFO sportRxInfo1;
-	ADI_ADAU1761_SPORT_INFO sportTxInfo1;
-#ifdef USE_ADAU1761_2
-	ADI_ADAU1761_RESULT result2;
-	ADI_ADAU1761_SPORT_INFO sportRxInfo2;
-	ADI_ADAU1761_SPORT_INFO sportTxInfo2;
-#endif
+
 	int8_t firResult = 0;
 	bool bExit;
 	uint32_t Result = 0u;
@@ -925,20 +665,15 @@ int main(void) {
 #elif defined (__ADSPSC573_FAMILY__)
 	*pREG_SPU0_SECUREP110 = 2u;
 #endif
-	randSeedInt = (unsigned int)rand();
+	randSeedInt = (unsigned int) rand();
 	randSeed = &randSeedInt;
 
-	adi_sec_SetPriority (INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
-    // Register and install a handler for the software interrupt SOFT5 (priority 60)
-    adi_int_InstallHandler(INTR_SOFT5, ProcessBufferADC1, 0, true);
+	adi_sec_SetPriority(INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
+	// Register and install a handler for the software interrupt SOFT5 (priority 60)
+	adi_int_InstallHandler(INTR_SOFT5, ProcessBufferADC, 0, true);
 
-    adi_sec_SetPriority (INTR_SOFT6, 63);
-    adi_int_InstallHandler(INTR_SOFT6, ProcessBufferADC2, 0, true);
-
-    adi_sec_SetPriority (INTR_SOFT7, 61);
-    adi_int_InstallHandler(INTR_SOFT7, ProcessBufferDAC, 0, true);
-
-
+	adi_sec_SetPriority(INTR_SOFT7, 61);
+	adi_int_InstallHandler(INTR_SOFT7, ProcessBufferDAC, 0, true);
 
 	/* Software Switch Configuration for the EZ-BOARD */
 	ConfigSoftSwitches();
@@ -949,364 +684,111 @@ int main(void) {
 		Result = DMAInit();
 	}
 
-
-
 	configGpio();
-/*
-	if (Result == 0u) {
-		Result = PcgInit();
-	}
-	if (Result == 0u) {
-		Result = AsrcDacInit();
-	}
-	// Enable the PCG
-	if (Result == 0u) {
-		Result = (uint32_t) adi_pcg_Enable(phPcg, true);
-	}
-	// Enable the ASRC
-	if (Result == 0u) {
-		Result = (uint32_t) adi_asrc_Enable(phAsrc4, true);
-	}
-	// Enable the ASRC
-	if (Result == 0u) {
-		Result = (uint32_t) adi_asrc_Enable(phAsrc5, true);
-	}
-	// Enable the ASRC
-	if (Result == 0u) {
-		Result = (uint32_t) adi_asrc_Enable(phAsrc6, true);
-	}
-	//Enable the ASRC
-	if (Result == 0u) {
-		Result = (uint32_t) adi_asrc_Enable(phAsrc7, true);
-	}
-*/
+
 	/*
+	 if (Result == 0u) {
+	 Result = PcgInit();
+	 }
+	 if (Result == 0u) {
+	 Result = AsrcDacInit();
+	 }
+	 // Enable the PCG
+	 if (Result == 0u) {
+	 Result = (uint32_t) adi_pcg_Enable(phPcg, true);
+	 }
+	 // Enable the ASRC
+	 if (Result == 0u) {
+	 Result = (uint32_t) adi_asrc_Enable(phAsrc4, true);
+	 }
+	 // Enable the ASRC
+	 if (Result == 0u) {
+	 Result = (uint32_t) adi_asrc_Enable(phAsrc5, true);
+	 }
+	 // Enable the ASRC
+	 if (Result == 0u) {
+	 Result = (uint32_t) adi_asrc_Enable(phAsrc6, true);
+	 }
+	 //Enable the ASRC
+	 if (Result == 0u) {
+	 Result = (uint32_t) adi_asrc_Enable(phAsrc7, true);
+	 }
+	 */
+
+	adi_gpio_Set(LED1_PORT, LED1_PIN);
+	adi_gpio_Set(LED2_PORT, LED2_PIN);
 	// Initialize ADAU1979
-	if(Result == 0u)
-	{
+	if (Result == 0u) {
 		Result = Adau1979Init();
 	}
-	*/
+
 	// Initialize ADAU1962A
 	if (Result == 0u) {
 		Result = Adau1962aInit();
 	}
-	/*
-	 	adi_int_InstallHandler(INTR_PKIC0_IRQ,PKIC_ISR,0,true);
-	int iTemp;
 
-	//Disable TRNG Module
-	Disable_TRNG();
-
-	//Initialize PKIC
-	Set_PKIC_Polarity(0x2F);  //setting for high rising edge
-	Set_PKIC_Level_type(0x2F);// interrupt source is edge sensitive
-	Disable_PKIC_Interrupt(0x2F);
-	//Read RAW STAT for edge detected interrupt sources
-	iTemp= Read_PKIC_Unmasked_Interrupt_Source();
-	//Disable those edge triggered interrupts
-	PKIC_Interrupt_ACK(iTemp);
-
-	//Enable TRNG interrupt source in PKIC
-	Enable_TRNG_Interrupt();
-
-	//Read Enabled STAT
-	iTemp=Read_PKIC_Masked_Interrupt_Source();
-
-	//Start TRNG initialization
-	Mask_Interrupt(0x1);  // all TRNG related interrupt sources are enabled
-
-	Startup_Cycle_Number(256);  //setting minimum sampling rate supported
-	Min_Refill_Cycle(64);		//setting minimum sampling rate supported
-
-	Max_Refill_Cycle(8388608);   //setting a sample rate of 2^23
-	Sample_division(0);			//can be any value from 0 to 15
-
-	Set_Alarm_Threshold(1);   //detects repeating pattern on each FRO and generates an interrupt.
-	Set_Shutdown_Threshold(1); // even if 1 FRO shuts down generate an interrupt/
-
-	Disbale_FRO(0xFFFFFF);
-	Enable_FRO(0xFF);     //8 FRO in BD
-
-	iTemp= Read_TRNG_Stat();
-	Acknowledge_Interrupt(iTemp);
-	iTemp= Read_TRNG_Stat();
-
-	Enable_TRNG();
-*/
-
-	//DEVICE 1
-	// Open the codec driver
-	result1 = adi_adau1761_Open(ADAU1761_DEV_NUM, codecMem1,
-	ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_1);
-	CheckResult(result1);
-
-	/* Configure TWI */
-	result1 = adi_adau1761_ConfigTWI(hADAU1761_1, TWI_DEV_NUM,
-			ADI_ADAU1761_TWI_ADDR0);
-	CheckResult(result1);
-
-	/* load Sigma Studio program exported from *_IC_1.h */
-	result1 = adi_adau1761_SigmaStudioLoad(hADAU1761_1, default_download_IC_1);
-	CheckResult(result1);
-
-	/* config SPORT for Rx data transfer */
-	sportRxInfo1.nDeviceNum = SPORT_RX_DEVICE1;
-	sportRxInfo1.eChannel = ADI_HALF_SPORT_B;
-	sportRxInfo1.eMode = ADI_ADAU1761_SPORT_I2S;
-	sportRxInfo1.hDevice = NULL;
-	sportRxInfo1.pMemory = sportRxMem1;
-	sportRxInfo1.bEnableDMA = true;
-	sportRxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
-	sportRxInfo1.bEnableStreaming = true;
-
-	result1 = adi_adau1761_ConfigSPORT(hADAU1761_1, ADI_ADAU1761_SPORT_INPUT,
-			&sportRxInfo1);
-	CheckResult(result1);
-	/* register a Rx callback */
-	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_1, ADAU1761Callback_1,
-	NULL);
-	CheckResult(result1);
-	//DISABLE MIXER BYPASS OUTPUT
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401C, 0x21); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401D, 0x00); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401E, 0x41); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401F, 0x00); // MUTE
-	CheckResult(result1);
-	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
-	//CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x00);
-	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
-	CheckResult(result1);
-	//high pass 2 hz filter
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
-
-#if defined(USE_LINE_IN)
-	result1 = adi_adau1761_SelectInputSource(hADAU1761_1,
-			ADI_ADAU1761_INPUT_ADC);
-	CheckResult(result1);
-#else
-	result1 = adi_adau1761_SelectInputSource(hADAU1761_1, ADI_ADAU1761_INPUT_MIC);
-	CheckResult(result1);
-#endif
-
-	// disable mixer
-	//MixerEnable(false);
-
-	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_HEADPHONE,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetSampleRate(hADAU1761_1, SAMPLE_RATE);
-	CheckResult(result1);
-
-#ifdef USE_ADAU1761_2
-	//DEVICE 2
-	// Open the codec driver
-	result2 = adi_adau1761_Open(ADAU1761_DEV_NUM1, codecMem2,
-	ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_2);
-	CheckResult(result2);
-
-	// Configure TWI
-	//The TWI address when ADD1 pin is high and ADD0 pin is low
-	result2 = adi_adau1761_ConfigTWI(hADAU1761_2, TWI_DEV_NUM,
-			ADI_ADAU1761_TWI_ADDR2);
-	CheckResult(result2);
-
-	// load Sigma Studio program exported from *_IC_1.h
-	result2 = adi_adau1761_SigmaStudioLoad(hADAU1761_2, default_download_IC_1);
-	CheckResult(result2);
-	// config SPORT for Rx data transfer
-	sportRxInfo2.nDeviceNum = SPORT_RX_DEVICE2;
-	sportRxInfo2.eChannel = ADI_HALF_SPORT_B;
-	sportRxInfo2.eMode = ADI_ADAU1761_SPORT_I2S;
-	sportRxInfo2.hDevice = NULL;
-	sportRxInfo2.pMemory = sportRxMem2;
-	sportRxInfo2.bEnableDMA = true;
-	sportRxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
-	sportRxInfo2.bEnableStreaming = true;
-
-	result2 = adi_adau1761_ConfigSPORT(hADAU1761_2, ADI_ADAU1761_SPORT_INPUT,
-			&sportRxInfo2);
-	CheckResult(result2);
-
-	// register a Rx callback
-	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_2, ADAU1761Callback_2,
-	NULL);
-	CheckResult(result2);
-
-	//DISABLE MIXER BYPASS OUTPUT
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401D, 0x00); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401E, 0x41); // MUTE
-	CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401F, 0x00); // MUTE
-	CheckResult(result1);
-	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
-	//CheckResult(result1);
-
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
-	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
-	CheckResult(result1);
-	//high pass 2 hz filter
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
-#if defined(USE_LINE_IN)
-	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
-			ADI_ADAU1761_INPUT_ADC);
-	CheckResult(result2);
-#else
-	result2 = adi_adau1761_SelectInputSource(hADAU1761_2, ADI_ADAU1761_INPUT_MIC);
-	CheckResult(result2);
-#endif
-
-	// disable mixer
-	MixerEnable(false);
-
-	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_HEADPHONE,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
-	CheckResult(result2);
-
-	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
-	CheckResult(result2);
-
-	result2 = adi_adau1761_SetSampleRate(hADAU1761_2, SAMPLE_RATE);
-	CheckResult(result2);
-#endif
 	firResult = FIR_init();
 	if (firResult == 0) {
 		printf("FIR init success\n");
 	}
 	count = 0u;
 
-#ifdef INSTANT_START
 	bEvent = true;
 	eMode = START_RECORDING;
-#endif
 
 	while (!bExit) {
 		if (bEvent) {
 			switch (eMode) {
-			case SUBMIT_RX_BUFFER_ADC1:
-				//Result = ProcessBufferADC1();
-				break;
-			case SUBMIT_RX_BUFFER_ADC2:
-				//Result = ProcessBufferADC2();
-				break;
 			case SUBMIT_RX_BUFFER:
+				if(bEnableOSPM){
 				ANCALG_2();
+				}
 				//ProcessBufferADC1();
 				// ProcessBufferADC2();
 				//ProcessBufferDAC();
 				break;
 			case START_RECORDING:
-#ifdef USE_MICROPHONE
-				printf("Microphone ");
-#else
-				printf("Line In ");
-#endif
-				printf("Recording started.\n");
+				printf("Started.\n");
 
-				//enable mixer
-				MixerEnable(true);
-				//result1 = adi_adau1761_EnableOutput(hADAU1761_1, false);
-				//CheckResult(result1);
-				result1 = adi_adau1761_EnableInput(hADAU1761_1, false);
-				CheckResult(result1);
-#ifdef USE_ADAU1761_2
-				//result2 = adi_adau1761_EnableOutput(hADAU1761_2, false);
-				//CheckResult(result2);
-				result2 = adi_adau1761_EnableInput(hADAU1761_2, false);
-				CheckResult(result2);
-#endif
-
-				//submit ping pong buffer
-				result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
-						&AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 0u],
-						BUFFER_SIZE_1761);
-				CheckResult(result1);
-				result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
-						&AdcBuf1[NUM_AUDIO_SAMPLES_ADC * 1u],
-						BUFFER_SIZE_1761);
-				CheckResult(result1);
-
-#ifdef USE_ADAU1761_2
-
-				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
-						&AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 0u],
-						BUFFER_SIZE_1761);
-				CheckResult(result2);
-				result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
-						&AdcBuf2[NUM_AUDIO_SAMPLES_ADC * 1u],
-						BUFFER_SIZE_1761);
-				CheckResult(result2);
-
-#endif
-
-				//Start recording
-				result1 = adi_adau1761_EnableInput(hADAU1761_1, true);
-				CheckResult(result1);
-#ifdef USE_ADAU1761_2
-				result2 = adi_adau1761_EnableInput(hADAU1761_2, true);
-				CheckResult(result2);
-#endif
+				//1979 ping pong buffers
+				if (Result == 0u) {
+					Result = Adau1979SubmitBuffers();
+				}
 
 				//1962a ping pong buffers
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
 				}
-
+				// Enable data flow for the DAC
+				if ((uint32_t) adi_adau1979_Enable(phAdau1979, true) != 0u) {
+					// return error
+					return 1u;
+				}
 				// Enable data flow for the DAC
 				if ((uint32_t) adi_adau1962a_Enable(phAdau1962a, true) != 0u) {
 					// return error
 					return 1u;
 				}
+
 				break;
 			default:
-
 				break;
 			}
+
 			bEvent = false;
 		}
-		/*
-		 // wait for push button interrupts - exit the loop after a while
-		 if (count > MAXCOUNT) {
-		 bExit = true;
-		 }
-		 count++;
-		 */
 	}
-
-	//Close devices
-	result1 = adi_adau1761_Close(hADAU1761_1);
-	CheckResult(result1);
-#ifdef USE_ADAU1761_2
-	result2 = adi_adau1761_Close(hADAU1761_2);
-	CheckResult(result2);
-#endif
+	// Disable data flow for the ADC
+	if ((uint32_t) adi_adau1979_Enable(phAdau1962a, false) != 0u) {
+		// return error
+		return 1u;
+	}
 	// Disable data flow for the DAC
 	if ((uint32_t) adi_adau1962a_Enable(phAdau1962a, false) != 0u) {
 		// return error
 		return 1u;
 	}
+	adi_adau1979_Close(phAdau1979);
 	adi_adau1962a_Close(phAdau1962a);
 	printf("%d a %d b ", (int) DacCount, (int) AdcCount);
 	if (!bError) {
@@ -1317,8 +799,6 @@ int main(void) {
 
 	return 0;
 }
-
-
 
 uint32_t Adau1962aInit(void) {
 	/*
@@ -1465,10 +945,8 @@ uint32_t Adau1962aInit(void) {
 		return 1u;
 	}
 
-
 	return 0u;
 }
-
 
 /*
  * Opens and initializes ADAU1979 ADC Device.
@@ -1480,112 +958,103 @@ uint32_t Adau1962aInit(void) {
  *  0 if success, other values for error
  *
  */
-uint32_t Adau1979Init(void)
-{
+uint32_t Adau1979Init(void) {
 	uint32_t Result = 0u;
 	/* Instance to submit SPORT configuration */
-	ADI_ADAU1979_SPORT_CONFIG   SportConfig;
+	ADI_ADAU1979_SPORT_CONFIG SportConfig;
 	/* Instance to submit TWI configuration */
-    ADI_ADAU1979_TWI_CONFIG     TwiConfig;
+	ADI_ADAU1979_TWI_CONFIG TwiConfig;
 
 	/* open ADAU1979 instance */
-	if((uint32_t)adi_adau1979_Open(0u,
+	if ((uint32_t) adi_adau1979_Open(0u,
 #ifdef TDM_MODE
-            					   ADI_ADAU1979_SERIAL_MODE_TDM4,
+			ADI_ADAU1979_SERIAL_MODE_TDM4,
 #else
-            					   ADI_ADAU1979_SERIAL_MODE_STEREO,
+			ADI_ADAU1979_SERIAL_MODE_STEREO,
 #endif
-            					   &Adau1979Memory,
-            					   ADI_ADAU1979_MEMORY_SIZE,
-            					   &phAdau1979) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_Open failed\n");
+			&Adau1979Memory,
+			ADI_ADAU1979_MEMORY_SIZE, &phAdau1979) != 0u) {
+		printf("ADAU1979: adi_adau1979_Open failed\n");
 		/* return error */
 		return 1u;
 	}
 
 	/* TWI parameters required to open/configure TWI */
-	TwiConfig.TwiDevNum 	= 0u;
-	TwiConfig.TwiDevMemSize	= ADI_TWI_MEMORY_SIZE;
-	TwiConfig.pTwiDevMem 	= &TwiMemory;
-	TwiConfig.eTwiAddr 		= ADI_ADAU1979_TWI_ADDR_11;
+	TwiConfig.TwiDevNum = 0u;
+	TwiConfig.TwiDevMemSize = ADI_TWI_MEMORY_SIZE;
+	TwiConfig.pTwiDevMem = &TwiMemory;
+	TwiConfig.eTwiAddr = ADI_ADAU1979_TWI_ADDR_11;
 
-	if((uint32_t)adi_adau1979_ConfigTwi(phAdau1979, &TwiConfig) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_ConfigTwi failed\n");
+	if ((uint32_t) adi_adau1979_ConfigTwi(phAdau1979, &TwiConfig) != 0u) {
+		printf("ADAU1979: adi_adau1979_ConfigTwi failed\n");
 		/* return error */
 		return 1u;
 	}
 
 	/* SPORT parameters required to open/configure TWI */
 #if defined(__ADSPBF707_FAMILY__) || defined(__ADSPSC589_FAMILY__)
-	SportConfig.SportDevNum 	= 4u;
+	SportConfig.SportDevNum = 4u;
 #elif defined(__ADSPSC573_FAMILY__)
-    SportConfig.SportDevNum 	= 2u;
+	SportConfig.SportDevNum = 2u;
 #else
 #error "processor not defined"
 #endif
-	SportConfig.SportDevMemSize	= ADI_SPORT_DMA_MEMORY_SIZE;
-	SportConfig.pSportDevMem 	= &Adau1979SportMemory;
-	SportConfig.eSportChnl	    = ADI_ADAU1979_SPORT_A;
-	SportConfig.eSportPri	    = ADI_ADAU1979_SERIAL_PORT_DSDATA1;
+	SportConfig.SportDevMemSize = ADI_SPORT_DMA_MEMORY_SIZE;
+	SportConfig.pSportDevMem = &Adau1979SportMemory;
+	SportConfig.eSportChnl = ADI_ADAU1979_SPORT_A;
+	SportConfig.eSportPri = ADI_ADAU1979_SERIAL_PORT_DSDATA1;
 #ifdef TDM_MODE
-	SportConfig.eSportSec	    = ADI_ADAU1979_SERIAL_PORT_NONE;
+	SportConfig.eSportSec = ADI_ADAU1979_SERIAL_PORT_NONE;
 #else
-	SportConfig.eSportSec	    = ADI_ADAU1979_SERIAL_PORT_DSDATA2;
+	SportConfig.eSportSec = ADI_ADAU1979_SERIAL_PORT_DSDATA2;
 #endif
-	SportConfig.bLsbFirst		= true;
+	SportConfig.bLsbFirst = true;
 
-	if((uint32_t)adi_adau1979_ConfigSport(phAdau1979, &SportConfig) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_ConfigSport failed\n");
+	if ((uint32_t) adi_adau1979_ConfigSport(phAdau1979, &SportConfig) != 0u) {
+		printf("ADAU1979: adi_adau1979_ConfigSport failed\n");
 		/* return error */
 		return 1u;
 	}
 
 	/* ADC is a master source of SPORT clk and FS, MCLK 25.576 MHz and PLL used MCLK */
-	if((uint32_t)adi_adau1979_ConfigPllClk(phAdau1979,
-										   LR_B_CLK_MASTER_1979,
-			                               ADI_ADAU1979_MCLK_IN_FREQ_24576000HZ,
-			                               ADI_ADAU1979_PLL_SOURCE_MCLK) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_ConfigPllClk failed\n");
+	if ((uint32_t) adi_adau1979_ConfigPllClk(phAdau1979,
+	LR_B_CLK_MASTER_1979, ADI_ADAU1979_MCLK_IN_FREQ_24576000HZ,
+			ADI_ADAU1979_PLL_SOURCE_MCLK) != 0u) {
+		printf("ADAU1979: adi_adau1979_ConfigPllClk failed\n");
 		/* return error */
 		return 1u;
 	}
 
-	if((uint32_t)adi_adau1979_ConfigSerialClk(phAdau1979,
-            								  BCLK_RISING_1979,
-            								  LRCLK_HI_LO_1979) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_ConfigSerialClk failed\n");
+	if ((uint32_t) adi_adau1979_ConfigSerialClk(phAdau1979,
+	BCLK_RISING_1979,
+	LRCLK_HI_LO_1979) != 0u) {
+		printf("ADAU1979: adi_adau1979_ConfigSerialClk failed\n");
 		/* return error */
 		return 1u;
 	}
 
-	if((uint32_t)adi_adau1979_SetSampleRate(phAdau1979, ADI_ADAU1979_SAMPLE_RATE_48000HZ) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_SetSampleRate failed\n");
+	if ((uint32_t) adi_adau1979_SetSampleRate(phAdau1979,
+			ADI_ADAU1979_SAMPLE_RATE_32000HZ) != 0u) {
+		printf("ADAU1979: adi_adau1979_SetSampleRate failed\n");
 		/* return error */
 		return 1u;
 	}
-	if((uint32_t)adi_adau1979_SetWordWidth(phAdau1979, ADI_ADAU1979_WORD_WIDTH_24) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_SetWordWidth failed\n");
+	if ((uint32_t) adi_adau1979_SetWordWidth(phAdau1979,
+			ADI_ADAU1979_WORD_WIDTH_24) != 0u) {
+		printf("ADAU1979: adi_adau1979_SetWordWidth failed\n");
 		/* return error */
 		return 1u;
 	}
 
-	if((uint32_t)adi_adau1979_RegisterCallback(phAdau1979, AdcCallback, NULL) != 0u)
-	{
-		printf ("ADAU1979: adi_adau1979_RegisterCallback failed\n");
+	if ((uint32_t) adi_adau1979_RegisterCallback(phAdau1979, AdcCallback, NULL)
+			!= 0u) {
+		printf("ADAU1979: adi_adau1979_RegisterCallback failed\n");
 		/* return error */
 		return 1u;
 	}
 
 	return Result;
 }
-
 
 uint32_t Adau1962aSubmitBuffers(void) {
 	/*
@@ -1629,20 +1098,21 @@ uint32_t Adau1962aSubmitBuffers(void) {
  *  0 if success, other values for error
  *
  */
-uint32_t Adau1979SubmitBuffers(void)
-{
+uint32_t Adau1979SubmitBuffers(void) {
 	uint32_t Result = 0u;
 
 	/* submit ping buffer */
-	if((uint32_t)adi_adau1979_SubmitBuffer(phAdau1979, &AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979 * 0u], AUDIO_BUFFER_SIZE_ADC_1979) != 0u)
-	{
+	if ((uint32_t) adi_adau1979_SubmitBuffer(phAdau1979,
+			&AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979 * 0u],
+			AUDIO_BUFFER_SIZE_ADC_1979) != 0u) {
 		/* return error */
 		return 1u;
 	}
 
 	/* submit pong buffer */
-	if((uint32_t)adi_adau1979_SubmitBuffer(phAdau1979, &AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979 * 1u], AUDIO_BUFFER_SIZE_ADC_1979) != 0u)
-	{
+	if ((uint32_t) adi_adau1979_SubmitBuffer(phAdau1979,
+			&AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979 * 1u],
+			AUDIO_BUFFER_SIZE_ADC_1979) != 0u) {
 		/* return error */
 		return 1u;
 	}
@@ -1650,14 +1120,13 @@ uint32_t Adau1979SubmitBuffers(void)
 	return Result;
 }
 
-
 float AWGN_generator() {/* Generates additive white Gaussian Noise samples with zero mean and a standard deviation of 1. */
 
 	float temp1;
 	float temp2;
 	float result;
 	int p;
-	rngcount+=1;
+	rngcount += 1;
 	p = 1;
 
 	while (p > 0) {
@@ -1674,88 +1143,60 @@ float AWGN_generator() {/* Generates additive white Gaussian Noise samples with 
 		}				// end else
 
 	}				// end while()
-	temp1 = cosf((2.0 * 3.1415926536) * (float) rand_r_imp(randSeed) / ((float) RAND_MAX));
+	temp1 = cosf(
+			(2.0 * 3.1415926536) * (float) rand_r_imp(randSeed)
+					/ ((float) RAND_MAX));
 	//temp1 = cosf((2.0 * 3.1415926536) * (float) rand() / ((float) RAND_MAX));
 	result = sqrtf(-2.0 * logf(temp2)) * temp1;
-	if(result > 10.0){
+	if (result > 10.0) {
 		result = 10.0;
-	}
-	else if (result < -10.0){
+	} else if (result < -10.0) {
 		result = -10.0;
-	}
-	else if(result >=-10 && result <=10){
+	} else if (result >= -10 && result <= 10) {
 
-	}
-	else {
-		result =0;
+	} else {
+		result = 0;
 	}
 	return result;	// return the generated random sample to the caller
 
 }
 
-void ProcessBufferADC1(uint32_t iid, void* handlerArg) {
+void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 	// re-submit processed buffer from callback
-	if (pGetADC1 != NULL) {
-		// re-submit the ADC buffer
-		adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
-		BUFFER_SIZE_1761);
+	if (pGetADC != NULL) {
+		// re-submit the DAC buffer
+		adi_adau1979_SubmitBuffer(phAdau1962a, (void *) pDAC,
+		AUDIO_BUFFER_SIZE_ADC_1979);
 	}
 
-	if (pGetADC1 != NULL) {
-		pADC1Buffer = (int32_t *) pADC1;
-		//while (bMemCopyInProgress);
+	if (pGetADC != NULL) {
+		pADCBuffer = (int32_t *) pADC;
+		if (!OSPMInProgress) {
+			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
+				refInputBuff[i] = conv_float_by((pADCBuffer[4 * i] << 8), -25);
+				errorSignal[0][i] = conv_float_by((pADCBuffer[4 * i + 1] << 8),
+						-25);
+				errorSignal[1][i] = conv_float_by((pADCBuffer[4 * i + 2] << 8),
+						-25);
+				//errorSignal[2][i] = conv_float_by((pADCBuffer[4 * i + 3] << 8), -25);
+			}
+		} else {
+			for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
+				refInputBuff[i] = conv_float_by((pADCBuffer[4 * i] << 8), -25);
+			}
+		}
 
-#pragma vector_for(2)
+		ADCFlag = true;
+		if (ADCFlag && DACFlag) {
+			adi_sec_Raise(INTR_SOFT7);
+		}
 
-	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-		refInputBuff[i] = conv_float_by((pADC1Buffer[2 * i] << 8), -25);
-		errorSignal[0][i] = conv_float_by((pADC1Buffer[2 * i + 1] << 8), -25);
-
-	}
-
-	ADC1Flag = true;
-	if(ADC1Flag && ADC2Flag &&DACFlag){
-		adi_sec_Raise(INTR_SOFT7);
-	}
-
-	}
-
-}
-
-#ifdef USE_ADAU1761_2
-void ProcessBufferADC2(uint32_t iid, void* handlerArg) {
-
-
-	if (pGetADC2 != NULL) {
-
-		// re-submit the ADC buffer
-		adi_adau1761_SubmitRxBuffer(hADAU1761_2, (void *) pADC2,
-		BUFFER_SIZE_1761);
-
-	}
-
-	if (pGetADC2 != NULL) {
-		pADC2Buffer = (int32_t *) pADC2;
-		//while (bMemCopyInProgress);
-if(!OSPMInProgress){
-	for (int32_t i = 0; i < NUM_AUDIO_SAMPLES_ADC_SINGLE; i++) {
-		errorSignal[1][i] = conv_float_by((pADC2Buffer[2 * i] << 8), -25);
-		//errorSignal[2][i] = conv_float_by((pADC2Buffer[2 * i + 1] << 8), -25);
 	}
 
 }
 
-	ADC2Flag = true;
-	if(ADC1Flag && ADC2Flag &&DACFlag){
-		adi_sec_Raise(INTR_SOFT7);
-	}
-
-	}
-}
-
-#endif
-void ProcessBufferDAC(uint32_t iid, void* handlerArg){
-	ADI_DMA_RESULT      eResult = ADI_DMA_SUCCESS;
+void ProcessBufferDAC(uint32_t iid, void* handlerArg) {
+	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
 	ADI_FIR_RESULT res;
 
 	if (pGetDAC != NULL) {
@@ -1764,102 +1205,95 @@ void ProcessBufferDAC(uint32_t iid, void* handlerArg){
 		AUDIO_BUFFER_SIZE_DAC);
 	}
 
-
 	// process ADC to DAC buffer
 
 	if (pDAC != NULL) {
 		//DacCount++;
 		pDst = (int32_t *) pDAC;
 
-
-
-	#ifdef LowPassFilter
+#ifdef LowPassFilter
 		// ---------------------------------------   Enable Channels -----------------------------------------------
 
 		//memcpy(&refInputBuff[0],refSignal, 4*NUM_AUDIO_SAMPLES_ADC_SINGLE);
-		firf(refInputBuff, refOutputBuff, refCoeffBuff, refState, refInputSize+1, refLength);
-		if(!OSPMInProgress){
+		firf(refInputBuff, refOutputBuff, refCoeffBuff, refState,
+		refInputSize + 1, refLength);
+		if (!OSPMInProgress) {
 			bMemCopyInProgress = true;
-			eResult = adi_mdma_Copy1D (hMemDmaStream,
-	    										(void *)&OSPMInputBuff[0],
-	    										(void *)&refOutputBuff[0],
-												MEMCOPY_MSIZE,
-												OSPMInputSize);
-	    // IF (Failure)
-			if (eResult != ADI_DMA_SUCCESS)
-			{
+			eResult = adi_mdma_Copy1D(hMemDmaStream, (void *) &OSPMInputBuff[0],
+					(void *) &refOutputBuff[0],
+					MEMCOPY_MSIZE,
+					OSPMInputSize);
+			// IF (Failure)
+			if (eResult != ADI_DMA_SUCCESS) {
 				DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
 			}
-				while(bMemCopyInProgress);
+			while (bMemCopyInProgress)
+				;
 		}
 
-		for(uint8_t j =0; j<numControlSignal; j++){
-		firf(refOutputBuff, controlOutputBuff[j], controlCoeffBuff[j], controlState[j], controlInputSize+1, controlLength);
+		for (uint8_t j = 0; j < numControlSignal; j++) {
+			firf(refOutputBuff, controlOutputBuff[j], controlCoeffBuff[j],
+					controlState[j], controlInputSize + 1, controlLength);
 		}
 
-	#else
+#else
 
-		for(uint8_t k =0; k<numControlSignal; k++){
-		firf(refInputBuff, controlOutputBuff[k], controlCoeffBuff[k], controlState[k], controlInputSize+1, controlLength);
+		for(uint8_t k =0; k<numControlSignal; k++) {
+			firf(refInputBuff, controlOutputBuff[k], controlCoeffBuff[k], controlState[k], controlInputSize+1, controlLength);
 		}
 
-	#endif
-
+#endif
 
 #pragma vector_for
-		for(uint8_t j =0; j<numControlSignal; j++){
-#pragma vector_for
-		for (uint32_t i = 0, l= NUM_AUDIO_SAMPLES_DAC-1; i < NUM_AUDIO_SAMPLES_DAC, l< NUM_AUDIO_SAMPLES_DAC*2-2; i++, l ++) {
-			outputSignal[j][i] = controlOutputBuff[l][i] + OSPMAWGNSignal[j][i];
-		}
-		}
-
-/*
-		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
-			//TDM8 SHIFT <<8
-
-			*pDst++ = (conv_fix_by(refSignal[i], 15)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15)) ;
-			*pDst++ = (conv_fix_by(refSignal[i], 15)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-			*pDst++ = (conv_fix_by(refSignal[i], 15));
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-			*pDst++ = (conv_fix_by(refSignal[i], 15)) ;
-			*pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-
-		}
-		*/
-
-		for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
-			//TDM8 SHIFT <<8
-
-			*pDst++ = (conv_fix_by(outputSignal[0][i], 1)) ;
-			*pDst++ = (conv_fix_by(outputSignal[1][i], 1)) ;
-			*pDst++ = 0;
-			*pDst++ = 0;
-			*pDst++ = 0 ;
-			*pDst++ = 0 ;
-			*pDst++ = 0;
-			*pDst++ = 0 ;
-
+		for (uint8_t j = 0; j < numControlSignal; j++) {
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_DAC - 1;
+					i < NUM_AUDIO_SAMPLES_DAC, l < NUM_AUDIO_SAMPLES_DAC * 2 - 2;
+					i++, l++) {
+				outputSignal[j][i] = controlOutputBuff[l][i]
+						+ OSPMAWGNSignal[j][i];
+			}
 		}
 
+		if (bEnableOutput) {
 
+			 for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
+			 //TDM8 SHIFT <<8
 
-	//ANCALG_2();
+			 *pDst++ = (conv_fix_by(refInputBuff[i], 15)) ;
+			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15)) ;
+			 *pDst++ = (conv_fix_by(errorSignal[1][i], 15)) ;
+			 *pDst++ = (conv_fix_by(refInputBuff[i], 15));
+			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15));
+			 *pDst++ = (conv_fix_by(errorSignal[1][i], 15));
+			 *pDst++ = (conv_fix_by(refInputBuff[i], 15)) ;
+			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15));
 
+			 }
+			 /*
+			for (int32_t i = 0, j = NUM_AUDIO_SAMPLES_DAC - 1;
+					i < NUM_AUDIO_SAMPLES_DAC, j > -1; i++, j--) {
+				//TDM8 SHIFT <<8
 
-	    ADC1Flag = false;
-	    ADC2Flag = false;
-	    DACFlag= false;
-	    bEvent = true;
-	    eMode = SUBMIT_RX_BUFFER;
+				*pDst++ = (conv_fix_by(outputSignal[0][i], 1));
+				*pDst++ = (conv_fix_by(outputSignal[1][i], 1));
+				*pDst++ = 0;
+				*pDst++ = 0;
+				*pDst++ = 0;
+				*pDst++ = 0;
+				*pDst++ = 0;
+				*pDst++ = 0;
+
+			}
+		} */
+		//ANCALG_2();
+
+		ADCFlag = false;
+		DACFlag = false;
+		bEvent = true;
+		eMode = SUBMIT_RX_BUFFER;
 	}
 
-
 }
-
-
 
 void reverseArrayf(float arr[], uint32_t arrLength) {
 #pragma vector_for
@@ -1870,20 +1304,21 @@ void reverseArrayf(float arr[], uint32_t arrLength) {
 	}
 }
 
-void AdcCallback(void *pCBParam, uint32_t nEvent, void *pArg)
-{
-    switch(nEvent)
-    {
-        case ADI_SPORT_EVENT_RX_BUFFER_PROCESSED:
-        	/* Update callback count */
-        	AdcCount++;
-        	/* store pointer to the processed buffer that caused the callback */
-        	pGetADC = pArg;
-        	break;
-        default:
-        	bEventError = true;
-            break;
-    }
+void AdcCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
+	switch (nEvent) {
+	case ADI_SPORT_EVENT_RX_BUFFER_PROCESSED:
+		/* Update callback count */
+		AdcCount++;
+		/* store pointer to the processed buffer that caused the callback */
+		pGetADC = pArg;
+		pADC = (void *) pGetADC;
+		adi_sec_Raise(INTR_SOFT5);
+
+		break;
+	default:
+		bEventError = true;
+		break;
+	}
 }
 
 void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
@@ -1899,34 +1334,20 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 	 */
 	switch (nEvent) {
 	case ADI_SPORT_EVENT_TX_BUFFER_PROCESSED:
-
-		/* Update callback count */
-		//DacCount++;
 		/* store pointer to the processed buffer that caused the callback */
 		pGetDAC = pArg;
 		pDAC = (void *) pGetDAC;
-		DACFlag=true;
+		DACFlag = true;
 
-		/*if(ADC1Flag && ADC2Flag &&DACFlag){
-			eMode=SUBMIT_RX_BUFFER;
-			bEvent=true;
-		}*/
-
-		if(ADC1Flag && ADC2Flag &&DACFlag){
+		if (ADCFlag && DACFlag) {
 			adi_sec_Raise(INTR_SOFT7);
 		}
-		//eMode=SUBMIT_RX_BUFFER;
-		//bEvent=true;
+
 		break;
 	default:
-
-		//eMode = SUBMIT_RX_BUFFER;
-		//bEvent = true;
 		break;
 	}
 }
-
-
 
 /*
  * Opens and initializes PCG Device.
@@ -2070,14 +1491,14 @@ uint32_t SpuInit(void) {
 		DBG_MSG("Failed to initialize SPU service\n");
 		return (ADI_SPU_FAILURE);
 	}
-	/*
+
 	 // Make SPORT 4A to generate secure transactions
 	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_SPU_PID, true)
 	 != ADI_SPU_SUCCESS) {
 	 DBG_MSG("Failed to enable Master secure for SPORT 4A\n");
 	 return (ADI_SPU_FAILURE);
 	 }
-	 */
+
 
 	/* Make SPORT 4B to generate secure transactions */
 	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_SPU_PID, true)
@@ -2086,14 +1507,14 @@ uint32_t SpuInit(void) {
 		return (ADI_SPU_FAILURE);
 	}
 
-	/*
+
 	 // Make SPORT 4A DMA to generate secure transactions
 	 if (adi_spu_EnableMasterSecure(hSpu, SPORT_4A_DMA10_SPU_PID, true)
 	 != ADI_SPU_SUCCESS) {
 	 DBG_MSG("Failed to enable Master secure for SPORT 4A DMA\n");
 	 return (ADI_SPU_FAILURE);
 	 }
-	 */
+
 
 	/* Make SPORT 4B DMA to generate secure transactions */
 	if (adi_spu_EnableMasterSecure(hSpu, SPORT_4B_DMA11_SPU_PID, true)
@@ -2102,84 +1523,49 @@ uint32_t SpuInit(void) {
 		return (ADI_SPU_FAILURE);
 	}
 
-	/* Make SPORT 2B to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_SPU_PID, true)
+	/* Make MDMA0 Source to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, MDMA0_SRC_DMA8_SPU_PID, true)
 			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 2B\n");
+		DBG_MSG("Failed to enable Master secure for MDMA 0 Source\n");
 		return (ADI_SPU_FAILURE);
 	}
 
-	/* Make SPORT 2B DMA to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_DMA5_SPU_PID, true)
+	/* Make MDMA0 Destination to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, MDMA0_DST_DMA9_SPU_PID, true)
 			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 2B DMA\n");
+		DBG_MSG("Failed to enable Master secure for MDMA 0 Destination\n");
 		return (ADI_SPU_FAILURE);
 	}
-
-	/* Make SPORT 0B to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 0B\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-	/* Make SPORT 0B DMA to generate secure transactions */
-	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_DMA1_SPU_PID, true)
-			!= ADI_SPU_SUCCESS) {
-		DBG_MSG("Failed to enable Master secure for SPORT 0B DMA\n");
-		return (ADI_SPU_FAILURE);
-	}
-
-    /* Make MDMA0 Source to generate secure transactions */
-    if(adi_spu_EnableMasterSecure(hSpu, MDMA0_SRC_DMA8_SPU_PID, true) != ADI_SPU_SUCCESS)
-    {
-        DBG_MSG("Failed to enable Master secure for MDMA 0 Source\n");
-        return (ADI_SPU_FAILURE);
-    }
-
-    /* Make MDMA0 Destination to generate secure transactions */
-    if(adi_spu_EnableMasterSecure(hSpu, MDMA0_DST_DMA9_SPU_PID, true) != ADI_SPU_SUCCESS)
-    {
-        DBG_MSG("Failed to enable Master secure for MDMA 0 Destination\n");
-        return (ADI_SPU_FAILURE);
-    }
 
 	return (Result);
 }
 
-uint32_t DMAInit(void){
-	ADI_DMA_RESULT      eResult = ADI_DMA_SUCCESS;
-    eResult = adi_mdma_Open (MEMCOPY_STREAM_ID,
-                               &MemDmaStreamMem[0],
-                               &hMemDmaStream,
-                               &hSrcDmaChannel,
-                               &hDestDmaChannel,
-                               NULL,
-                               NULL);
+uint32_t DMAInit(void) {
+	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
+	eResult = adi_mdma_Open(MEMCOPY_STREAM_ID, &MemDmaStreamMem[0],
+			&hMemDmaStream, &hSrcDmaChannel, &hDestDmaChannel,
+			NULL,
+			NULL);
 
-      /* IF (Failure) */
-      if (eResult != ADI_DMA_SUCCESS)
-      {
-      	DBG_MSG("Failed to open MDMA stream, Error Code: 0x%08X\n", eResult);
-      }
+	/* IF (Failure) */
+	if (eResult != ADI_DMA_SUCCESS) {
+		DBG_MSG("Failed to open MDMA stream, Error Code: 0x%08X\n", eResult);
+	}
 
-      /* IF (Success) */
-      if (eResult == ADI_DMA_SUCCESS)
-      {
-          /* Set DMA Callback Function. No need to set for source channel since callback is not supported for it */
-          eResult = adi_dma_UpdateCallback (hDestDmaChannel, MemDmaCallback, hMemDmaStream);
+	/* IF (Success) */
+	if (eResult == ADI_DMA_SUCCESS) {
+		/* Set DMA Callback Function. No need to set for source channel since callback is not supported for it */
+		eResult = adi_dma_UpdateCallback(hDestDmaChannel, MemDmaCallback,
+				hMemDmaStream);
 
-          /* IF (Failure) */
-          if (eResult != ADI_DMA_SUCCESS)
-          {
-              DBG_MSG("Failed to set DMA callback, Error Code: 0x%08X\n", eResult);
-          }
-      }
+		/* IF (Failure) */
+		if (eResult != ADI_DMA_SUCCESS) {
+			DBG_MSG("Failed to set DMA callback, Error Code: 0x%08X\n", eResult);
+		}
+	}
 
-      return 0;
+	return 0;
 }
-
-
 
 /*
  *  Callback from MDMA Manager
@@ -2192,49 +1578,36 @@ uint32_t DMAInit(void){
  * Returns  None
  *
  */
-static void MemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
-{
-    /* CASEOF (Event) */
-    switch ((ADI_DMA_EVENT)Event)
-    {
-        /* CASE (Processed a one-shot/circular buffer) */
-        case (ADI_DMA_EVENT_BUFFER_PROCESSED):
-            /* Update memory copy status flag */
-            bMemCopyInProgress = false;
-            break;
+static void MemDmaCallback(void *pCBParam, uint32_t Event, void *pArg) {
+	/* CASEOF (Event) */
+	switch ((ADI_DMA_EVENT) Event) {
+	/* CASE (Processed a one-shot/circular buffer) */
+	case (ADI_DMA_EVENT_BUFFER_PROCESSED):
+		/* Update memory copy status flag */
+		bMemCopyInProgress = false;
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 }
 
+static void OSPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg) {
+	/* CASEOF (Event) */
+	switch ((ADI_FIR_EVENT) eEvent) {
+	/* CASE (Processed a one-shot/circular buffer) */
+	case (ADI_FIR_EVENT_ALL_CHANNEL_DONE):
+		/* Update memory copy status flag */
+		bOSPMFIRInProgress = false;
+		break;
 
-
-static void OSPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg)
-{
-    /* CASEOF (Event) */
-    switch ((ADI_FIR_EVENT)eEvent)
-    {
-        /* CASE (Processed a one-shot/circular buffer) */
-        case (ADI_FIR_EVENT_ALL_CHANNEL_DONE):
-            /* Update memory copy status flag */
-            bOSPMFIRInProgress = false;
-            break;
-
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 }
-
-
-
-
-
-
 
 int8_t DisableAllOSPMChannels() {
 	ADI_FIR_RESULT res;
-
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2251,36 +1624,26 @@ int8_t DisableAllOSPMChannels() {
 }
 
 
-int32_t ANCALG_1(void) {
-
-	return 0;
-
-}
 
 int32_t ANCALG_2(void) {
 	ADI_FIR_RESULT res;
 	int8_t disableAllOSPMChannelsResult = 0;
-	ADI_DMA_RESULT      eResult = ADI_DMA_SUCCESS;
+	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
 
 	OSPMInProgress = true;
 
 	//OSPM
 #ifdef LowPassFilter
 
-	//DMACopy_4Bytes_1D(refSignalOSPMPastFuture, refOutputBuff, (OSPMLength/2), 0, (OSPMLength -1));
 
-
-
-
-
-	while (bMemCopyInProgress);
+	while (bMemCopyInProgress)
+		;
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 
 			res = adi_fir_SubmitInputCircBuffer(hChannelOSPM[j][k],
-					OSPMInputBuff,
-					OSPMInputBuff,
+					OSPMInputBuff, OSPMInputBuff,
 					OSPMInputSize, 1);
 
 			if (res != ADI_FIR_RESULT_SUCCESS) {
@@ -2291,51 +1654,44 @@ int32_t ANCALG_2(void) {
 				return -1;
 			}
 
-
 		}
 
 	}
 
-
-
-
-
 #else
 
-    /* Initialize flag */
-    bMemCopyInProgress = true;
+	/* Initialize flag */
+	bMemCopyInProgress = true;
 	eResult = adi_mdma_Copy1D (hMemDmaStream,
-		                                   (void *)&refSignal_store[0],
-		                                   (void *)&refSignal[0],
-		                                   MEMCOPY_MSIZE,
-										   (refLength)
-										   );
+			(void *)&refSignal_store[0],
+			(void *)&refSignal[0],
+			MEMCOPY_MSIZE,
+			(refLength)
+	);
 
-    /* IF (Failure) */
-    if (eResult != ADI_DMA_SUCCESS)
-    {
-    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-    }
+	/* IF (Failure) */
+	if (eResult != ADI_DMA_SUCCESS)
+	{
+		DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
+	}
 	while (bMemCopyInProgress);
 
+	/* Initialize flag */
+	bMemCopyInProgress = true;
+	eResult = adi_mdma_Copy1D (hMemDmaStream,
+			(void *)&refSignalPastFuture[(refLength/2)],
+			(void *)&refSignal_store[0],
+			MEMCOPY_MSIZE,
+			(refLength -1)
+	);
 
-		    /* Initialize flag */
-		    bMemCopyInProgress = true;
-			eResult = adi_mdma_Copy1D (hMemDmaStream,
-				                                   (void *)&refSignalPastFuture[(refLength/2)],
-				                                   (void *)&refSignal_store[0],
-				                                   MEMCOPY_MSIZE,
-												   (refLength -1)
-												   );
+	/* IF (Failure) */
+	if (eResult != ADI_DMA_SUCCESS)
+	{
+		DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
+	}
 
-		    /* IF (Failure) */
-		    if (eResult != ADI_DMA_SUCCESS)
-		    {
-		    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-		    }
-
-
-			while (bMemCopyInProgress);
+	while (bMemCopyInProgress);
 #pragma vector_for
 	for(uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
@@ -2350,13 +1706,7 @@ int32_t ANCALG_2(void) {
 		}
 	}
 
-
-
 #endif
-
-
-
-
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2371,19 +1721,16 @@ int32_t ANCALG_2(void) {
 		}
 	}
 
-
 	res = adi_fir_EnableConfig(hConfigOSPM, true);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
-	}
-	else{
+	} else {
 		bOSPMFIRInProgress = true;
 	}
 
-
-
-	while(bOSPMFIRInProgress);
+	while (bOSPMFIRInProgress)
+		;
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2396,43 +1743,43 @@ int32_t ANCALG_2(void) {
 			}
 		}
 	}
-/*
-#pragma vector_for
-	for (uint8_t j = 0; j < numControlSignal; j++) {
+	/*
+	 #pragma vector_for
+	 for (uint8_t j = 0; j < numControlSignal; j++) {
 
-		    // Initialize flag
-		    bMemCopyInProgress = true;
-		    // Populate 2D Memory transfer instance for source channel
-		    Src_2DMemXfer.pStartAddress    = &OSPMOutputBuff[j][0][0];
-		    Src_2DMemXfer.YCount           = numErrorSignal;                    // Configure YCount for 2D transfer
-		    Src_2DMemXfer.YModify          = 4;
-		    Src_2DMemXfer.XCount           = OSPMWindowSize;
-		    Src_2DMemXfer.XModify          = 4;
+	 // Initialize flag
+	 bMemCopyInProgress = true;
+	 // Populate 2D Memory transfer instance for source channel
+	 Src_2DMemXfer.pStartAddress    = &OSPMOutputBuff[j][0][0];
+	 Src_2DMemXfer.YCount           = numErrorSignal;                    // Configure YCount for 2D transfer
+	 Src_2DMemXfer.YModify          = 4;
+	 Src_2DMemXfer.XCount           = OSPMWindowSize;
+	 Src_2DMemXfer.XModify          = 4;
 
-		    // Populate 2D Memory transfer instance for destination channel
-		    Dest_2DMemXfer.pStartAddress   = &OSPMRef[j][0][0];
-		    Dest_2DMemXfer.YCount          = numErrorSignal;                    // Configure YCount for 2D transfer
-		    Dest_2DMemXfer.YModify         = 4;
-		    Dest_2DMemXfer.XCount          = OSPMWindowSize;
-		    Dest_2DMemXfer.XModify         = 4;
+	 // Populate 2D Memory transfer instance for destination channel
+	 Dest_2DMemXfer.pStartAddress   = &OSPMRef[j][0][0];
+	 Dest_2DMemXfer.YCount          = numErrorSignal;                    // Configure YCount for 2D transfer
+	 Dest_2DMemXfer.YModify         = 4;
+	 Dest_2DMemXfer.XCount          = OSPMWindowSize;
+	 Dest_2DMemXfer.XModify         = 4;
 
-		    eResult = adi_mdma_Copy2D (hMemDmaStream,
-		    							MEMCOPY_MSIZE,
-		                               &Dest_2DMemXfer,
-		                               &Src_2DMemXfer);
+	 eResult = adi_mdma_Copy2D (hMemDmaStream,
+	 MEMCOPY_MSIZE,
+	 &Dest_2DMemXfer,
+	 &Src_2DMemXfer);
 
-		    // IF (Failure)
-		    if (eResult != ADI_DMA_SUCCESS)
-		    {
-		    	DBG_MSG("Failed initialize MDMA 2D Copy \n", eResult);
-		    }
-
-
-			while (bMemCopyInProgress);
+	 // IF (Failure)
+	 if (eResult != ADI_DMA_SUCCESS)
+	 {
+	 DBG_MSG("Failed initialize MDMA 2D Copy \n", eResult);
+	 }
 
 
-	}
-*/
+	 while (bMemCopyInProgress);
+
+
+	 }
+	 */
 	//SAFE
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
@@ -2440,14 +1787,15 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
 			for (uint32_t i = 0; i < OSPMWindowSize; i++) {
-				OSPMRef[j][k][i]= OSPMOutputBuff[j][k][i];
+				OSPMRef[j][k][i] = OSPMOutputBuff[j][k][i];
 			}
 		}
 	}
 
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		for (uint32_t i = 0, l=OSPMLength; i < OSPMLength, l <(OSPMLength*2-1); i++,l++) {
+		for (uint32_t i = 0, l = OSPMLength;
+				i < OSPMLength, l < (OSPMLength * 2 - 1); i++, l++) {
 			OSPMAWGNSignal[j][i] = OSPMAWGNGain[j][i]
 					* (float) AWGN_generator();
 			OSPMAWGNSignalPastFuture[j][l] = OSPMAWGNSignal[j][i];
@@ -2457,7 +1805,8 @@ int32_t ANCALG_2(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			res = adi_fir_SubmitInputCircBuffer(hChannelOSPM[j][k],
-					OSPMAWGNSignalPastFuture[j], OSPMAWGNSignalPastFuture[j], OSPMInputSize, 1);
+					OSPMAWGNSignalPastFuture[j], OSPMAWGNSignalPastFuture[j],
+					OSPMInputSize, 1);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf(
 						"adi_fir_SubmitInputCircBuffer hChannelOSPM[%d][%d] failed\n",
@@ -2484,50 +1833,46 @@ int32_t ANCALG_2(void) {
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
-	}
-	else{
+	} else {
 		bOSPMFIRInProgress = true;
 	}
 
-
-
 #ifndef LowPassFilter
-		    // Initialize flag
-		    bMemCopyInProgress = true;
-			eResult = adi_mdma_Copy1D (hMemDmaStream,
-				                                   (void *)&refSignalPastFuture[0],
-				                                   (void *)&refInputBuff[0],
-				                                   MEMCOPY_MSIZE,
-												   refLength);
+	// Initialize flag
+	bMemCopyInProgress = true;
+	eResult = adi_mdma_Copy1D (hMemDmaStream,
+			(void *)&refSignalPastFuture[0],
+			(void *)&refInputBuff[0],
+			MEMCOPY_MSIZE,
+			refLength);
 
-		    // IF (Failure)
-		    if (eResult != ADI_DMA_SUCCESS)
-		    {
-		    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
+	// IF (Failure)
+	if (eResult != ADI_DMA_SUCCESS)
+	{
+		DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
 
-		    }
-		    while (bMemCopyInProgress);
+	}
+	while (bMemCopyInProgress);
 #endif
 
-
-
-		while(bOSPMFIRInProgress);
+	while (bOSPMFIRInProgress)
+		;
 	//cycle_t start_count=0;
 
 	// cycle_t final_count=0;
 	//START_CYCLE_COUNT(start_count);
 
-		//Debug
-	#pragma vector_for
-		for (uint8_t j = 0; j < numControlSignal; j++) {
-	#pragma vector_for
-			for (uint8_t k = 0; k < numErrorSignal; k++) {
-	#pragma vector_for
-				for (uint32_t i = 0; i < OSPMWindowSize; i++) {
-					OSPMAux[j][k][i]= OSPMOutputBuff[j][k][i];
-				}
+	//Debug
+#pragma vector_for
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (uint8_t k = 0; k < numErrorSignal; k++) {
+#pragma vector_for
+			for (uint32_t i = 0; i < OSPMWindowSize; i++) {
+				OSPMAux[j][k][i] = OSPMOutputBuff[j][k][i];
 			}
 		}
+	}
 
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2538,14 +1883,9 @@ int32_t ANCALG_2(void) {
 			for (uint8_t j = 0; j < numControlSignal; j++) {
 				OSPMAuxSumTemp += OSPMOutputBuff[j][k][i];
 			}
-			filteredErrorSignal[k][i] =
-		  (errorSignal[k][i] - OSPMAuxSumTemp);
+			filteredErrorSignal[k][i] = (errorSignal[k][i] - OSPMAuxSumTemp);
 		}
 	}
-
-
-
-
 
 	//INDIRECT ERROR SIGNAL
 #pragma vector_for(numControlSignal)
@@ -2554,9 +1894,8 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				indirectErrorSignal[j][k][i] =
-				(filteredErrorSignal[k][i]
-													+ OSPMOutputBuff[j][k][i]);
+				indirectErrorSignal[j][k][i] = (filteredErrorSignal[k][i]
+						+ OSPMOutputBuff[j][k][i]);
 			}
 		}
 	}
@@ -2566,7 +1905,7 @@ int32_t ANCALG_2(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for(OSPMOutputSize)
 		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-			 powerOSPMAWGNSignal[j][i] = (forgettingFactor
+			powerOSPMAWGNSignal[j][i] = (forgettingFactor
 					* powerOSPMAWGNSignal[j][i]
 					+ (1.0 - forgettingFactor) * OSPMAWGNSignal[j][i]
 							* OSPMAWGNSignal[j][i]);
@@ -2578,11 +1917,10 @@ int32_t ANCALG_2(void) {
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 		for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-			powerFilteredErrorSignal[k][i] =
-					(forgettingFactor
-							* powerFilteredErrorSignal[k][i]
-							+ (1.0 - forgettingFactor) * filteredErrorSignal[k][i]
-									* filteredErrorSignal[k][i]);
+			powerFilteredErrorSignal[k][i] = (forgettingFactor
+					* powerFilteredErrorSignal[k][i]
+					+ (1.0 - forgettingFactor) * filteredErrorSignal[k][i]
+							* filteredErrorSignal[k][i]);
 		}
 	}
 
@@ -2593,14 +1931,11 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				powerIndirectErrorSignal[j][k][i] =
-						(forgettingFactor
-								* powerIndirectErrorSignal[j][k][i]
-								+ (1.0 - forgettingFactor)
-										* indirectErrorSignal[j][k][i]
-										* indirectErrorSignal[j][k][i]);
-
-
+				powerIndirectErrorSignal[j][k][i] = (forgettingFactor
+						* powerIndirectErrorSignal[j][k][i]
+						+ (1.0 - forgettingFactor)
+								* indirectErrorSignal[j][k][i]
+								* indirectErrorSignal[j][k][i]);
 
 			}
 		}
@@ -2613,9 +1948,8 @@ int32_t ANCALG_2(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
 			for (uint32_t i = 0; i < OSPMOutputSize; i++) {
-				stepSizeS[j][k][i] =
-						((powerOSPMAWGNSignal[j][i] * stepSizeSMin)
-								/ powerIndirectErrorSignal[j][k][i]);
+				stepSizeS[j][k][i] = ((powerOSPMAWGNSignal[j][i] * stepSizeSMin)
+						/ powerIndirectErrorSignal[j][k][i]);
 			}
 		}
 	}
@@ -2633,13 +1967,12 @@ int32_t ANCALG_2(void) {
 				powerpowerIndirectErrorSignalTemp +=
 						powerIndirectErrorSignal[j][k][i];
 			}
-			OSPMAWGNGain[j][i] = constrain((powerFilteredErrorSignalSumTemp
-					/ powerpowerIndirectErrorSignalTemp), -1000,1000);
+			OSPMAWGNGain[j][i] = constrain(
+					(powerFilteredErrorSignalSumTemp
+							/ powerpowerIndirectErrorSignalTemp), -10000, 10000);
 
 		}
 	}
-
-
 
 	disableAllOSPMChannelsResult = DisableAllOSPMChannels();
 	if (disableAllOSPMChannelsResult != 0) {
@@ -2653,111 +1986,111 @@ int32_t ANCALG_2(void) {
 #pragma vector_for(numErrorSignal)
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OSPMOutputSize)
-			for (int32_t i = 0, l=OSPMOutputSize-1; i < OSPMOutputSize, l>(-1); i++,l--) {
+			for (int32_t i = 0, l = OSPMOutputSize - 1;
+					i < OSPMOutputSize, l > (-1); i++, l--) {
 				OSPMCoeffBuff[j][k][l] =
-						//constrain(
-								(OSPMCoeffBuff[j][k][l]
-						+ (stepSizeS[j][k][i] * OSPMAWGNSignal[j][i]
-								* filteredErrorSignal[k][i]))
-								//, -0.01, 0.01 )
-								;
+				constrain(
+						(OSPMCoeffBuff[j][k][l]
+								+ (stepSizeS[j][k][i] * OSPMAWGNSignal[j][i]
+										* filteredErrorSignal[k][i]))
+						, -10000, 10000 )
+						;
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOSPM[j][k],
 					OSPMCoeffBuff[j][k], OSPMCoeffBuff[j][k], 1);
 		}
 	}
 
-
 	//Control Coeff
 #pragma vector_for(numControlSignal)
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
-		for (int32_t i = 0, l=controlOutputSize-1; i < controlOutputSize, l>(-1); i++,l--) {
+		for (int32_t i = 0, l = controlOutputSize - 1;
+				i < controlOutputSize, l > (-1); i++, l--) {
 			float filteredErrorSignal_OSPMRef_SumTemp = 0;
 
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
 				filteredErrorSignal_OSPMRef_SumTemp += filteredErrorSignal[k][i]
 						* OSPMRef[j][k][i];
 			}
-			controlCoeffBuff[j][l] =  (controlCoeffBuff[j][l]
-					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp);
+
+			controlCoeffBuff[j][l] =
+					constrain(
+							(controlCoeffBuff[j][l]
+					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp)
+					, -10000, 10000 );
 
 		}
 	}
 
-
 #ifndef LowPassFilter
-		while (bMemCopyInProgress);
+	while (bMemCopyInProgress);
 #endif
 
-/*
-    // Populate 2D Memory transfer instance for source channel
-    Src_2DMemXfer.pStartAddress    = &OSPMAWGNSignal[0][0];
-    Src_2DMemXfer.YCount           = numControlSignal;                    // Configure YCount for 2D transfer
-    Src_2DMemXfer.YModify          = 4;
-    Src_2DMemXfer.XCount           = OSPMLength;
-    Src_2DMemXfer.XModify          = 4;
+	/*
+	 // Populate 2D Memory transfer instance for source channel
+	 Src_2DMemXfer.pStartAddress    = &OSPMAWGNSignal[0][0];
+	 Src_2DMemXfer.YCount           = numControlSignal;                    // Configure YCount for 2D transfer
+	 Src_2DMemXfer.YModify          = 4;
+	 Src_2DMemXfer.XCount           = OSPMLength;
+	 Src_2DMemXfer.XModify          = 4;
 
-    // Populate 2D Memory transfer instance for destination channel
-    Dest_2DMemXfer.pStartAddress   = &OSPMAWGNSignalPastFuture[0][0];
-    Dest_2DMemXfer.YCount          = numControlSignal;                    // Configure YCount for 2D transfer
-    Dest_2DMemXfer.YModify         = 4;
-    Dest_2DMemXfer.XCount          = OSPMLength;
-    Dest_2DMemXfer.XModify         = 4;
-    // Initialize flag
-    bMemCopyInProgress = true;
-    eResult = adi_mdma_Copy2D (hMemDmaStream,
-    							MEMCOPY_MSIZE,
-                               &Dest_2DMemXfer,
-                               &Src_2DMemXfer);
+	 // Populate 2D Memory transfer instance for destination channel
+	 Dest_2DMemXfer.pStartAddress   = &OSPMAWGNSignalPastFuture[0][0];
+	 Dest_2DMemXfer.YCount          = numControlSignal;                    // Configure YCount for 2D transfer
+	 Dest_2DMemXfer.YModify         = 4;
+	 Dest_2DMemXfer.XCount          = OSPMLength;
+	 Dest_2DMemXfer.XModify         = 4;
+	 // Initialize flag
+	 bMemCopyInProgress = true;
+	 eResult = adi_mdma_Copy2D (hMemDmaStream,
+	 MEMCOPY_MSIZE,
+	 &Dest_2DMemXfer,
+	 &Src_2DMemXfer);
 
-    // IF (Failure)
-    if (eResult != ADI_DMA_SUCCESS)
-    {
-    	DBG_MSG("Failed initialize MDMA 2D Copy \n", eResult);
-    }
-	while (bMemCopyInProgress);
-*/
+	 // IF (Failure)
+	 if (eResult != ADI_DMA_SUCCESS)
+	 {
+	 DBG_MSG("Failed initialize MDMA 2D Copy \n", eResult);
+	 }
+	 while (bMemCopyInProgress);
+	 */
 
-/*
+	/*
 
+	 #pragma vector_for
+	 for (uint8_t j = 0; j < numControlSignal; j++) {
+
+
+
+	 bMemCopyInProgress = true;
+	 eResult = adi_mdma_Copy1D (hMemDmaStream,
+	 (void *)&OSPMAWGNSignalPastFuture[j][0],
+	 (void *)&OSPMAWGNSignal[j][0],
+	 MEMCOPY_MSIZE,
+	 (OSPMLength));
+
+	 // IF (Failure)
+	 if (eResult != ADI_DMA_SUCCESS)
+	 {
+	 DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
+	 }
+
+	 while (bMemCopyInProgress);
+
+	 }
+
+
+	 */
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-
-
-
-	    bMemCopyInProgress = true;
-		eResult = adi_mdma_Copy1D (hMemDmaStream,
-			                                   (void *)&OSPMAWGNSignalPastFuture[j][0],
-											   (void *)&OSPMAWGNSignal[j][0],
-			                                   MEMCOPY_MSIZE,
-											   (OSPMLength));
-
-	    // IF (Failure)
-	    if (eResult != ADI_DMA_SUCCESS)
-	    {
-	    	DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-	    }
-
-		while (bMemCopyInProgress);
-
-	}
-
-
-*/
 #pragma vector_for
-	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint32_t i = 0; i < OSPMLength; i++) {
 			OSPMAWGNSignalPastFuture[j][i] = OSPMAWGNSignal[j][i];
 		}
 	}
 
-OSPMInProgress=false;
+	OSPMInProgress = false;
 	return 0;
 }
-
-
-
-
-
 
