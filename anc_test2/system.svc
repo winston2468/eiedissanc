@@ -12,6 +12,106 @@ It provides information needed to link your code. It can be used to configure me
 			<component-description><![CDATA[This add-in provides Analog Devices' implementation of Multicore association's Multicore Communications API (MCAPI™) version 2.15]]></component-description>
 			<product name="Analog Devices implementation of Multicore Communications API (MCAPI™) v2.15" version="1.0.0"/>
 		</component>
+		<component id="com.analog.crosscore.addins.ssldd.pwr.sharcxi" name="PWR Sevice for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Power Service (PWR)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.tmr.common.sharcxi" name="TMR Service for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the General Purpose Timer Service (TMR)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.rtc.sharcxi" name="RTC Service for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Real-Time Clock Service (RTC)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.tru.sharcxi" name="TRU Sevice for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Trigger Routing Unit Manager (TRU)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.tmr.sharcxi" name="TMR Service for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the General Purpose Timer Service (TMR)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.iir.sharcxi" name="IIR Driver for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the IIR Accelerator Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.pcg.sharcxi" name="PCG Service for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Precision Clock Generator (PCG) Service]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.fir.common.sharcxi" name="FIR Driver for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the FIR Accelerator Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.pwr.common.sharcxi" name="PWR Sevice for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Power Service (PWR)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.spu.sharcxi" name="SPU Service for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the System Protection Unit(SPU)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.asrc.common.sharcxi" name="ASRC Driver for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Asynchronous Rate Converter (ASRC) Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.stdio.sharcxi" name="STDIO Service for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the STDIO Service]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.iir.common.sharcxi" name="IIR Driver for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the IIR Accelerator Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.dma.common.sharcxi" name="DMA Sevice for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the DMA Service]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.fir.sharcxi" name="FIR Driver for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the FIR Accelerator Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.asrc.sharcxi" name="ASRC Driver for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Asynchronous Rate Converter (ASRC) Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.fft.sharcxi" name="FFT Driver for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the FFT Accelerator Driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.uart.common.sharcxi" name="UART Driver for SHARC" version="1.0.0" visible="false">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the UART Interface driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.wd.sharcxi" name="WDT Sevice for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Watchdog Timer Service (WDT)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.uart.sharcxi" name="UART Driver for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the UART Interface driver]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.dma.sharcxi" name="DMA Sevice for SHARC" version="1.0.1" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the DMA Service]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.gpio.sharcxi" name="GPIO Driver for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the General-Purpose input/output Port Driver (GPIO)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.sc58x_ez_kit.adau1962a" name="12-Channel, 192 kHz, 24-Bit DAC (ADAU1962A) Driver" version="2.0.2" visible="true">
+			<component-description><![CDATA[This component provides the ADAU1962A 12-Channel, High Performance, 192 kHz, 24-Bit DAC driver for ADSP-SC5xx EZ-Kit.]]></component-description>
+			<product name="ADSP-SC5xx EZ-KIT Lite v2.0.2" version="2.0.2"/>
+		</component>
+		<component id="com.analog.crosscore.addins.ssldd.acm.sharcxi" name="ACM Service for SHARC" version="1.0.0" visible="true">
+			<component-description><![CDATA[This add-in provides Analog Devices' implementation of the Analog Control Module Service (ACM)]]></component-description>
+			<product name="Analog Devices System Services and Device Drivers" version="1.0.0"/>
+		</component>
+		<component id="com.analog.crosscore.addins.sc58x_ez_kit.general" name="ADSP-SC5xx EZ-Kit Base Component" version="2.0.2" visible="false">
+			<component-description/>
+			<product name="ADSP-SC5xx EZ-KIT Lite v2.0.2" version="2.0.2"/>
+		</component>
 	</installedComponents>
 	<configurations>
 		<configuration id="com.analog.sourcegen.component.startup_ldf">

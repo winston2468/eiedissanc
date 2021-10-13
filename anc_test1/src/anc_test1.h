@@ -14,39 +14,46 @@ void SPE1_ISR();
 //#define ControlFIRA
 #define LowPassFilter
 #define LowPassFilter2
-#define NUM_AUDIO_SAMPLES_ADC       2048
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL       1024
+/*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define NUM_AUDIO_SAMPLES_DAC       2048
+*/
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define refLength NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define refLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define refInputSize (refLength + refWindowSize - 1)
-#define refWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define refOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define controlLength NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define refOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define controlLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define controlInputSize (controlLength + controlWindowSize - 1)
-#define controlWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define controlOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define OSPMLength NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define controlWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define controlOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OSPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
-#define OSPMWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define OSPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define OSPMOutputSize 1024
 #define numErrorSignal 2
 #define numControlSignal 2
-#define NUM_DAC_CHANNELS				(8u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_ADC_1979*4*sizeof(int32_t))
+#define NUM_DAC_CHANNELS (8u)
+#define NUM_ADAU1979_CHANNELS (4u)
+#define NUM_ADAU1761_CHANNELS (2u)
+#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1761_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
+#define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
+
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
   /* FS 24.576 MHz /Fs kHz */
 #define pcgFSDIV 2048u
 
 
+
+
+
 #define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)
-
-
 
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
