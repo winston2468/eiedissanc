@@ -1,68 +1,48 @@
 /*****************************************************************************
  * anc_Core2.c
  *****************************************************************************/
-#include <stdio.h>
 #include <sys/platform.h>
 #include <sys/adi_core.h>
-#include "adi_initialize.h"
-#include "anc_test2.h"
-#include "SHARC_linkInterface.h"
-#include <services/int/adi_int.h>
-#define TIMESTAMP	if(CycleCountBufferIndex < 1024) {CycleCountBuffer[CycleCountBufferIndex][0] =__LINE__; CycleCountBuffer[CycleCountBufferIndex++][1] = __builtin_emuclk();}
+#include <SRU.h>
 
+
+#include <services/int/adi_sec.h>
+#include <drivers/dac/adau1962a/adi_adau1962a.h>
+#include <drivers/twi/adi_twi.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <stdlib.h>
+#include <adi_types.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <filter.h>
+#include "adi_initialize.h"
+#include "SHARC_linkInterface.h"
+
+#include "anc_test2.h"
+
+
+#define TIMESTAMP	if(CycleCountBufferIndex < 1024) {CycleCountBuffer[CycleCountBufferIndex][0] =__LINE__; CycleCountBuffer[CycleCountBufferIndex++][1] = __builtin_emuclk();}
 
 //*****************************************************************************
 // Local Variables
 //*****************************************************************************
-uint32_t DacCount = 0u;
-uint32_t RAWBuffersReceived = 0u;
-uint32_t FILTEREDBuffersReceived = 0u;
-uint8_t  DacStarted = 0u;
+uint8_t DacStarted = 0u;
 /* ADC/DAC buffer pointer */
- void *pGetDAC = NULL;
+void *pGetDAC = NULL;
 uint32_t DMASlaveDestinationAddress = 0u;
 
 // These variables are used for instrumenting the code
 volatile int CycleCountBufferIndex = 0;
 volatile unsigned long CycleCountBuffer[4096][2];
 
-//*************************************************************************
-// Interrupt handler for MDMA RAW data transfer complete
-//*************************************************************************
-static void RawDataTransferFromMasterComplete(uint32_t SID, void *pCBParam)
-{
-	static uint32_t PreviousFrameCounter = 0xFFFFu;
-	uint32_t CounterFromMasterSHARC = *sharc_flag_in_L2;
-
-	if( CounterFromMasterSHARC != PreviousFrameCounter )	// Fix for stutter
-	{
-		PreviousFrameCounter = CounterFromMasterSHARC;
-		TIMESTAMP
-		SHARC1Filter( (int8_t *)MDMA_LOCAL_ADDR, AncCoeff, AUDIO_BUFFER_SIZE );
-		++RAWBuffersReceived;
-	}
-}
-
-//*************************************************************************
-// Interrupt handler for MDMA FILTERED data transfer complete
-//*************************************************************************
-static void AncCoeffTransferFromMasterComplete(uint32_t SID, void *pCBParam)
-{
-	static uint32_t PreviousFrameCounter = 0xFFFFu;
-	uint32_t CounterFromMasterSHARC = *sharc_flag_in_L2;
-
-	if( CounterFromMasterSHARC != PreviousFrameCounter )	// Fix for stutter
-	{
-		PreviousFrameCounter = CounterFromMasterSHARC;
-		TIMESTAMP
-		++FILTEREDBuffersReceived;
-
-		// Merge the AncCoeff buffer with the audio frame just received from the Master SHARC.
-		if( pSportOutputBuffer != 0 )
-			MergeAudioChannels( (void *)(MDMA_LOCAL_ADDR+AUDIO_BUFFER_SIZE), AncCoeff, pSportOutputBuffer, AUDIO_BUFFER_SIZE );
-	}
-}
-
+#pragma alignment_region (4)
+float controlOutputBuff[numControlSignal][controlInputSize + 1] = { 0 };
+float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+float OSPMWNSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+#pragma alignment_region_end
 /**
  * If you want to use command program arguments, then place them in the following string.
  */
@@ -78,19 +58,18 @@ extern uint32_t Adau1962aInit(void);
 /* Submit buffers to DAC */
 extern uint32_t Adau1962aSubmitBuffers(void);
 extern uint32_t Adau1962aEnable(void);
-extern uint32_t Adau1962aDoneWithBuffer( void *pBuffer);
-
-/** 
- * If you want to use command program arguments, then place them in the following string. 
- */
-char __argv_string[] = "";
+extern uint32_t Adau1962aDoneWithBuffer(void *pBuffer);
+uint8_t ControlFIR(void);
+uint8_t GenOutputSignal(void);
+uint8_t PushOutputSignal(void);
+uint8_t UpdateControlCoeff(void);
 
 typedef enum {
-	NONE, START, RECIEVE
+	NONE, START, RECIEVE_REF, RECIEVE_OSPMWNSIGNAL, RECIEVE_CONTROL_COEFF
 } MODE;
 
 static MODE eMode = NONE;
-
+volatile int queue = 0;
 
 static bool bError;
 static uint32_t count;
@@ -100,127 +79,160 @@ float pm controlCoeffBuff[numControlSignal][controlLength] = { 0 };
 
 float controlState[numControlSignal][controlLength + 1] = { 0 };
 
+//*************************************************************************
+// Interrupt handler for MDMA RAW data transfer complete
+//*************************************************************************
+static void RefDataTransferFromMasterComplete(uint32_t SID, void *pCBParam) {
+	static uint32_t PreviousFrameCounter = 0xFFFFu;
+	uint32_t CounterFromMasterSHARC = *sharc_flag_in_L2;
+
+	if (CounterFromMasterSHARC != PreviousFrameCounter)	// Fix for stutter
+			{
+		PreviousFrameCounter = CounterFromMasterSHARC;
+		TIMESTAMP
+		if (eMode == NONE) {
+			eMode = RECIEVE_REF;
+			bEvent = true;
+		} else {
+			printf("Sync Error 1");
+		}
+	}
+}
+
+//*************************************************************************
+// Interrupt handler for MDMA OSPMWNSignal data transfer complete
+//*************************************************************************
+static void OSPMWNSignalTransferFromMasterComplete(uint32_t SID, void *pCBParam) {
+	static uint32_t PreviousFrameCounter = 0xFFFFu;
+	uint32_t CounterFromMasterSHARC = *sharc_flag_in_L2;
+
+	if (CounterFromMasterSHARC != PreviousFrameCounter)	// Fix for stutter
+			{
+		PreviousFrameCounter = CounterFromMasterSHARC;
+		TIMESTAMP
+		if (eMode == RECIEVE_REF) {
+			eMode = RECIEVE_OSPMWNSIGNAL;
+			bEvent = true;
+		} else {
+			printf("Sync Error 2");
+		}
+	}
+}
+
+//*************************************************************************
+// Interrupt handler for MDMA ControlCoeff data transfer complete
+//*************************************************************************
+static void ControlCoeffTransferFromMasterComplete(uint32_t SID, void *pCBParam) {
+	static uint32_t PreviousFrameCounter = 0xFFFFu;
+	uint32_t CounterFromMasterSHARC = *sharc_flag_in_L2;
+
+	if (CounterFromMasterSHARC != PreviousFrameCounter)	// Fix for stutter
+			{
+		PreviousFrameCounter = CounterFromMasterSHARC;
+		TIMESTAMP
+		if (eMode == RECIEVE_OSPMWNSIGNAL) {
+			eMode = RECIEVE_CONTROL_COEFF;
+			bEvent = true;
+		} else {
+			printf("Sync Error 3");
+		}
+	}
+}
 
 int32_t FIR_init() {
-
-	//FIR stuff
-	ADI_FIR_RESULT res;
-
-	//reverseArrayf(refCoeffBuff, sizeof(refCoeffBuff));
-
-	/*
-	 for (int32_t i = 0; i < controlLength; i++) {
-	 controlCoeffBuff1[i] = 1;		//0.0000001;
-	 controlCoeffBuff2[i] = 1;		//0.0000001;
-	 }
-	 */
-
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
 		for (int32_t i = 0; i < controlLength; i++) {
 			controlState[j][i] = 0;
 			controlCoeffBuff[j][i] = 0.0001;		//0.0000001;
-			//controlState1[i] = 0;
-			//controlState2[i] = 0;
 		}
 	}
 	return 0;
 }
 
-void ProcessBufferDAC(uint32_t iid, void* handlerArg) {
+uint8_t ControlFIR() {
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+		firf((float *) MDMA_LOCAL_ADDR, controlOutputBuff[j],
+				controlCoeffBuff[j], controlState[j], controlInputSize + 1,
+				controlLength);
+	}
+	return 0;
+}
 
-	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
-	ADI_FIR_RESULT res;
+uint8_t GenOutputSignal() {
+	//SAFE
+	memcpy(&OSPMWNSignal[0][0], (void *)(MDMA_LOCAL_ADDR + refOutputBufferSize),
+			control_BufferSize);
+	//float **OSPMWNSignal = (float **) MDMA_LOCAL_ADDR + refOutputBufferSize;
+	for (uint8_t j = 0; j < numControlSignal; j++) {
 
-
-	// process ADC to DAC buffer
-
-	if (pGetDAC != NULL) {
-
-		pDst = (int32_t *) pGetDAC;
-
-#ifdef LowPassFilter
-		// ---------------------------------------   Enable Channels -----------------------------------------------
-
-		//memcpy(&refInputBuff[0],refSignal, 4*NUM_AUDIO_SAMPLES_ADC_SINGLE);
-		firf(refInputBuff, refOutputBuff, refCoeffBuff, refState,
-		refInputSize + 1, refLength);
-		if (!OSPMInProgress) {
-			/*
-			bMemCopyInProgress = true;
-			eResult = adi_mdma_Copy1D(hMemDmaStream, (void *) &OSPMInputBuff[0],
-					(void *) &refOutputBuff[0],
-					MEMCOPY_MSIZE,
-					OSPMInputSize);
-			// IF (Failure)
-			if (eResult != ADI_DMA_SUCCESS) {
-				DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-			}
-			while (bMemCopyInProgress)
-				;
-				*/
+		for (uint32_t i = 0, l = (((controlInputSize + 1) / 4) - 1);
+				i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < controlInputSize; i++) {
+			outputSignal[j][i] = controlOutputBuff[j][l] + OSPMWNSignal[j][i];
 		}
-
-		for (uint8_t j = 0; j < numControlSignal; j++) {
-			firf(refOutputBuff, controlOutputBuff[j], controlCoeffBuff[j],
-					controlState[j], controlInputSize + 1, controlLength);
-		}
-
-#else
-
-		for(uint8_t k =0; k<numControlSignal; k++) {
-			firf(refInputBuff, controlOutputBuff[k], controlCoeffBuff[k], controlState[k], controlInputSize+1, controlLength);
-		}
-
-#endif
-
-#pragma vector_for
-		for (uint8_t j = 0; j < numControlSignal; j++) {
-			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_DAC - 1;
-					i < NUM_AUDIO_SAMPLES_DAC, l < NUM_AUDIO_SAMPLES_DAC * 2 - 2;
-					i++, l++) {
-				outputSignal[j][i] = controlOutputBuff[l][i]
-						+ OSPMWNSignal[j][i];
-			}
-		}
-
-		if (bEnableOutput) {
-
-			 for (int32_t i=0,j=NUM_AUDIO_SAMPLES_DAC -1; i < NUM_AUDIO_SAMPLES_DAC, j>-1;i++, j--) {
-			 //TDM8 SHIFT <<8
-
-			 *pDst++ = (conv_fix_by(refInputBuff[i], 15)) ;
-			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15)) ;
-			 *pDst++ = (conv_fix_by(errorSignal[1][i], 15)) ;
-			 *pDst++ = (conv_fix_by(refInputBuff[i], 15));
-			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-			 *pDst++ = (conv_fix_by(errorSignal[1][i], 15));
-			 *pDst++ = (conv_fix_by(refInputBuff[i], 15)) ;
-			 *pDst++ = (conv_fix_by(errorSignal[0][i], 15));
-
-			 }
-			 /*
-			for (int32_t i = 0, j = NUM_AUDIO_SAMPLES_DAC - 1;
-					i < NUM_AUDIO_SAMPLES_DAC, j > -1; i++, j--) {
-				//TDM8 SHIFT <<8
-
-				*pDst++ = (conv_fix_by(outputSignal[0][i], 1));
-				*pDst++ = (conv_fix_by(outputSignal[1][i], 1));
-				*pDst++ = 0;
-				*pDst++ = 0;
-				*pDst++ = 0;
-				*pDst++ = 0;
-				*pDst++ = 0;
-				*pDst++ = 0;
-
-			}
-		} */
-
-
 	}
 
+	return 0;
 }
+
+uint8_t PushOutputSignal() {
+	if (pGetDAC != NULL) {
+
+		int32_t *pDst = (int32_t *) pGetDAC;
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
+			//TDM8 SHIFT <<8
+			/*
+			 for(int32_t j =0; j< numControlSignal;j++){
+			 *pDst++ = (conv_fix_by(outputSignal[j][i], 10)) ;
+			 }
+
+			 for(int32_t m =0; m< NUM_DAC_CHANNELS - numControlSignal;m++){
+			 *pDst++ = 0;
+			 }
+			 */
+
+			/*
+			 *pDst++ = (conv_fix_by(outputSignal[0][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[1][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[2][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[3][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[4][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[5][i], 10)) ;
+			 *pDst++ = 0 ;
+			 *pDst++ = (conv_fix_by(outputSignal[6][i], 10)) ;
+			 *pDst++ = 0 ;
+			 */
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 10));
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+
+		}
+	}
+
+	return 0;
+}
+
+uint8_t UpdateControlCoeff() {
+	float * recieveControlCoeff = (float *) MDMA_LOCAL_ADDR
+			+ refOutputBufferSize + OSPMWNSignal_BufferSize;
+	/*
+	 for (uint8_t j = 0; j < numControlSignal; j++) {
+
+	 for (int32_t i = 0; i < controlLength; i++) {
+	 controlCoeffBuff[j][i]=recieveControlCoeff[j][i];
+	 }
+	 }
+	 */
+	//SAFE
+	memcpy(&controlCoeffBuff[0][0], recieveControlCoeff,
+			control_BufferSize);
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -235,6 +247,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 	case ADI_SPORT_EVENT_TX_BUFFER_PROCESSED:
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
+		TIMESTAMP
 		pGetDAC = pArg;
 		Adau1962aDoneWithBuffer(pArg);
 		break;
@@ -243,8 +256,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 	}
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	uint32_t Result = 0u;
 	bool bExit;
 	bExit = false;
@@ -254,8 +266,6 @@ int main(int argc, char *argv[])
 	 * @return zero on success 
 	 */
 	adi_initComponents();
-	adi_sec_SetPriority(INTR_SOFT7, 61);
-	adi_int_InstallHandler(INTR_SOFT7, ProcessBufferDAC, 0, true);
 
 	/* Begin adding your custom code here */
 	if (Result == 0u) {
@@ -273,12 +283,29 @@ int main(int argc, char *argv[])
 	while (!bExit) {
 		if (bEvent) {
 			switch (eMode) {
-			case RECIEVE:
-				ANCALG_2();
-				//ProcessBufferADC1();
-				// ProcessBufferADC2();
-				//ProcessBufferDAC();
+			case RECIEVE_REF:
+				ControlFIR();
 				break;
+
+			case RECIEVE_OSPMWNSIGNAL:
+
+				GenOutputSignal();
+				// Enable data flow for the DAC
+				if (Result == 0u && DacStarted == 0) {
+
+					Adau1962aEnable();
+					DacStarted = 1;
+					fprintf(stdout, "Core2: DAC Started\n");
+				}
+
+				PushOutputSignal();
+
+				break;
+			case RECIEVE_CONTROL_COEFF:
+				UpdateControlCoeff();
+				eMode = NONE;
+				break;
+
 			case START:
 				printf("Started.\n");
 
@@ -289,18 +316,16 @@ int main(int argc, char *argv[])
 				//*************************************************************************
 				// Initialize MDMA - Code blocks until both cores complete init
 				//*************************************************************************
-				Result = SHARC_linkSlaveInit( RawDataTransferFromMasterComplete, AncCoeffTransferFromMasterComplete, (void *)DMASlaveDestinationAddress );
-				if(Result != 0u)
-				{
+				Result = SHARC_linkSlaveInit(RefDataTransferFromMasterComplete,
+						OSPMWNSignalTransferFromMasterComplete,
+						ControlCoeffTransferFromMasterComplete,
+						(void *) DMASlaveDestinationAddress);
+				if (Result != 0u) {
 					DBG_MSG("Core2: SHARClinkSlaveInit() failed\n" );
-					while(1){;}
+					while (1) {
+						;
+					}
 				}
-
-				// Enable data flow for the DAC
-				if (Result == 0u) {
-					Adau1962aEnable();
-				}
-
 
 				break;
 			default:

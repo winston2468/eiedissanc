@@ -89,27 +89,34 @@ to the terms of the associated Analog Devices License Agreement.
  */
 #ifndef SHARCLINKINTERFACE_H_
 #define SHARCLINKINTERFACE_H_
-#include <services/int/adi_int.h>
-#define sharc_flag_in_L2 (volatile unsigned int *)0x20087000 /* address is in non cacheble range so that Coherency is maintained*/
 
-#define MDMA_STREAM_ID_RAW          ADI_DMA_MEMDMA_S0   // Stream 0
-#define MDMA_SID_RAW				173
-#define MDMA_STREAM_ID_FILTERED     ADI_DMA_MEMDMA_S1   // Stream 1
-#define MDMA_SID_FILTERED			175
+#define sharc_flag_in_L2 (volatile unsigned int *)0x20087000 /* address is in non cacheble range so that Coherency is maintained*/
+/*
+#define MDMA_STREAM_ID_REF          ADI_DMA_MEMDMA_S1   // Stream 1
+#define MDMA_SID_REF				173
+#define MDMA_STREAM_ID_OSPMWNSIGNAL     ADI_DMA_MEMDMA_S2   // Stream 2
+#define MDMA_SID_OSPMWNSIGNAL 			175
+*/
+#define MDMA_STREAM_ID_REF          ADI_DMA_MEMDMA_S1   // Stream 1, Standard BW DMA/CRC1 Channel 1, MDMA1_DST
+#define MDMA_SID_REF				175
+#define MDMA_STREAM_ID_OSPMWNSIGNAL     ADI_DMA_MEMDMA_S2   // Stream 2, Enhanced BW DMA Channel, MDMA2_DST
+#define MDMA_SID_OSPMWNSIGNAL 			169
+#define MDMA_STREAM_ID_CONTROL_COEFF        ADI_DMA_MEMDMA_S3   // Stream 3, Maximum BW DMA Channel 1, MDMA3_DST
+#define MDMA_SID_CONTROL_COEFF				167
 
 #define MDMA_DEST_L1BLOCK			1					// MDMA audio buffer to SHARC2 L1 block1
 
-extern int SHARC_linkSlaveInit( ADI_INT_HANDLER_PTR pfHandler_raw, ADI_INT_HANDLER_PTR pfHandler_filtered, void *DMASlaveDestinationAddress );
+extern int SHARC_linkSlaveInit( ADI_INT_HANDLER_PTR pfHandler_Ref, ADI_INT_HANDLER_PTR pfHandler_OSPMWNSignal, ADI_INT_HANDLER_PTR pfHandler_ControlCoeff, void *DMASlaveDestinationAddress );
 #define SHARC_LINK_SUCCESS			0
 #define SHARC_LINK_ERROR			-1
 #define SHARC_LINK_MCAPI_ERROR		-2
 
 // MDMA Destination audio destination address
 // Local address           | MDMA destination address
-// L1 Block 0 = 0x00240000 | 0x28A40000, 0x28E40000
-// L1 Block 1 = 0x002C0000 | 0x28AC0000, 0x28EC0000
-// L1 Block 2 = 0x00300000 | 0x28B00000, 0x28F00000
-// L1 Block 3 = 0x00380000 | 0x28B80000, 0x28F80000
+// L1 Block 0 = 0x00240000 | 0x28A40000, 0x28E40000 , 1.5 Mb
+// L1 Block 1 = 0x002C0000 | 0x28AC0000, 0x28EC0000 , 1.5 Mb
+// L1 Block 2 = 0x00300000 | 0x28B00000, 0x28F00000 , 1 Mb
+// L1 Block 3 = 0x00380000 | 0x28B80000, 0x28F80000 , 1 Mb
 #if   (MDMA_DEST_L1BLOCK == 0) 		// L1 Block 0
 	#define MDMA_LOCAL_ADDR 		0x00240000
 	#define MDMA_DESTINATION 		0x28A40000

@@ -5,7 +5,7 @@
  *      Author: Winston
  */
 #include "anc_test2.h"
-
+#include <stdio.h>
 #include <services/pcg/adi_pcg.h>
 /* PCG - C */
 uint8_t PcgMemory[ADI_PCG_MEMORY_SIZE];

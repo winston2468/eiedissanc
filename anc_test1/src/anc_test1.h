@@ -12,9 +12,8 @@
 void SPE1_ISR();
 
 //#define ControlFIRA
-#define LowPassFilter
-#define LowPassFilter2
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL       1024
+
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL       128
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -26,6 +25,8 @@ void SPE1_ISR();
 #define refInputSize (refLength + refWindowSize - 1)
 #define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define refOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define refOutput_BufferSize (NUM_AUDIO_SAMPLES_PER_CHANNEL*sizeof(float))
+
 #define controlLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define controlInputSize (controlLength + controlWindowSize - 1)
 #define controlWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
@@ -33,7 +34,7 @@ void SPE1_ISR();
 #define OSPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
 #define OSPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OSPMOutputSize 1024
+#define OSPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (8u)
@@ -43,6 +44,9 @@ void SPE1_ISR();
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
+#define OSPMWNSignal_BufferSize (numControlSignal*OSPMLength*sizeof(float))
+#define control_BufferSize (numControlSignal*controlLength*sizeof(float))
+
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -52,8 +56,6 @@ void SPE1_ISR();
 
 
 
-
-#define MEMCOPY_MSIZE               (ADI_DMA_MSIZE_4BYTES)
 
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
@@ -168,18 +170,20 @@ void SPE1_ISR();
 
 /* ADSP-SC589 Processor family */
 #if defined(__ADSPSC589_FAMILY__)
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       /* Stream 3 */
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       // Stream 0
 /* SPU PID for MDMA0 Source */
 #define MDMA0_SRC_DMA8_SPU_PID      (88u)
 /* SPU PID for MDMA0 Destination */
 #define MDMA0_DST_DMA9_SPU_PID      (89u)
 
-#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S2)       /* Stream 2 */
-/* SPU PID for MDMA1 Source */
+/*
+#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S1)       // Stream 1
+// SPU PID for MDMA1 Source
 #define MDMA1_SRC_DMA18_SPU_PID      (90u)
-/* SPU PID for MDMA1 Destination */
+// SPU PID for MDMA1 Destination
 #define MDMA1_DST_DMA19_SPU_PID      (91u)
-#endif /* __ADSPSC589_FAMILY__ */
+*/
+#endif // __ADSPSC589_FAMILY__
 
 
 

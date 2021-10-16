@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <drivers/adc/adau1979/adi_adau1979.h>
-#include <drivers/dac/adau1962a/adi_adau1962a.h>
 #include "anc_test1.h"
 
 
@@ -158,7 +157,7 @@ uint32_t Adau1979SubmitBuffers(void) {
 
 	/* submit ping buffer */
 	if ((uint32_t) adi_adau1979_SubmitBuffer(phAdau1979,
-			&AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979* NUM_ADAU1979_CHANNELS * 0u],
+			&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL* NUM_ADAU1979_CHANNELS * 0u],
 			AUDIO_BUFFER_SIZE_ADC_1979) != 0u) {
 		/* return error */
 		return 1u;
@@ -166,7 +165,7 @@ uint32_t Adau1979SubmitBuffers(void) {
 
 	/* submit pong buffer */
 	if ((uint32_t) adi_adau1979_SubmitBuffer(phAdau1979,
-			&AdcBuf[NUM_AUDIO_SAMPLES_ADC_1979* NUM_ADAU1979_CHANNELS * 1u],
+			&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL* NUM_ADAU1979_CHANNELS * 1u],
 			AUDIO_BUFFER_SIZE_ADC_1979) != 0u) {
 		/* return error */
 		return 1u;

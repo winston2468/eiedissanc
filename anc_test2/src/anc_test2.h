@@ -8,35 +8,37 @@
 /* Add your custom header content here */
 
 
-//#define ControlFIRA
-#define LowPassFilter
-#define LowPassFilter2
-#define NUM_AUDIO_SAMPLES_ADC       2048
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL       128
+/*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define NUM_AUDIO_SAMPLES_DAC       NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define NUM_AUDIO_SAMPLES_DAC       2048
+*/
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
-#define refLength NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define refLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define refInputSize (refLength + refWindowSize - 1)
-#define refWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define refOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define controlLength NUM_AUDIO_SAMPLES_ADC_SINGLE
+#define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define refOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define refOutputBufferSize (NUM_AUDIO_SAMPLES_PER_CHANNEL*sizeof(float))
+#define OSPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define controlLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define controlInputSize (controlLength + controlWindowSize - 1)
-#define controlWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define controlOutputSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define OSPMLength NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
-#define OSPMWindowSize NUM_AUDIO_SAMPLES_ADC_SINGLE
-#define OSPMOutputSize 1024
+#define controlWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define controlOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define numErrorSignal 2
 #define numControlSignal 2
-#define NUM_DAC_CHANNELS				(8u)
-#define NUM_ADAU1979_CHANNELS				(4u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_ADC*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_DAC*NUM_DAC_CHANNELS*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_ADC_1979*4*sizeof(int32_t))
+#define NUM_DAC_CHANNELS (8u)
+#define NUM_ADAU1979_CHANNELS (4u)
+#define NUM_ADAU1761_CHANNELS (2u)
+#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1761_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
+#define OSPMWNSignal_BufferSize (numControlSignal*OSPMLength*sizeof(float))
+#define control_BufferSize (numControlSignal*controlLength*sizeof(float))
+
+
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -145,22 +147,6 @@
 
 #define PE_MASK (0x0000003Fu)
 #define PE_LEN  (6u)
-
-
-/* ADSP-SC589 Processor family */
-#if defined(__ADSPSC589_FAMILY__)
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       /* Stream 3 */
-/* SPU PID for MDMA0 Source */
-#define MDMA0_SRC_DMA8_SPU_PID      (88u)
-/* SPU PID for MDMA0 Destination */
-#define MDMA0_DST_DMA9_SPU_PID      (89u)
-
-#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S2)       /* Stream 2 */
-/* SPU PID for MDMA1 Source */
-#define MDMA1_SRC_DMA18_SPU_PID      (90u)
-/* SPU PID for MDMA1 Destination */
-#define MDMA1_DST_DMA19_SPU_PID      (91u)
-#endif /* __ADSPSC589_FAMILY__ */
 
 
 

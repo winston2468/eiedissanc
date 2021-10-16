@@ -94,23 +94,35 @@ to the terms of the associated Analog Devices License Agreement.
 // MDMA handles
 //*****************************************************************************
 //
-// MDMA used to stream the raw RAW frame to the other SHARC
+// MDMA used to stream the reference signal/frame to the other SHARC
 //
-static ADI_DMA_STREAM_HANDLE   hMemDmaStream_ref;								// DMA Stream Handle
-static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_ref;								// Source DMA Handle
-static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_ref;								// Destination DMA Handle
-static uint8_t MemDmaStreamMem_ref[ADI_DMA_STREAM_REQ_MEMORY];					// Memory to handle DMA Stream
+static ADI_DMA_STREAM_HANDLE   hMemDmaStream_Ref;								// DMA Stream Handle
+static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_Ref;								// Source DMA Handle
+static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_Ref;								// Destination DMA Handle
+static uint8_t MemDmaStreamMem_Ref[ADI_DMA_STREAM_REQ_MEMORY];					// Memory to handle DMA Stream
 
 //
-// MDMA used to stream the filtered ADC frame to the other SHARC
+// MDMA used to stream the OSPMWNSignal frame to the other SHARC
 //
-static ADI_DMA_STREAM_HANDLE   hMemDmaStream_filtered;							// DMA Stream Handle
-static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_filtered;							// Source DMA Handle
-static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_filtered;						// Destination DMA Handle
-static uint8_t MemDmaStreamMem_filtered[ADI_DMA_STREAM_REQ_MEMORY];				// Memory to handle DMA Stream
+static ADI_DMA_STREAM_HANDLE   hMemDmaStream_OSPMWNSignal;							// DMA Stream Handle
+static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_OSPMWNSignal;							// Source DMA Handle
+static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_OSPMWNSignal;						// Destination DMA Handle
+static uint8_t MemDmaStreamMem_OSPMWNSignal[ADI_DMA_STREAM_REQ_MEMORY];				// Memory to handle DMA Stream
+
+//
+// MDMA used to stream the control coefficients  to the other SHARC
+//
+static ADI_DMA_STREAM_HANDLE   hMemDmaStream_ControlCoeff;								// DMA Stream Handle
+static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_ControlCoeff;								// Source DMA Handle
+static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_ControlCoeff;								// Destination DMA Handle
+static uint8_t MemDmaStreamMem_ControlCoeff[ADI_DMA_STREAM_REQ_MEMORY];					// Memory to handle DMA Stream
+
+/***** Instances to handle One-shot 2D Memory transfers *****/
+static ADI_DMA_2D_MEM_TRANSFER Src_2DMemXferLink;
+static ADI_DMA_2D_MEM_TRANSFER Dest_2DMemXferLink;
 
 //*****************************************************************************
-// MDMA transfer complete interrupt - raw data transfer
+// MDMA transfer complete interrupt - Ref data transfer
 //*****************************************************************************
 static void RefMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
 {
@@ -125,9 +137,24 @@ static void RefMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
 }
 
 //*****************************************************************************
-// MDMA transfer complete interrupt - filtered data transfer
+// MDMA transfer complete interrupt - OSPMWNSignal data transfer
 //*****************************************************************************
-static void FilteredMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
+static void OSPMWNSignalMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
+{
+    /* CASEOF (Event) */
+    switch (Event)
+    {
+    	/* CASE (Processed a one-shot/circular buffer) */
+    	case (ADI_DMA_EVENT_BUFFER_PROCESSED):
+    	    /* Update memory copy status flag */
+    		break;
+    }
+}
+
+//*****************************************************************************
+// MDMA transfer complete interrupt - ControlCoeff data transfer
+//*****************************************************************************
+static void ControlCoeffMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
 {
     /* CASEOF (Event) */
     switch (Event)
@@ -161,14 +188,14 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
 	// Open MDMA streams
 	//*************************************************************************
     //
-    // RAW stream
+    // Ref stream
     //
     DEBUGMSG(stdout, "Core1: Opening MDMA REF stream\n" );
     eResult = adi_mdma_Open (MDMA_STREAM_ID_REF,
-                             &MemDmaStreamMem_ref[0],
-                             &hMemDmaStream_ref,
-                             &hSrcDmaChannel_ref,
-                             &hDestDmaChannel_ref,
+                             &MemDmaStreamMem_Ref[0],
+                             &hMemDmaStream_Ref,
+                             &hSrcDmaChannel_Ref,
+                             &hDestDmaChannel_Ref,
                              NULL,
                              NULL);
 
@@ -179,14 +206,32 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
     }
 
     //
-    // FILTERED stream
+    // OSPMWNGSignal stream
+    //
+    DEBUGMSG(stdout, "Core1: Opening MDMA OSPMWNGSignal stream\n" );
+    eResult = adi_mdma_Open (MDMA_STREAM_ID_OSPMWNSIGNAL,
+                             &MemDmaStreamMem_OSPMWNSignal[0],
+                             &hMemDmaStream_OSPMWNSignal,
+                             &hSrcDmaChannel_OSPMWNSignal,
+                             &hDestDmaChannel_OSPMWNSignal,
+                             NULL,
+                             NULL);
+
+    if (eResult != ADI_DMA_SUCCESS)
+    {
+    	DEBUGMSG(stdout,"Failed to open MDMA FILTERED stream, Error Code: 0x%08X\n", eResult);
+    	return SHARC_LINK_ERROR;
+    }
+
+    //
+    // ControlCoeff stream
     //
     DEBUGMSG(stdout, "Core1: Opening MDMA FILTERED stream\n" );
-    eResult = adi_mdma_Open (MDMA_STREAM_ID_FILTERED,
-                             &MemDmaStreamMem_filtered[0],
-                             &hMemDmaStream_filtered,
-                             &hSrcDmaChannel_filtered,
-                             &hDestDmaChannel_filtered,
+    eResult = adi_mdma_Open (MDMA_STREAM_ID_CONTROL_COEFF,
+                             &MemDmaStreamMem_ControlCoeff[0],
+                             &hMemDmaStream_ControlCoeff,
+                             &hSrcDmaChannel_ControlCoeff,
+                             &hDestDmaChannel_ControlCoeff,
                              NULL,
                              NULL);
 
@@ -202,12 +247,12 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
     //
     // RAW stream
     //
-    adi_mdma_EnableChannelInterrupt(hDestDmaChannel_ref,false,false);			// Disable the MDMA destination transfer complete interrupt
-    adi_mdma_GetChannelSID (hDestDmaChannel_ref,&nSid);							// Get the channel SID for the MDMA destination complete interrupt
+    adi_mdma_EnableChannelInterrupt(hDestDmaChannel_Ref,false,false);			// Disable the MDMA destination transfer complete interrupt
+    adi_mdma_GetChannelSID (hDestDmaChannel_Ref,&nSid);							// Get the channel SID for the MDMA destination complete interrupt
     adi_sec_SetCoreID(nSid, ADI_SEC_CORE_1);									// Set interrupt to occur on Core 2 (unfortunate enumeration name in driver)
-    adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_ref,true,true);				// Enable the MDMA source transfer complete interrupt
-    eResult = adi_dma_UpdateCallback (hSrcDmaChannel_ref, RefMemDmaCallback,
-    													hMemDmaStream_ref); 	// Register source transfer complete interrupt
+    adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_Ref,true,true);				// Enable the MDMA source transfer complete interrupt
+    eResult = adi_dma_UpdateCallback (hSrcDmaChannel_Ref, RefMemDmaCallback,
+    													hMemDmaStream_Ref); 	// Register source transfer complete interrupt
      /* IF (Failure) */
      if (eResult != ADI_DMA_SUCCESS)
      {
@@ -215,21 +260,39 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
          return SHARC_LINK_ERROR;
      }
 
-     //
-     // FILTERED stream
-     //
-     adi_mdma_EnableChannelInterrupt(hDestDmaChannel_filtered,false,false);		// Disable the MDMA destination transfer complete interrupt
-     adi_mdma_GetChannelSID (hDestDmaChannel_filtered,&nSid);					// Get the channel SID for the MDMA destination complete interrupt
-     adi_sec_SetCoreID(nSid, ADI_SEC_CORE_1);									// Set interrupt to occur on Core 2 (unfortunate enumeration name in driver)
-     adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_filtered,true,true);		// Enable the MDMA source transfer complete interrupt
-     eResult = adi_dma_UpdateCallback (hSrcDmaChannel_filtered, FilteredMemDmaCallback,
-     													hMemDmaStream_filtered);// Register source transfer complete interrupt
-      /* IF (Failure) */
-      if (eResult != ADI_DMA_SUCCESS)
-      {
-          DEBUGMSG("Failed to set DMA FILTERED stream callback, Error Code: 0x%08X\n", eResult);
-          return SHARC_LINK_ERROR;
-      }
+
+      //
+      // OSPMWNSignal stream
+      //
+      adi_mdma_EnableChannelInterrupt(hDestDmaChannel_OSPMWNSignal,false,false);		// Disable the MDMA destination transfer complete interrupt
+      adi_mdma_GetChannelSID (hDestDmaChannel_OSPMWNSignal,&nSid);					// Get the channel SID for the MDMA destination complete interrupt
+      adi_sec_SetCoreID(nSid, ADI_SEC_CORE_1);									// Set interrupt to occur on Core 2 (unfortunate enumeration name in driver)
+      adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_OSPMWNSignal,true,true);		// Enable the MDMA source transfer complete interrupt
+      eResult = adi_dma_UpdateCallback (hSrcDmaChannel_OSPMWNSignal, OSPMWNSignalMemDmaCallback,
+      													hMemDmaStream_OSPMWNSignal);// Register source transfer complete interrupt
+       /* IF (Failure) */
+       if (eResult != ADI_DMA_SUCCESS)
+       {
+           DEBUGMSG("Failed to set DMA OSPMWNSignal stream callback, Error Code: 0x%08X\n", eResult);
+           return SHARC_LINK_ERROR;
+       }
+
+       //
+       // ControlCoeff stream
+       //
+       adi_mdma_EnableChannelInterrupt(hDestDmaChannel_ControlCoeff,false,false);		// Disable the MDMA destination transfer complete interrupt
+       adi_mdma_GetChannelSID (hDestDmaChannel_ControlCoeff,&nSid);					// Get the channel SID for the MDMA destination complete interrupt
+       adi_sec_SetCoreID(nSid, ADI_SEC_CORE_1);									// Set interrupt to occur on Core 2 (unfortunate enumeration name in driver)
+       adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_ControlCoeff,true,true);		// Enable the MDMA source transfer complete interrupt
+       eResult = adi_dma_UpdateCallback (hSrcDmaChannel_ControlCoeff, ControlCoeffMemDmaCallback,
+       													hMemDmaStream_ControlCoeff);// Register source transfer complete interrupt
+        /* IF (Failure) */
+        if (eResult != ADI_DMA_SUCCESS)
+        {
+            DEBUGMSG("Failed to set DMA ControlCoeff stream callback, Error Code: 0x%08X\n", eResult);
+            return SHARC_LINK_ERROR;
+        }
+
 
      *sharc_flag_in_L2 = 1;														// Tell master the MDMA driver is installed
 
@@ -272,9 +335,9 @@ int SHARC_linkSend( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_
     	default: ElementSize = 0; return -1;
     }
 
-    StreamHandle = hMemDmaStream_ref;
-    if( stream == MDMA_STREAM_ID_FILTERED )
-    	StreamHandle = hMemDmaStream_filtered;
+
+    StreamHandle = hMemDmaStream_Ref;
+
 
     //*************************************************************************
     // Submit One-shot 1D buffers to Source and destination channel
@@ -300,6 +363,67 @@ int SHARC_linkSend( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_
     }
 #endif
 
+
     return SHARC_LINK_SUCCESS;
 }
+
+
+//*****************************************************************************
+// Send a buffer to the slave core using MDMA. Upon transfer completion, an
+// interrupt is generated on the slave core.
+//*****************************************************************************
+int SHARC_linkSend2D( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_t nBytesInElement, uint32_t Xcount, uint32_t YCount )
+{
+	ADI_DMA_STREAM_HANDLE	StreamHandle;
+	ADI_DMA_MSIZE			ElementSize;
+    ADI_DMA_RESULT      	eResult = ADI_DMA_SUCCESS;
+
+    switch( nBytesInElement )													// Set ElementSize to 1,2, or 4 bytes
+    {
+    	case 1: ElementSize = ADI_DMA_MSIZE_1BYTE;  break;
+    	case 2: ElementSize = ADI_DMA_MSIZE_2BYTES; break;
+    	case 4: ElementSize = ADI_DMA_MSIZE_4BYTES; break;
+    	default: ElementSize = 0; return -1;
+    }
+    StreamHandle = hMemDmaStream_OSPMWNSignal;
+    if( stream == MDMA_STREAM_ID_CONTROL_COEFF )
+    {
+    	StreamHandle = hMemDmaStream_ControlCoeff;
+    }
+
+    // Prepare 2D memory transfer instances
+
+    /* Populate 2D Memory transfer instance for source channel */
+    Src_2DMemXferLink.pStartAddress    = pSrcBuffer;
+    Src_2DMemXferLink.YCount           = YCount;                    /* Configure YCount for 2D transfer */
+    Src_2DMemXferLink.YModify          = 4;
+    Src_2DMemXferLink.XCount           = Xcount;
+    Src_2DMemXferLink.XModify          = 4;
+
+    /* Populate 2D Memory transfer instance for destination channel */
+    Dest_2DMemXferLink.pStartAddress   = pDestBuffer;
+    Dest_2DMemXferLink.YCount          = YCount;                    /* Configure YCount for 2D transfer */
+    Dest_2DMemXferLink.YModify         = 4;
+    Dest_2DMemXferLink.XCount          = Xcount;
+    Dest_2DMemXferLink.XModify         = 4;
+
+    /* IF (Failure) */
+    if (eResult != ADI_DMA_SUCCESS)
+    {
+        DEBUGMSG(stdout,"Failed to initiate One-shot 2D memory copy, Error Code: 0x%08X\n", eResult);
+        return SHARC_LINK_ERROR;
+    }
+
+#if 0
+    eResult = adi_mdma_IsCopyInProgress (hMemDmaStream, (bool*)&bMemCopyInProgress);
+    while( bMemCopyInProgress == true ) // Wait for previous MDMA to complete
+    {
+    	eResult = adi_mdma_IsCopyInProgress (hMemDmaStream, (bool*)&bMemCopyInProgress);
+    }
+#endif
+
+
+    return SHARC_LINK_SUCCESS;
+}
+
 

@@ -4,6 +4,7 @@
 		<cconfiguration id="sharc.toolchain.configuration.debug.1787658133">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.debug.1787658133" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<macros>
+					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="acm-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
@@ -13,6 +14,7 @@
 					<stringMacro name="tmr-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
+					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
 					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>
@@ -128,6 +130,7 @@
 		<cconfiguration id="sharc.toolchain.configuration.release.1052930825">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.release.1052930825" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<macros>
+					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="acm-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
@@ -137,6 +140,7 @@
 					<stringMacro name="tmr-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
+					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
 					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>

@@ -88,7 +88,7 @@ to the terms of the associated Analog Devices License Agreement.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <services/int/adi_int.h>
+#include <services/int/adi_sec.h>
 //*****************************************************************************
 // Called from Master Sharc (sending Sharc) to initialize the SHARC link.
 // Uses MCAPI to establish SHARC link. SHARC link does not use MCAPI during runtime.
@@ -101,7 +101,7 @@ to the terms of the associated Analog Devices License Agreement.
 // 5)                                       |  Slave sends signal to master via L2
 // 6) Master starts sending audio frames to slave
 //*****************************************************************************
-int SHARC_linkSlaveInit( ADI_INT_HANDLER_PTR pfHandler_raw, ADI_INT_HANDLER_PTR pfHandler_filtered, void *DMASlaveDestinationAddress )
+int SHARC_linkSlaveInit( ADI_INT_HANDLER_PTR pfHandler_Ref, ADI_INT_HANDLER_PTR pfHandler_OSPMWNSignal, ADI_INT_HANDLER_PTR pfHandler_ControlCoeff, void *DMASlaveDestinationAddress )
 {
 	// Wait for the master SHARC to open the MDMA channel
     while( *sharc_flag_in_L2 != 1 )
@@ -114,11 +114,14 @@ int SHARC_linkSlaveInit( ADI_INT_HANDLER_PTR pfHandler_raw, ADI_INT_HANDLER_PTR 
 	//*************************************************************************
 	// Insert interrupt handler based on Sid
 	//*************************************************************************
-    adi_int_InstallHandler (MDMA_SID_RAW, pfHandler_raw, NULL, true);
-	DEBUGMSG( stdout, "Core2: MDMA RAW interrupt handler installed\n" );
+    adi_int_InstallHandler (MDMA_SID_REF, pfHandler_Ref, NULL, true);
+	DEBUGMSG( stdout, "Core2: MDMA REF interrupt handler installed\n" );
 
-	adi_int_InstallHandler (MDMA_SID_FILTERED, pfHandler_filtered, NULL, true);
-	DEBUGMSG( stdout, "Core2: MDMA FILTERED interrupt handler installed\n" );
+	adi_int_InstallHandler (MDMA_SID_OSPMWNSIGNAL, pfHandler_OSPMWNSignal, NULL, true);
+	DEBUGMSG( stdout, "Core2: MDMA OSPMWNSignal interrupt handler installed\n" );
+
+	adi_int_InstallHandler (MDMA_SID_CONTROL_COEFF, pfHandler_ControlCoeff, NULL, true);
+	DEBUGMSG( stdout, "Core2: MDMA ControlCoeff interrupt handler installed\n" );
 
 	*sharc_flag_in_L2 = 2;														// Tell master SHARC we have installed the handler
 

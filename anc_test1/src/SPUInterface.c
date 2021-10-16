@@ -41,7 +41,7 @@ uint32_t SpuInit(void) {
 	 }
 
 
-/*
+
 	// Make MDMA0 Source to generate secure transactions
 	if (adi_spu_EnableMasterSecure(hSpu, MDMA0_SRC_DMA8_SPU_PID, true)
 			!= ADI_SPU_SUCCESS) {
@@ -55,6 +55,6 @@ uint32_t SpuInit(void) {
 		DBG_MSG("Failed to enable Master secure for MDMA 0 Destination\n");
 		return (ADI_SPU_FAILURE);
 	}
-*/
+
 	return (Result);
 }
