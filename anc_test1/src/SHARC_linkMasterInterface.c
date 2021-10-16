@@ -96,10 +96,10 @@ to the terms of the associated Analog Devices License Agreement.
 //
 // MDMA used to stream the raw RAW frame to the other SHARC
 //
-static ADI_DMA_STREAM_HANDLE   hMemDmaStream_raw;								// DMA Stream Handle
-static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_raw;								// Source DMA Handle
-static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_raw;								// Destination DMA Handle
-static uint8_t MemDmaStreamMem_raw[ADI_DMA_STREAM_REQ_MEMORY];					// Memory to handle DMA Stream
+static ADI_DMA_STREAM_HANDLE   hMemDmaStream_ref;								// DMA Stream Handle
+static ADI_DMA_CHANNEL_HANDLE  hSrcDmaChannel_ref;								// Source DMA Handle
+static ADI_DMA_CHANNEL_HANDLE  hDestDmaChannel_ref;								// Destination DMA Handle
+static uint8_t MemDmaStreamMem_ref[ADI_DMA_STREAM_REQ_MEMORY];					// Memory to handle DMA Stream
 
 //
 // MDMA used to stream the filtered ADC frame to the other SHARC
@@ -112,7 +112,7 @@ static uint8_t MemDmaStreamMem_filtered[ADI_DMA_STREAM_REQ_MEMORY];				// Memory
 //*****************************************************************************
 // MDMA transfer complete interrupt - raw data transfer
 //*****************************************************************************
-static void RawMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
+static void RefMemDmaCallback(void *pCBParam, uint32_t Event, void *pArg)
 {
     /* CASEOF (Event) */
     switch (Event)
@@ -163,18 +163,18 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
     //
     // RAW stream
     //
-    DEBUGMSG(stdout, "Core1: Opening MDMA RAW stream\n" );
-    eResult = adi_mdma_Open (MDMA_STREAM_ID_RAW,
-                             &MemDmaStreamMem_raw[0],
-                             &hMemDmaStream_raw,
-                             &hSrcDmaChannel_raw,
-                             &hDestDmaChannel_raw,
+    DEBUGMSG(stdout, "Core1: Opening MDMA REF stream\n" );
+    eResult = adi_mdma_Open (MDMA_STREAM_ID_REF,
+                             &MemDmaStreamMem_ref[0],
+                             &hMemDmaStream_ref,
+                             &hSrcDmaChannel_ref,
+                             &hDestDmaChannel_ref,
                              NULL,
                              NULL);
 
     if (eResult != ADI_DMA_SUCCESS)
     {
-    	DEBUGMSG(stdout,"Failed to open MDMA RAW stream, Error Code: 0x%08X\n", eResult);
+    	DEBUGMSG(stdout,"Failed to open MDMA REF stream, Error Code: 0x%08X\n", eResult);
     	return SHARC_LINK_ERROR;
     }
 
@@ -202,16 +202,16 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
     //
     // RAW stream
     //
-    adi_mdma_EnableChannelInterrupt(hDestDmaChannel_raw,false,false);			// Disable the MDMA destination transfer complete interrupt
-    adi_mdma_GetChannelSID (hDestDmaChannel_raw,&nSid);							// Get the channel SID for the MDMA destination complete interrupt
+    adi_mdma_EnableChannelInterrupt(hDestDmaChannel_ref,false,false);			// Disable the MDMA destination transfer complete interrupt
+    adi_mdma_GetChannelSID (hDestDmaChannel_ref,&nSid);							// Get the channel SID for the MDMA destination complete interrupt
     adi_sec_SetCoreID(nSid, ADI_SEC_CORE_1);									// Set interrupt to occur on Core 2 (unfortunate enumeration name in driver)
-    adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_raw,true,true);				// Enable the MDMA source transfer complete interrupt
-    eResult = adi_dma_UpdateCallback (hSrcDmaChannel_raw, RawMemDmaCallback,
-    													hMemDmaStream_raw); 	// Register source transfer complete interrupt
+    adi_mdma_EnableChannelInterrupt(hSrcDmaChannel_ref,true,true);				// Enable the MDMA source transfer complete interrupt
+    eResult = adi_dma_UpdateCallback (hSrcDmaChannel_ref, RefMemDmaCallback,
+    													hMemDmaStream_ref); 	// Register source transfer complete interrupt
      /* IF (Failure) */
      if (eResult != ADI_DMA_SUCCESS)
      {
-         DEBUGMSG("Failed to set DMA RAW stream callback, Error Code: 0x%08X\n", eResult);
+         DEBUGMSG("Failed to set DMA REF stream callback, Error Code: 0x%08X\n", eResult);
          return SHARC_LINK_ERROR;
      }
 
@@ -272,7 +272,7 @@ int SHARC_linkSend( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_
     	default: ElementSize = 0; return -1;
     }
 
-    StreamHandle = hMemDmaStream_raw;
+    StreamHandle = hMemDmaStream_ref;
     if( stream == MDMA_STREAM_ID_FILTERED )
     	StreamHandle = hMemDmaStream_filtered;
 

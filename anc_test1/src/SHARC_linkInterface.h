@@ -92,9 +92,9 @@ to the terms of the associated Analog Devices License Agreement.
 
 #define sharc_flag_in_L2 (volatile unsigned int *)0x20087000 /* address is in non cacheble range so that Coherency is maintained*/
 
-#define MDMA_STREAM_ID_RAW          ADI_DMA_MEMDMA_S0   // Stream 0
+#define MDMA_STREAM_ID_REF          ADI_DMA_MEMDMA_S1   // Stream 1
 #define MDMA_SID_RAW				173
-#define MDMA_STREAM_ID_FILTERED     ADI_DMA_MEMDMA_S1   // Stream 1
+#define MDMA_STREAM_ID_FILTERED     ADI_DMA_MEMDMA_S2   // Stream 2
 #define MDMA_SID_FILTERED			175
 
 #define MDMA_DEST_L1BLOCK			1					// MDMA audio buffer to SHARC2 L1 block1

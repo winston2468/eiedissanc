@@ -59,14 +59,13 @@
 
  #define DSTALIGN ADI_CACHE_ALIGN_MIN_4
  #define SRCALIGN _Pragma("align 4")
- */
+
 
 #include <filter.h>
 #include "cycle_count.h"
 #include "anc_test1.h"
 
-#define INSTANT_START
-#define USE_ADAU1761_2
+
 /* select input source */
 #define USE_LINE_IN
 //#define USE_MICROPHONE
@@ -96,10 +95,8 @@ float refCoeffBuff[refLength] = {
 
 /* ----------------------------   FIR Configuration ------------------------------------------- */
 
-float refSignalPastFuture[refInputSize + 1] = { 0 };
 float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_ADC / 2] = { 0 };
 
-float OSPMWNSignalPastFuture[numControlSignal][OSPMInputSize] = { 0 };
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
@@ -127,7 +124,9 @@ float OSPMCoeffBuff[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 float OSPMRef[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 float OSPMAux[numControlSignal][numErrorSignal][OSPMOutputSize] = { 0 };
 float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_DAC] = { 0 };
-float OSPMWNSignal[numControlSignal][OSPMLength] = { 0 };
+
+float OSPMWNSignal[numControlSignal][OSPMInputSize] = { 0 };
+float OSPMWNSignalSend[numControlSignal][OSPMLength] = { 0 };
 
 float filteredErrorSignal[numErrorSignal][OSPMLength] = { 0 };
 
@@ -161,10 +160,8 @@ ADI_FIR_CHANNEL_HANDLE hchannelOSPMAux[numControlSignal][numErrorSignal];
 ADI_FIR_CONFIG_HANDLE hConfigRef;
 ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
+volatile bool TRNGFlag = false;
 
-
-unsigned int *randSeed;
-unsigned int randSeedInt = 0;
 float forgettingFactor = 0.6;
 float stepSizeSMin = 0.00001;
 
@@ -194,8 +191,8 @@ static uint32_t count;
 
 volatile bool bEvent;
 
-
-
+uint32_t OSPMWNSignal_X =OSPMWindowSize-1;
+uint32_t OSPMWNSignal_Y =0;
 
 /* ADC buffer pointer */
  void *pGetADC = NULL;
@@ -236,6 +233,11 @@ static void RefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void OSPMRefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void OSPMAuxFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 
+void PKIC_ISR(uint32_t iid, void* handlerArg);
+
+void TRNG_ISR(void);
+void TRNG_ACK(void);
+
 void *DMASlaveDestinationAddress;
 
 /**
@@ -263,31 +265,66 @@ void PKIC_ISR(uint32_t iid, void* handlerArg)
 
 void TRNG_ISR()
 {
-int iTemp,iTemp2,iTemp3;
-iTemp= Read_TRNG_Stat();
-if((iTemp & 0x2)==1)
-{
+	int iTemp,iTemp2,iTemp3;
+	iTemp= Read_TRNG_Stat();
+	if((iTemp & 0x2)==1)
+	{
 
-	iTemp2= Read_Alarm_Mask();
-	iTemp3=Read_Alarm_Stop();			//Fro will be disbaled automatically.
-    if(iTemp2==iTemp3)
-    {
-    	printf("\n FRO shutdown \n");
-    	Disbale_FRO(iTemp3);
-    	Detune_FRO(iTemp3);
-    }
-    Acknowledge_Interrupt(iTemp);
+		iTemp2= Read_Alarm_Mask();
+		iTemp3=Read_Alarm_Stop();			//Fro will be disbaled automatically.
+		if(iTemp2==iTemp3)
+		{
+			printf("\n FRO shutdown \n");
+			Disbale_FRO(iTemp3);
+			Detune_FRO(iTemp3);
+		}
+		Acknowledge_Interrupt(iTemp);
+	}
+	if((iTemp & 0x1)==1)
+	{
+		if(OSPMWNSignal_Y < numControlSignal ){
+			if(OSPMWNSignal_X < OSPMInputSize ){
+
+				Read_TRNG_Output(&OSPMWNSignal[OSPMWNSignal_Y][OSPMWNSignal_X]);
+				Read_TRNG_Output(&OSPMWNSignalSend[OSPMWNSignal_Y][OSPMWNSignal_X-OSPMWindowSize-1]);
+				OSPMWNSignal_X +=4;
+				Acknowledge_Interrupt(iTemp);
+			}
+			OSPMWNSignal_X = OSPMWindowSize - 1;
+			OSPMWNSignal_Y +=1;
+		}
+		TRNGFlag = true;
+	}
 }
-if((iTemp & 0x1)==1)
+
+void TRNG_ACK()
 {
+	int iTemp,iTemp2,iTemp3;
+	iTemp= Read_TRNG_Stat();
+	if((iTemp & 0x2)==1)
+	{
 
-	Read_TRNG_Output(randomNumberBuff);
-	TRNGFlag=true;
-	Acknowledge_Interrupt(iTemp);
+		iTemp2= Read_Alarm_Mask();
+		iTemp3=Read_Alarm_Stop();			//Fro will be disbaled automatically.
+		if(iTemp2==iTemp3)
+		{
+			printf("\n FRO shutdown \n");
+			Disbale_FRO(iTemp3);
+			Detune_FRO(iTemp3);
+		}
+		Acknowledge_Interrupt(iTemp);
+	}
+	if((iTemp & 0x1)==1)
+	{
+		OSPMWNSignal_Y =0;
+		OSPMWNSignal_X=OSPMWindowSize - 1;
+		Acknowledge_Interrupt(iTemp);
+	}
 
-}
 
-asm("nop;");
+
+
+	asm("nop;");
 }
 
 float constrain(float input, float low, float high) {
@@ -300,7 +337,7 @@ float constrain(float input, float low, float high) {
 	}
 
 }
-;
+
 
 
 void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
@@ -324,8 +361,8 @@ void pinIntCallback(ADI_GPIO_PIN_INTERRUPT ePinInt, uint32_t PinIntData,
 	if (ePinInt == PUSH_BUTTON2_PINT) {
 		//push button 2
 		if (PinIntData & PUSH_BUTTON2_PINT_PIN) {
-			if(bEnableOutput){
-			//LED onbEnableOSPM
+			if(bEnableOSPM){
+			//LED on bEnableOSPM
 			adi_gpio_Clear(LED2_PORT, LED2_PIN);
 			bEnableOSPM = false;
 			}
@@ -360,12 +397,13 @@ int32_t FIR_init() {
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OSPMLength; i++) {
-			powerOSPMWNSignal[j][i] = 0.0001;
+			powerOSPMWNSignal[j][i] = 1;
+
 		}
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
 				powerIndirectErrorSignal[j][k][i] = 1.0;
-				OSPMWNGain[j][i] = 0.00001;
+				OSPMWNGain[j][i] = 1;
 			}
 		}
 	}
@@ -642,8 +680,6 @@ int main(void) {
 	*pREG_SPU0_SECUREP155 = 2u;
 
 
-	randSeedInt = (unsigned int) rand();
-	randSeed = &randSeedInt;
 
 	adi_sec_SetPriority(INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
 	// Register and install a handler for the software interrupt SOFT5 (priority 60)
@@ -788,27 +824,50 @@ void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 		if (!OSPMInProgress) {
 
 			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL;
-					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
-				refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]), -25);
+					i < NUM_AUDIO_SAMPLES_PER_CHANNEL-1, l < refInputSize; i++, l++) {
+				refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -25);
 				for(uint8_t k = 0; k < numErrorSignal; k++){
-					errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]), -25);
+					errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -25);
 				}
 			}
-	    	//*****************************************************************
-	    	// Send RAW audio to slave SHARC
-	    	//*****************************************************************
-	    	if( SHARC_linkSend( MDMA_STREAM_ID_RAW, (void *)pArg, DMASlaveDestinationAddress, 1, AUDIO_BUFFER_SIZE_ADC_1979 ) != 0 )
-	    	{
-	    		while(1){;} // If we get here, there is an error
-	    	}
 
-	    	*sharc_flag_in_L2 = *sharc_flag_in_L2 + 1;
+			res = adi_fir_SubmitInputCircBuffer(hchannelRef,
+					refInputBuff, refInputBuff,
+					refInputSize, 1);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf(
+						"adi_fir_SubmitInputCircBuffer hchannelRef failed\n");
+			}
 
-		Adau1979DoneWithBuffer(pGetADC);
+			res = adi_fir_EnableChannel(hchannelRef, true);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel hchannelRef failed\n");
+			}
+
+			bRefFIRInProgress=true;
+			res = adi_fir_EnableConfig(hConfigRef, true);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableConfig hConfigRef failed\n");
+			}
+			while(bRefFIRInProgress);
+
+			//*****************************************************************
+			// Send RAW audio to slave SHARC
+			//*****************************************************************
+			if( SHARC_linkSend( MDMA_STREAM_ID_REF, (void *)refOutputBuff, DMASlaveDestinationAddress, 1, AUDIO_BUFFER_SIZE_ADC_1979 ) != 0 )
+			{
+				while(1){;} // If we get here, there is an error
+			}
+
+
+
+			*sharc_flag_in_L2 = *sharc_flag_in_L2 + 1;
+
+			Adau1979DoneWithBuffer(pGetADC);
+
+		}
 
 	}
-
-}
 }
 
 
@@ -931,68 +990,7 @@ int32_t ANCALG_2(void) {
 	int8_t disableAllOSPMChannelsResult = 0;
 	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
 
-	OSPMInProgress = true;
 
-	//OSPM
-#ifdef LowPassFilter
-
-
-	while (bMemCopyInProgress)
-		;
-
-	for (uint8_t j = 0; j < numControlSignal; j++) {
-		for (uint8_t k = 0; k < numErrorSignal; k++) {
-
-			res = adi_fir_SubmitInputCircBuffer(hchannelOSPMRef[j][k],
-					OSPMRefInputBuff, OSPMRefInputBuff,
-					OSPMInputSize, 1);
-
-			if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf(
-						"adi_fir_SubmitInputCircBuffer hchannelOSPMRef[%d][%d] failed\n",
-						j, k);
-
-				return -1;
-			}
-
-		}
-
-	}
-
-#else
-
-	/* Initialize flag */
-	bMemCopyInProgress = true;
-	eResult = adi_mdma_Copy1D (hMemDmaStream,
-			(void *)&refSignal_store[0],
-			(void *)&refSignal[0],
-			MEMCOPY_MSIZE,
-			(refLength)
-	);
-
-	/* IF (Failure) */
-	if (eResult != ADI_DMA_SUCCESS)
-	{
-		DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-	}
-	while (bMemCopyInProgress);
-
-	/* Initialize flag */
-	bMemCopyInProgress = true;
-	eResult = adi_mdma_Copy1D (hMemDmaStream,
-			(void *)&refSignalPastFuture[(refLength/2)],
-			(void *)&refSignal_store[0],
-			MEMCOPY_MSIZE,
-			(refLength -1)
-	);
-
-	/* IF (Failure) */
-	if (eResult != ADI_DMA_SUCCESS)
-	{
-		DBG_MSG("Failed initialize MDMA 1D Copy \n", eResult);
-	}
-
-	while (bMemCopyInProgress);
 #pragma vector_for
 	for(uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
@@ -1007,7 +1005,7 @@ int32_t ANCALG_2(void) {
 		}
 	}
 
-#endif
+
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
