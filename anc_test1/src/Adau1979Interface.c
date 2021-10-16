@@ -23,7 +23,7 @@ uint32_t Adau1979SportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
 
 #pragma align(4)
-int32_t AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 2];
+int32_t AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 2];
 
 
 /* ADC callback */
@@ -213,13 +213,13 @@ uint32_t Adau1979DoneWithBuffer( void *pBuffer )
 		pADC = (void *)&AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 1];
 	}
 	*/
-	if(pBuffer == &AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 0])
+	if(pBuffer == &AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0])
 	{
-		pADC = (void *)&AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 1];
+		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 1];
 	}
-	else if(pBuffer == &AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 1])
+	else if(pBuffer == &AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 1])
 	{
-		pADC = (void *)&AdcBuf[AUDIO_BUFFER_SIZE_ADC_1979 * 0];
+		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0];
 	}
 	else
 	{

@@ -56,7 +56,7 @@ void SPE1_ISR();
 
 
 
-
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       // Stream 0
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
@@ -168,22 +168,6 @@ void SPE1_ISR();
 #define PE_LEN  (6u)
 
 
-/* ADSP-SC589 Processor family */
-#if defined(__ADSPSC589_FAMILY__)
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       // Stream 0
-/* SPU PID for MDMA0 Source */
-#define MDMA0_SRC_DMA8_SPU_PID      (88u)
-/* SPU PID for MDMA0 Destination */
-#define MDMA0_DST_DMA9_SPU_PID      (89u)
-
-/*
-#define MEMCOPY_STREAM_ID1           (ADI_DMA_MEMDMA_S1)       // Stream 1
-// SPU PID for MDMA1 Source
-#define MDMA1_SRC_DMA18_SPU_PID      (90u)
-// SPU PID for MDMA1 Destination
-#define MDMA1_DST_DMA19_SPU_PID      (91u)
-*/
-#endif // __ADSPSC589_FAMILY__
 
 
 

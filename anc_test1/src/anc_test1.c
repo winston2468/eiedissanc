@@ -17,8 +17,7 @@
 #include <sys/adi_core.h>
 #include <SRU.h>
 
-/* SPU Manager includes */
-#include <services/spu/adi_spu.h>
+
 #include <services/int/adi_sec.h>
 #include <drivers/adc/adau1979/adi_adau1979.h>
 #include <drivers/twi/adi_twi.h>
@@ -37,7 +36,7 @@
 #include <stdbool.h>
 #include <drivers/fir/adi_fir.h>
 
-#include <services/gpio/adi_gpio.h>
+
 #ifdef __ADSPARM__
 #include <runtime/cache/adi_cache.h>
 
@@ -212,8 +211,7 @@ extern int32_t MemDma0Copy1D(
 extern int32_t MemDma0Copy2D( void *pDestBuffer, void *pSrcBuffer, uint8_t nBytesInElement, uint32_t Xcount, uint32_t YCount );
 
 /*=============  L O C A L    F U N C T I O N    P R O T O T Y P E S =============*/
-/* Initialize GPIO and reset peripherals */
-extern uint32_t GpioInit(void);
+
 /* Initializes ADC */
 extern uint32_t Adau1979Init(void);
 
@@ -237,7 +235,7 @@ int32_t ANCALG_3(void);
 int32_t ANCALG_4(void);
 int8_t DisableAllOSPMChannels(void);
 float WN_generator(void);
-uint32_t SpuInit(void);
+
 extern uint32_t DMAInit(void);
 
 static void RefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
@@ -293,7 +291,6 @@ static void PKIC_ISR(uint32_t iid, void* handlerArg);
 
 static void TRNG_ISR(void);
 static void TRNG_ACK(void);
-extern void ConfigSoftSwitches(void);
 //convert to float [-10,10]
 void Read_TRNG_Output_Imp(float *iOutput)
 {
@@ -719,6 +716,7 @@ int32_t FIR_init() {
 }
 
 int main(void) {
+	uint32_t DestAddress;
 
 	int8_t firResult = 0;
 	bool bExit;
@@ -727,6 +725,7 @@ int main(void) {
 	bExit = false;
 
 	adi_initComponents(); /* auto-generated code */
+
 
 	//SC589 adau1979
 	/* PADS0 DAI0 Port Input Enable Control Register */
@@ -739,7 +738,6 @@ int main(void) {
 	*pREG_SPU0_SECUREP155 = 2u;
 
 
-
 	adi_sec_SetPriority(INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
 	// Register and install a handler for the software interrupt SOFT5 (priority 60)
 	adi_int_InstallHandler(INTR_SOFT5, ProcessBufferADC, 0, true);
@@ -747,11 +745,8 @@ int main(void) {
 
 
 
-	/* Software Switch Configuration for the EZ-BOARD */
-	ConfigSoftSwitches();
-	if (Result == 0u) {
-		Result = SpuInit();
-	}
+
+
 	/*
 	if (Result == 0u) {
 		Result = DMAInit();
@@ -843,13 +838,25 @@ int main(void) {
 					Result = Adau1979SubmitBuffers();
 				}
 
+				//*************************************************************************
+				// Initialize MDMA - Code blocks until both cores complete init
+				//*************************************************************************
+				if(SHARC_linkMasterInit(&DestAddress) != 0u)
+				{
+					fprintf(stdout, "Core1: SHARClinkMasterInit() failed\n" );
+					while(1){;}
+				}
+
+				DMASlaveDestinationAddress = (void *)DestAddress;					// Set address for ADC callback
+
+				*sharc_flag_in_L2 = 0;												// Reset counter
 
 				// Enable data flow for the ADC
 				if (Result == 0u) {
 					Adau1979Enable();
 				}
 
-
+				printf("A");
 
 
 				break;
@@ -937,6 +944,8 @@ void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 			}
 			ANCALG_3();
 
+
+			ANCALG_4();
 			//*****************************************************************
 			// Send Control Coefficients to slave SHARC
 			//*****************************************************************
@@ -944,8 +953,6 @@ void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 			{
 				while(1){;} // If we get here, there is an error
 			}
-
-			ANCALG_4();
 
 			*sharc_flag_in_L2 = *sharc_flag_in_L2 + 1;
 

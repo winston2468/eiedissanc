@@ -43,6 +43,10 @@ float controlOutputBuff[numControlSignal][controlInputSize + 1] = { 0 };
 float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 float OSPMWNSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 #pragma alignment_region_end
+
+volatile bool bControlFIRFlag=false;
+volatile bool bOSPMFlag=false;
+volatile bool bUpdateFlag=false;
 /**
  * If you want to use command program arguments, then place them in the following string.
  */
@@ -51,7 +55,6 @@ extern uint32_t PcgDacInit(void);
 extern uint32_t AsrcDacInit(void);
 extern uint32_t PcgDacEnable(void);
 extern uint32_t AsrcDacEnable(void);
-extern uint32_t SpuInit(void);
 
 /* Initializes DAC */
 extern uint32_t Adau1962aInit(void);
@@ -68,7 +71,7 @@ typedef enum {
 	NONE, START, RECIEVE_REF, RECIEVE_OSPMWNSIGNAL, RECIEVE_CONTROL_COEFF
 } MODE;
 
-static MODE eMode = NONE;
+static volatile MODE eMode = NONE;
 volatile int queue = 0;
 
 static bool bError;
@@ -90,12 +93,12 @@ static void RefDataTransferFromMasterComplete(uint32_t SID, void *pCBParam) {
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if (eMode == NONE) {
-			eMode = RECIEVE_REF;
-			bEvent = true;
-		} else {
-			printf("Sync Error 1");
+		if(bUpdateFlag){
+			printf("Sync error 1");
 		}
+		bControlFIRFlag = true;
+		ControlFIR();
+		bControlFIRFlag = false;
 	}
 }
 
@@ -110,12 +113,13 @@ static void OSPMWNSignalTransferFromMasterComplete(uint32_t SID, void *pCBParam)
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if (eMode == RECIEVE_REF) {
-			eMode = RECIEVE_OSPMWNSIGNAL;
-			bEvent = true;
-		} else {
-			printf("Sync Error 2");
+		if(bControlFIRFlag){
+			printf("Sync error 2");
 		}
+		bOSPMFlag = true;
+		GenOutputSignal();
+		bOSPMFlag = false;
+
 	}
 }
 
@@ -130,12 +134,14 @@ static void ControlCoeffTransferFromMasterComplete(uint32_t SID, void *pCBParam)
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if (eMode == RECIEVE_OSPMWNSIGNAL) {
-			eMode = RECIEVE_CONTROL_COEFF;
-			bEvent = true;
-		} else {
-			printf("Sync Error 3");
+		if(bOSPMFlag){
+			printf("Sync error 3");
 		}
+		bUpdateFlag = true;
+		UpdateControlCoeff();
+		PushOutputSignal();
+		bUpdateFlag = true;
+
 	}
 }
 
@@ -221,17 +227,19 @@ uint8_t PushOutputSignal() {
 uint8_t UpdateControlCoeff() {
 	float * recieveControlCoeff = (float *) MDMA_LOCAL_ADDR
 			+ refOutputBufferSize + OSPMWNSignal_BufferSize;
-	/*
+/*
 	 for (uint8_t j = 0; j < numControlSignal; j++) {
 
 	 for (int32_t i = 0; i < controlLength; i++) {
 	 controlCoeffBuff[j][i]=recieveControlCoeff[j][i];
 	 }
-	 }
-	 */
+	 }*/
+
+
 	//SAFE
 	memcpy(&controlCoeffBuff[0][0], recieveControlCoeff,
 			control_BufferSize);
+
 	return 0;
 }
 
@@ -265,12 +273,17 @@ int main(int argc, char *argv[]) {
 	 * the project.
 	 * @return zero on success 
 	 */
+
+
+	//Enable the interrupts globally
+	*pREG_SEC0_GCTL=ENUM_SEC_GCTL_EN;
+	*pREG_SEC0_CCTL2=ENUM_SEC_CCTL2_EN;
+	//FIR driver SPU
+	*pREG_SPU0_SECUREP155 = 2u;
 	adi_initComponents();
 
 	/* Begin adding your custom code here */
-	if (Result == 0u) {
-		Result = SpuInit();
-	}
+
 
 	// Initialize ADAU1962A
 	if (Result == 0u) {
@@ -284,25 +297,20 @@ int main(int argc, char *argv[]) {
 		if (bEvent) {
 			switch (eMode) {
 			case RECIEVE_REF:
-				ControlFIR();
+				//ControlFIR();
+
 				break;
 
 			case RECIEVE_OSPMWNSIGNAL:
 
-				GenOutputSignal();
-				// Enable data flow for the DAC
-				if (Result == 0u && DacStarted == 0) {
+				//GenOutputSignal();
 
-					Adau1962aEnable();
-					DacStarted = 1;
-					fprintf(stdout, "Core2: DAC Started\n");
-				}
 
-				PushOutputSignal();
+				//PushOutputSignal();
 
 				break;
 			case RECIEVE_CONTROL_COEFF:
-				UpdateControlCoeff();
+				//UpdateControlCoeff();
 				eMode = NONE;
 				break;
 
@@ -312,6 +320,14 @@ int main(int argc, char *argv[]) {
 				//1962a ping pong buffers
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
+				}
+				eMode = NONE;
+				// Enable data flow for the DAC
+				if (Result == 0u && DacStarted == 0) {
+
+					Adau1962aEnable();
+					DacStarted = 1;
+					fprintf(stdout, "Core2: DAC Started\n");
 				}
 				//*************************************************************************
 				// Initialize MDMA - Code blocks until both cores complete init

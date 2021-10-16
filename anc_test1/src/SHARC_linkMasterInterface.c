@@ -219,14 +219,14 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
 
     if (eResult != ADI_DMA_SUCCESS)
     {
-    	DEBUGMSG(stdout,"Failed to open MDMA FILTERED stream, Error Code: 0x%08X\n", eResult);
+    	DEBUGMSG(stdout,"Failed to open MDMA OSPMWNGSignal stream, Error Code: 0x%08X\n", eResult);
     	return SHARC_LINK_ERROR;
     }
 
     //
     // ControlCoeff stream
     //
-    DEBUGMSG(stdout, "Core1: Opening MDMA FILTERED stream\n" );
+    DEBUGMSG(stdout, "Core1: Opening MDMA ControlCoeff stream\n" );
     eResult = adi_mdma_Open (MDMA_STREAM_ID_CONTROL_COEFF,
                              &MemDmaStreamMem_ControlCoeff[0],
                              &hMemDmaStream_ControlCoeff,
@@ -237,7 +237,7 @@ int SHARC_linkMasterInit( uint32_t *DMASlaveDestinationAddress )
 
     if (eResult != ADI_DMA_SUCCESS)
     {
-    	DEBUGMSG(stdout,"Failed to open MDMA FILTERED stream, Error Code: 0x%08X\n", eResult);
+    	DEBUGMSG(stdout,"Failed to open MDMA ControlCoeff stream, Error Code: 0x%08X\n", eResult);
     	return SHARC_LINK_ERROR;
     }
 
@@ -326,7 +326,7 @@ int SHARC_linkSend( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_
 	ADI_DMA_STREAM_HANDLE	StreamHandle;
 	ADI_DMA_MSIZE			ElementSize;
     ADI_DMA_RESULT      	eResult = ADI_DMA_SUCCESS;
-
+    bool bMemCopyInProgress1D;
     switch( nBytesInElement )													// Set ElementSize to 1,2, or 4 bytes
     {
     	case 1: ElementSize = ADI_DMA_MSIZE_1BYTE;  break;
@@ -339,6 +339,11 @@ int SHARC_linkSend( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint8_
     StreamHandle = hMemDmaStream_Ref;
 
 
+    eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_ControlCoeff, (bool*)&bMemCopyInProgress1D);
+    while( bMemCopyInProgress1D == true ) // Wait for previous MDMA to complete
+    {
+    	eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_ControlCoeff, (bool*)&bMemCopyInProgress1D);
+    }
     //*************************************************************************
     // Submit One-shot 1D buffers to Source and destination channel
     //*************************************************************************
@@ -377,7 +382,7 @@ int SHARC_linkSend2D( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint
 	ADI_DMA_STREAM_HANDLE	StreamHandle;
 	ADI_DMA_MSIZE			ElementSize;
     ADI_DMA_RESULT      	eResult = ADI_DMA_SUCCESS;
-
+    bool bMemCopyInProgress2D;
     switch( nBytesInElement )													// Set ElementSize to 1,2, or 4 bytes
     {
     	case 1: ElementSize = ADI_DMA_MSIZE_1BYTE;  break;
@@ -389,6 +394,22 @@ int SHARC_linkSend2D( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint
     if( stream == MDMA_STREAM_ID_CONTROL_COEFF )
     {
     	StreamHandle = hMemDmaStream_ControlCoeff;
+        eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_OSPMWNSignal, (bool*)&bMemCopyInProgress2D);
+        while( bMemCopyInProgress2D == true ) // Wait for previous MDMA to complete
+        {
+        	eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_OSPMWNSignal, (bool*)&bMemCopyInProgress2D);
+        }
+
+    }
+    else{
+
+    eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_Ref, (bool*)&bMemCopyInProgress2D);
+    while( bMemCopyInProgress2D == true ) // Wait for previous MDMA to complete
+    {
+    	eResult = adi_mdma_IsCopyInProgress (hMemDmaStream_Ref, (bool*)&bMemCopyInProgress2D);
+    }
+
+
     }
 
     // Prepare 2D memory transfer instances
@@ -407,6 +428,10 @@ int SHARC_linkSend2D( uint32_t stream, void *pSrcBuffer, void *pDestBuffer, uint
     Dest_2DMemXferLink.XCount          = Xcount;
     Dest_2DMemXferLink.XModify         = 4;
 
+	eResult = adi_mdma_Copy2D (StreamHandle,
+	ElementSize,
+	&Dest_2DMemXferLink,
+	&Src_2DMemXferLink);
     /* IF (Failure) */
     if (eResult != ADI_DMA_SUCCESS)
     {

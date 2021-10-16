@@ -102,24 +102,5 @@ void configGpio(void) {
 	LED2_PIN, ADI_GPIO_DIRECTION_OUTPUT);
 	CheckGpioResult(result);
 
-	//ADAU1979 & ADAU1962a GPIO setup
 
-	result = adi_gpio_SetDirection(ADI_GPIO_PORT_A, ADI_GPIO_PIN_14,
-			ADI_GPIO_DIRECTION_OUTPUT);
-	CheckGpioResult(result);
-
-	/* bring reset low */
-	result = adi_gpio_Clear(ADI_GPIO_PORT_A, ADI_GPIO_PIN_14);
-	CheckGpioResult(result);
-
-	/* delay */
-	for (i = DELAY_COUNT; i; i--)
-		;
-
-	/* bring reset high */
-	result = adi_gpio_Set(ADI_GPIO_PORT_A, ADI_GPIO_PIN_14);
-	CheckGpioResult(result);
-	/* delay */
-	for (i = DELAY_COUNT; i; i--)
-		;
 }
