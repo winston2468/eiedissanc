@@ -4,7 +4,7 @@
  *  Created on: 13 Oct 2021
  *      Author: Winston
  */
-#include "anc_test2.h"
+#include "anc_test1.h"
 #include <stdio.h>
 #include <services/pcg/adi_pcg.h>
 /* PCG - C */

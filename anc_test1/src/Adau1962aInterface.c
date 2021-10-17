@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include <drivers/dac/adau1962a/adi_adau1962a.h>
-#include "anc_test2.h"
+#include "anc_test1.h"
 
 
 
@@ -24,7 +24,7 @@ uint32_t Adau1962aSportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
 /* Dac linear buffer that is divided into 2 sub buffers; ping and pong  */
 #pragma align(4)
-int32_t DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 2];
+int32_t DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 3];
 
 
 /* DAC callback */
@@ -229,20 +229,20 @@ uint32_t Adau1962aDoneWithBuffer( void *pBuffer )
 {
 	ADI_ADAU1962A_RESULT    eResult2;
 	void 					*pDAC;
-/*
-	if(pBuffer == &DacBuf[AUDIO_BUFFER_SIZE_DAC * 0])
+
+	if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0])
 	{
-		pDAC = (void *)&DacBuf[AUDIO_BUFFER_SIZE_DAC * 2];
+		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 2];
 	}
-	else if(pBuffer == &DacBuf[AUDIO_BUFFER_SIZE_DAC * 1])
+	else if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 1])
 	{
-		pDAC = (void *)&DacBuf[AUDIO_BUFFER_SIZE_DAC * 0];
+		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0];
 	}
-	else if(pBuffer == &DacBuf[AUDIO_BUFFER_SIZE_DAC * 2])
+	else if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 2])
 	{
-		pDAC = (void *)&DacBuf[AUDIO_BUFFER_SIZE_DAC * 1];
+		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 1];
 	}
-*/
+	/*
 	if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0])
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 1];
@@ -251,6 +251,7 @@ uint32_t Adau1962aDoneWithBuffer( void *pBuffer )
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0];
 	}
+*/
 	else
 	{
 		/* there has been an error */

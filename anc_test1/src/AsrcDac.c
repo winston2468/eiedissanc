@@ -4,7 +4,7 @@
  *  Created on: 13 Oct 2021
  *      Author: Winston
  */
-#include "anc_test2.h"
+#include "anc_test1.h"
 #include <drivers/asrc/adi_asrc.h>
 #include <stdio.h>
 uint8_t AsrcMemory4[ADI_ASRC_MEMORY_SIZE];
