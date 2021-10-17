@@ -66,6 +66,7 @@ uint8_t ControlFIR(void);
 uint8_t GenOutputSignal(void);
 uint8_t PushOutputSignal(void);
 uint8_t UpdateControlCoeff(void);
+typedef float Matrix_t[2][2];
 
 typedef enum {
 	NONE, START, RECIEVE_REF, RECIEVE_OSPMWNSIGNAL, RECIEVE_CONTROL_COEFF
@@ -93,12 +94,13 @@ static void RefDataTransferFromMasterComplete(uint32_t SID, void *pCBParam) {
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if(bUpdateFlag){
+		if(eMode == RECIEVE_CONTROL_COEFF ){
+			eMode = RECIEVE_REF;
+			bEvent = true;
+		}
+		else {
 			printf("Sync error 1");
 		}
-		bControlFIRFlag = true;
-		ControlFIR();
-		bControlFIRFlag = false;
 	}
 }
 
@@ -113,12 +115,13 @@ static void OSPMWNSignalTransferFromMasterComplete(uint32_t SID, void *pCBParam)
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if(bControlFIRFlag){
-			printf("Sync error 2");
+		if(eMode == RECIEVE_REF){
+			eMode = RECIEVE_OSPMWNSIGNAL;
+			bEvent = true;
 		}
-		bOSPMFlag = true;
-		GenOutputSignal();
-		bOSPMFlag = false;
+		else {
+			printf("Sync error 2, %d \n", eMode);
+		}
 
 	}
 }
@@ -134,13 +137,14 @@ static void ControlCoeffTransferFromMasterComplete(uint32_t SID, void *pCBParam)
 			{
 		PreviousFrameCounter = CounterFromMasterSHARC;
 		TIMESTAMP
-		if(bOSPMFlag){
-			printf("Sync error 3");
+		if(eMode == RECIEVE_OSPMWNSIGNAL){
+			eMode = RECIEVE_CONTROL_COEFF;
+			bEvent = true;
 		}
-		bUpdateFlag = true;
-		UpdateControlCoeff();
-		PushOutputSignal();
-		bUpdateFlag = true;
+		else {
+			printf("Sync error 3, %d \n", eMode);
+		}
+
 
 	}
 }
@@ -168,9 +172,11 @@ uint8_t ControlFIR() {
 
 uint8_t GenOutputSignal() {
 	//SAFE
+	/*
 	memcpy(&OSPMWNSignal[0][0], (void *)(MDMA_LOCAL_ADDR + refOutputBufferSize),
-			control_BufferSize);
-	//float **OSPMWNSignal = (float **) MDMA_LOCAL_ADDR + refOutputBufferSize;
+			control_BufferSize);*/
+
+	float (*OSPMWNSignal)[NUM_AUDIO_SAMPLES_PER_CHANNEL] = (void *) (MDMA_LOCAL_ADDR + refOutputBufferSize);
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
 		for (uint32_t i = 0, l = (((controlInputSize + 1) / 4) - 1);
@@ -225,20 +231,16 @@ uint8_t PushOutputSignal() {
 }
 
 uint8_t UpdateControlCoeff() {
-	float * recieveControlCoeff = (float *) MDMA_LOCAL_ADDR
-			+ refOutputBufferSize + OSPMWNSignal_BufferSize;
-/*
+	float (*recieveControlCoeff)[controlLength] = (void *) (MDMA_LOCAL_ADDR
+			+ refOutputBufferSize + OSPMWNSignal_BufferSize);
+
 	 for (uint8_t j = 0; j < numControlSignal; j++) {
 
 	 for (int32_t i = 0; i < controlLength; i++) {
 	 controlCoeffBuff[j][i]=recieveControlCoeff[j][i];
 	 }
-	 }*/
+	 }
 
-
-	//SAFE
-	memcpy(&controlCoeffBuff[0][0], recieveControlCoeff,
-			control_BufferSize);
 
 	return 0;
 }
@@ -297,21 +299,27 @@ int main(int argc, char *argv[]) {
 		if (bEvent) {
 			switch (eMode) {
 			case RECIEVE_REF:
-				//ControlFIR();
-
+				ControlFIR();
+				if(eMode==RECIEVE_OSPMWNSIGNAL){
+					bEvent=true;
+				}
 				break;
 
 			case RECIEVE_OSPMWNSIGNAL:
 
-				//GenOutputSignal();
+				GenOutputSignal();
 
 
-				//PushOutputSignal();
-
+				PushOutputSignal();
+				if(eMode==RECIEVE_CONTROL_COEFF){
+					bEvent=true;
+				}
 				break;
 			case RECIEVE_CONTROL_COEFF:
-				//UpdateControlCoeff();
-				eMode = NONE;
+				UpdateControlCoeff();
+				if(eMode==RECIEVE_REF){
+					bEvent=true;
+				}
 				break;
 
 			case START:
@@ -321,7 +329,7 @@ int main(int argc, char *argv[]) {
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
 				}
-				eMode = NONE;
+				eMode = RECIEVE_CONTROL_COEFF;
 				// Enable data flow for the DAC
 				if (Result == 0u && DacStarted == 0) {
 
