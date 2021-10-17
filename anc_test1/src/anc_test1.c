@@ -27,7 +27,7 @@
 #include "Audio_EI3/drivers/codec/adau1761/adi_adau1761.h"
 #include "adi_initialize.h"
 #include "Audio_EI3/drivers/codec/adau1761/export_IC_1.h"
-
+#include <filter.h>
 #include "SHARC_linkInterface.h"
 #include <stdlib.h>
 #include <adi_types.h>
@@ -81,12 +81,41 @@ static volatile bool bOSPMAuxFIRInProgress = false;
 static volatile bool bRefFIRInProgress = false;
 
 
+//*****************************************************************************
+uint8_t DacStarted = 0u;
+/* ADC/DAC buffer pointer */
+void *pGetDAC = NULL;
 
+
+#pragma alignment_region (4)
+float controlOutputBuff[numControlSignal][controlInputSize + 1] = { 0 };
+float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+float OSPMWNSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+#pragma alignment_region_end
+
+
+extern uint32_t PcgDacInit(void);
+extern uint32_t AsrcDacInit(void);
+extern uint32_t PcgDacEnable(void);
+extern uint32_t AsrcDacEnable(void);
+
+/* Initializes DAC */
+extern uint32_t Adau1962aInit(void);
+/* Submit buffers to DAC */
+extern uint32_t Adau1962aSubmitBuffers(void);
+extern uint32_t Adau1962aEnable(void);
+extern uint32_t Adau1962aDoneWithBuffer(void *pBuffer);
+uint8_t ControlFIR(void);
+uint8_t GenOutputSignal(void);
+uint8_t PushOutputSignal(void);
+uint8_t UpdateControlCoeff(void);
 
 
 #pragma alignment_region (4)
 
+float pm controlCoeffBuff[numControlSignal][controlLength] = { 0 };
 
+float controlState[numControlSignal][controlLength + 1] = { 0 };
 /* ----------------------------   FIR Configuration ------------------------------------------- */
 
 float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
@@ -291,6 +320,135 @@ static void PKIC_ISR(uint32_t iid, void* handlerArg);
 
 static void TRNG_ISR(void);
 static void TRNG_ACK(void);
+
+
+
+
+
+
+
+
+int32_t FIR_init() {
+
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+
+		for (int32_t i = 0; i < controlLength; i++) {
+			controlState[j][i] = 0;
+			controlCoeffBuff[j][i] = 0.0001;		//0.0000001;
+		}
+	}
+	return 0;
+}
+
+uint8_t ControlFIR() {
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+		firf((float *) MDMA_LOCAL_ADDR, controlOutputBuff[j],
+				controlCoeffBuff[j], controlState[j], controlInputSize + 1,
+				controlLength);
+	}
+	return 0;
+}
+
+uint8_t GenOutputSignal() {
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+
+		for (uint32_t i = 0, l = (((controlInputSize + 1) / 4) - 1);
+				i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < controlInputSize; i++) {
+			outputSignal[j][i] = controlOutputBuff[j][l] + OSPMWNSignalSend[j][i];
+		}
+	}
+
+	return 0;
+}
+
+
+
+uint8_t PushOutputSignal() {
+	if (pGetDAC != NULL) {
+
+		int32_t *pDst = (int32_t *) pGetDAC;
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
+			//TDM8 SHIFT <<8
+			/*
+			 for(int32_t j =0; j< numControlSignal;j++){
+			 *pDst++ = (conv_fix_by(outputSignal[j][i], 10)) ;
+			 }
+
+			 for(int32_t m =0; m< NUM_DAC_CHANNELS - numControlSignal;m++){
+			 *pDst++ = 0;
+			 }
+			 */
+
+			/*
+			 *pDst++ = (conv_fix_by(outputSignal[0][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[1][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[2][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[3][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[4][i], 10)) ;
+			 *pDst++ = (conv_fix_by(outputSignal[5][i], 10)) ;
+			 *pDst++ = 0 ;
+			 *pDst++ = (conv_fix_by(outputSignal[6][i], 10)) ;
+			 *pDst++ = 0 ;
+			 */
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 10));
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+
+		}
+	}
+
+	return 0;
+}
+
+uint8_t UpdateControlCoeff() {
+	float (*recieveControlCoeff)[controlLength] = (void *) (MDMA_LOCAL_ADDR
+			+ refOutput_BufferSize + OSPMWNSignal_BufferSize);
+
+	 for (uint8_t j = 0; j < numControlSignal; j++) {
+
+	 for (int32_t i = 0; i < controlLength; i++) {
+	 controlCoeffBuff[j][i]=recieveControlCoeff[j][i];
+	 }
+	 }
+
+
+	return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// DAC callback - Called when the DAC requires data
+//				  The MDMA A1 callback MUST occur before this callback.
+//				  The user must make sure the filters do not take more time
+//				  than is available in the frame.
+//////////////////////////////////////////////////////////////////////////////
+void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
+
+	switch (nEvent) {
+	case ADI_SPORT_EVENT_TX_BUFFER_PROCESSED:
+		// store pointer to the processed buffer that caused the callback
+		// We can still copy to the buffer after it is submitted to the driver
+		pGetDAC = pArg;
+		Adau1962aDoneWithBuffer(pArg);
+		break;
+	default:
+		break;
+	}
+}
+
+
+
+
+
+
+
+
+
+
 //convert to float [-10,10]
 void Read_TRNG_Output_Imp(float *iOutput)
 {
