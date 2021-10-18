@@ -83,7 +83,8 @@ static volatile bool bControlFIRInProgress = false;
 //*****************************************************************************
 uint8_t DacStarted = 0u;
 /* ADC/DAC buffer pointer */
-void *pGetDAC = NULL;
+volatile void *pGetDAC = NULL;
+volatile void *pDAC = NULL;
 
 
 #pragma alignment_region (4)
@@ -102,14 +103,14 @@ extern uint32_t Adau1962aInit(void);
 /* Submit buffers to DAC */
 extern uint32_t Adau1962aSubmitBuffers(void);
 extern uint32_t Adau1962aEnable(void);
-extern uint32_t Adau1962aDoneWithBuffer(void *pBuffer);
+extern uint32_t Adau1962aDoneWithBuffer(volatile void *pBuffer);
 uint8_t ControlFIR(void);
 uint8_t GenOutputSignal(void);
 uint8_t PushOutputSignal(void);
 
 
 #pragma alignment_region (4)
-
+int32_t * pADCBuffer;
 float controlCoeffBuff[numControlSignal][controlLength] = { 0 };
 
 /* ----------------------------   FIR Configuration ------------------------------------------- */
@@ -121,7 +122,7 @@ float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 //Max FIR channels = 32
 
 float refInputBuff[refInputSize + 1] = { 0 };
-ADI_FIR_CHANNEL_PARAMS channelRef;
+
 uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryRef[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
@@ -134,9 +135,7 @@ uint8_t ConfigMemoryControl[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryControl[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
 
 
-ADI_FIR_CHANNEL_PARAMS channelOSPMRef[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_PARAMS channelOSPMAux[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_PARAMS channelControl[numControlSignal];
+
 
 float OSPMRefInputBuff[OSPMInputSize] = { 0 };
 
@@ -173,8 +172,10 @@ float refOutputBuff[refOutputSize] = { 0 };
 #pragma alignment_region_end
 
 
-
-
+ADI_FIR_CHANNEL_PARAMS channelRef;
+ADI_FIR_CHANNEL_PARAMS channelOSPMRef[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_PARAMS channelOSPMAux[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_PARAMS channelControl[numControlSignal];
 
 
 ADI_FIR_RESULT res;
@@ -202,7 +203,6 @@ float stepSizeSMin = 0.00001;
 
 volatile bool ADCFlag = false;
 
-int32_t *pADCBuffer;
 int32_t *pSrc;
 
 int32_t *pDst;
@@ -224,8 +224,9 @@ uint32_t OSPMWNSignal_X =OSPMWindowSize-1;
 uint32_t OSPMWNSignal_Y =0;
 
 /* ADC buffer pointer */
- void *pGetADC = NULL;
-
+volatile void *pGetADC = NULL;
+volatile void *pADC = NULL;
+volatile bool ANCERR = false;
 volatile bool ANCInProgress = false;
 /* Flag to register callback error */
 volatile bool bEventError = false;
@@ -250,11 +251,12 @@ extern uint32_t Adau1979SubmitBuffers(void);
 
 extern uint32_t Adau1979Enable(void);
 
-extern uint32_t Adau1979DoneWithBuffer( void *pBuffer);
+extern uint32_t Adau1979DoneWithBuffer(volatile void *pBuffer);
 extern void configGpio(void);
 float constrain(float input, float low, float high);
 
-void ProcessBufferADC(uint32_t iid, void* handlerArg);
+//void ProcessBufferADC(uint32_t iid, void* handlerArg);
+void ProcessBufferADC(void);
 void ProcessBufferDAC(uint32_t iid, void* handlerArg);
 void RefFIR(void);
 int32_t FIR_init(void);
@@ -335,7 +337,9 @@ uint8_t ControlFIR() {
 	MemDma0Copy1D(&OSPMRefInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], &refOutputBuff[0], 4, NUM_AUDIO_SAMPLES_PER_CHANNEL);
 	while(bMemCopyInProgress);
 
-	res = adi_fir_SubmitInputCircBuffer(hchannelControl,
+
+for(uint32_t j=0; j< numControlSignal; j++){
+	res = adi_fir_SubmitInputCircBuffer(hchannelControl[j],
 			OSPMRefInputBuff, OSPMRefInputBuff,
 			controlInputSize, 1);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
@@ -343,10 +347,13 @@ uint8_t ControlFIR() {
 				"adi_fir_SubmitInputCircBuffer hChannelControl failed\n");
 	}
 
-	res = adi_fir_EnableChannel(hchannelControl, true);
-	if (res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel hChannelControl failed\n");
-	}
+}
+for(uint32_t j=0; j< numControlSignal; j++){
+res = adi_fir_EnableChannel(hchannelControl[j], true);
+if (res != ADI_FIR_RESULT_SUCCESS) {
+	printf("adi_fir_EnableChannel hChannelControl failed\n");
+}
+}
 
 	bControlFIRInProgress=true;
 	res = adi_fir_EnableConfig(hConfigControl, true);
@@ -355,9 +362,13 @@ uint8_t ControlFIR() {
 	}
 	while(bControlFIRInProgress);
 
-	res = adi_fir_EnableChannel(hchannelControl, false);
+	for(uint32_t j=0; j< numControlSignal; j++){
+	res = adi_fir_EnableChannel(hchannelControl[j], false);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel hChannelControl failed\n");
+		printf("adi_fir_EnableChannel hChannelControl disable failed\n");
+	}
+
+
 	}
 
 	return 0;
@@ -378,8 +389,12 @@ uint8_t GenOutputSignal() {
 
 uint8_t PushOutputSignal() {
 	if (pGetDAC != NULL) {
+		pDAC = (void *) pGetDAC;
+		Adau1962aDoneWithBuffer(pGetDAC);
 
-		int32_t *pDst = (int32_t *) pGetDAC;
+		pGetDAC = NULL;
+		int32_t *pDst;
+		pDst = (int32_t *) pGetDAC;
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
 			//TDM8 SHIFT <<8
 			/*
@@ -403,8 +418,8 @@ uint8_t PushOutputSignal() {
 			 *pDst++ = (conv_fix_by(outputSignal[6][i], 10)) ;
 			 *pDst++ = 0 ;
 			 */
-			*pDst++ = (conv_fix_by(outputSignal[0][i], 10));
-			*pDst++ = (conv_fix_by(outputSignal[1][i], 10));
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 5));
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 5));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -432,7 +447,10 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
 		pGetDAC = pArg;
-		Adau1962aDoneWithBuffer(pArg);
+		if (ANCInProgress){
+			ANCERR = true;
+			printf("err");
+		}
 		break;
 	default:
 		break;
@@ -599,14 +617,14 @@ int32_t FIR_init() {
 	ADI_FIR_RESULT res;
 
 	//reverseArrayf(refCoeffBuff, sizeof(refCoeffBuff));
-
+/*
 #pragma vector_for
 	for (uint32_t i = 0; i < (sizeof(refCoeffBuff) / 2); i++) {
 		float temp = refCoeffBuff[i];
 		refCoeffBuff[i] = refCoeffBuff[sizeof(refCoeffBuff) - i - 1];
 		refCoeffBuff[sizeof(refCoeffBuff) - i - 1] = temp;
 	}
-
+*/
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OSPMLength; i++) {
@@ -962,12 +980,12 @@ int main(void) {
 	//FIR driver SPU
 	*pREG_SPU0_SECUREP155 = 2u;
 
-
+/*
 	adi_sec_SetPriority(INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
 	// Register and install a handler for the software interrupt SOFT5 (priority 60)
 	adi_int_InstallHandler(INTR_SOFT5, ProcessBufferADC, 0, true);
 
-
+*/
 
 
 
@@ -1056,7 +1074,7 @@ int main(void) {
 				//ANCALG_2();
 				}
 				//ProcessBufferADC1();
-				// ProcessBufferADC2();
+				 ProcessBufferADC();
 				//ProcessBufferDAC();
 				break;
 			case START:
@@ -1071,14 +1089,14 @@ int main(void) {
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
 				}
+				// Enable data flow for the ADC
+				if (Result == 0u) {
+					Adau1962aEnable();
+				}
 
 				// Enable data flow for the ADC
 				if (Result == 0u) {
 					Adau1979Enable();
-				}
-				// Enable data flow for the ADC
-				if (Result == 0u) {
-					Adau1962aEnable();
 				}
 
 
@@ -1129,17 +1147,24 @@ void RefFIR(){
 	}
 
 }
-void ProcessBufferADC(uint32_t iid, void* handlerArg) {
-
+//void ProcessBufferADC(uint32_t iid, void* handlerArg) {
+void ProcessBufferADC() {
 	if (pGetADC != NULL) {
-		pADCBuffer = (int32_t *) pGetADC;
+		pADC = (void *)pGetADC;
+		Adau1979DoneWithBuffer(pGetADC);
+
+		pGetADC = NULL;
+		pADCBuffer = (int32_t *) pADC;
 		if (!ANCInProgress) {
 			ANCInProgress=true;
-			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL;
-					i < NUM_AUDIO_SAMPLES_PER_CHANNEL-1, l < refInputSize; i++, l++) {
-				refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -25);
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1;
+					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
+				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
+				refInputBuff[l] = conv_float_by(((*(pADCBuffer + 4 * i))<<16), -5);
+				//pADCBuffer1[i]=pADCBuffer[i];
 				for(uint8_t k = 0; k < numErrorSignal; k++){
-					errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -25);
+					//errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -5);
+					errorSignal[k][i] = conv_float_by(((*(pADCBuffer + 4 * i + 1 + k))<<16), -5);
 				}
 			}
 
@@ -1160,11 +1185,11 @@ void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 
 			GenOutputSignal();
 			PushOutputSignal();
-			Adau1979DoneWithBuffer(pGetADC);
 
 		}
 		else{
-			printf("ERROR, ANC processing time too long");
+			ANCERR = true;
+			fprintf(stdout, "ERROR, ANC processing time too long");
 		}
 
 	}
@@ -1189,8 +1214,15 @@ void AdcCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		/* store pointer to the processed buffer that caused the callback */
 		pGetADC = pArg;
 
-		adi_sec_Raise(INTR_SOFT5);
+		if(bEvent || ANCInProgress){
+			ANCERR= true;
+			printf("ERR");
+		}
+		bEvent = true;
+		eMode = RECIEVE;
 
+		//adi_sec_Raise(INTR_SOFT5);
+		//ProcessBufferADC();
 		break;
 	default:
 		bEventError = true;

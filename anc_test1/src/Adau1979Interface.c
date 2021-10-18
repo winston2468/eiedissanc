@@ -23,7 +23,7 @@ uint32_t Adau1979SportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
 
 #pragma align(4)
-int32_t AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 3];
+int32_t AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 2];
 
 
 /* ADC callback */
@@ -119,7 +119,7 @@ uint32_t Adau1979Init(void) {
 	}
 
 	if ((uint32_t) adi_adau1979_SetSampleRate(phAdau1979,
-			ADI_ADAU1979_SAMPLE_RATE_32000HZ) != 0u) {
+			ADI_ADAU1979_SAMPLE_RATE_48000HZ) != 0u) {
 		printf("ADAU1979: adi_adau1979_SetSampleRate failed\n");
 		/* return error */
 		return 1u;
@@ -188,7 +188,7 @@ uint32_t Adau1979Enable( void )
 
 
 
-uint32_t Adau1979DoneWithBuffer( void *pBuffer )
+uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
 {
     ADI_ADAU1979_RESULT     eResult1;
     void 					*pADC;
@@ -212,7 +212,7 @@ uint32_t Adau1979DoneWithBuffer( void *pBuffer )
 	{
 		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 1];
 	}
-	*/
+
 
 	if(pBuffer == &AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0])
 	{
@@ -227,11 +227,11 @@ uint32_t Adau1979DoneWithBuffer( void *pBuffer )
 	{
 		return 1u;
 	}
-
+*/
 
 	/* submit the ADC buffer */
-    eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pADC, AUDIO_BUFFER_SIZE_ADC_1979);
-
+   // eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pADC, AUDIO_BUFFER_SIZE_ADC_1979);
+    eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pBuffer, AUDIO_BUFFER_SIZE_ADC_1979);
     return 0;
 }
 

@@ -24,7 +24,7 @@ uint32_t Adau1962aSportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
 /* Dac linear buffer that is divided into 2 sub buffers; ping and pong  */
 #pragma align(4)
-int32_t DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 3];
+int32_t DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 2];
 
 
 /* DAC callback */
@@ -225,11 +225,11 @@ uint32_t Adau1962aEnable( void )
 
 
 
-uint32_t Adau1962aDoneWithBuffer( void *pBuffer )
+uint32_t Adau1962aDoneWithBuffer( volatile void *pBuffer )
 {
 	ADI_ADAU1962A_RESULT    eResult2;
 	void 					*pDAC;
-
+	/*
 	if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0])
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 2];
@@ -242,7 +242,7 @@ uint32_t Adau1962aDoneWithBuffer( void *pBuffer )
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 1];
 	}
-	/*
+
 	if(pBuffer == &DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0])
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 1];
@@ -251,16 +251,16 @@ uint32_t Adau1962aDoneWithBuffer( void *pBuffer )
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0];
 	}
-*/
+
 	else
 	{
-		/* there has been an error */
+		// there has been an error
 		return 1u;
 	}
-
+*/
 	/* submit the DAC buffer */
-    eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC, AUDIO_BUFFER_SIZE_DAC);
-
+   // eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC, AUDIO_BUFFER_SIZE_DAC);
+	 eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pBuffer, AUDIO_BUFFER_SIZE_DAC);
 	return 0;
 }
 
