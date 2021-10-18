@@ -185,6 +185,35 @@ int main(int argc, char *argv[])
         return (ADI_SPU_FAILURE);
     }
 
+	/* Make SPORT 2B to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_SPU_PID, true)
+			!= ADI_SPU_SUCCESS) {
+		DBG_MSG("Failed to enable Master secure for SPORT 2B\n");
+		return (ADI_SPU_FAILURE);
+	}
+
+	/* Make SPORT 2B DMA to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, SPORT_2B_DMA5_SPU_PID, true)
+			!= ADI_SPU_SUCCESS) {
+		DBG_MSG("Failed to enable Master secure for SPORT 2B DMA\n");
+		return (ADI_SPU_FAILURE);
+	}
+
+	/* Make SPORT 0B to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_SPU_PID, true)
+			!= ADI_SPU_SUCCESS) {
+		DBG_MSG("Failed to enable Master secure for SPORT 0B\n");
+		return (ADI_SPU_FAILURE);
+	}
+
+	/* Make SPORT 0B DMA to generate secure transactions */
+	if (adi_spu_EnableMasterSecure(hSpu, SPORT_0B_DMA1_SPU_PID, true)
+			!= ADI_SPU_SUCCESS) {
+		DBG_MSG("Failed to enable Master secure for SPORT 0B DMA\n");
+		return (ADI_SPU_FAILURE);
+	}
+
+
     /* Make MDMA0 Source to generate secure transactions */
     if(adi_spu_EnableMasterSecure(hSpu, MDMA0_SRC_DMA8_SPU_PID, true) != ADI_SPU_SUCCESS)
     {

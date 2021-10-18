@@ -89,6 +89,21 @@ to the terms of the associated Analog Devices License Agreement.
 #define	SPORT_4A_DMA10_SPU_PID		(74u)
 #define	SPORT_4B_DMA11_SPU_PID		(75u)
 
+/* The SPORT device selection depends on which BF609 EZ-Board connector
+ * the Audio EZ-Extender is attached.
+ * P1A - Sport TX 0, Sport RX 0
+ * P1B - Can't be used due to SoftSwitch conflict with Push Button 2
+ * P2A - Can't be used due to SoftSwitch conflict with Push Button 2
+ * P3A - Sport TX 2, Sport RX 2
+ */
+
+#define SPORT_RX_DEVICE1  2
+#define SPORT_2B_SPU_PID  20
+#define SPORT_2B_DMA5_SPU_PID 71
+
+#define SPORT_RX_DEVICE2  0
+#define SPORT_0B_SPU_PID  16
+#define SPORT_0B_DMA1_SPU_PID 67
 
 
 /* ADSP-SC589 Processor family */

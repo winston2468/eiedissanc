@@ -109,6 +109,78 @@ uint8_t GenOutputSignal(void);
 uint8_t PushOutputSignal(void);
 
 
+
+
+
+int32_t randBuff[4] = {0};
+
+
+
+
+
+/* the ADAU1761 Rec Mixer Left 0 register */
+#define REC_MIX_LEFT_REG    (0x400A)
+/* the ADAU1761 Rec Mixer Right 0 register */
+#define REC_MIX_RIGHT_REG   (0x400C)
+
+/* codec device instance to be tested */
+#define ADAU1761_DEV_NUM          0
+
+#define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
+
+/* used for exit timeout */
+//#define MAXCOUNT (50000000000u)
+//#define MAXCOUNT (50000000u)
+/*=============  D A T A  =============*/
+
+#pragma align(4)
+static uint8_t sportRxMem1[ADI_SPORT_DMA_MEMORY_SIZE];
+
+/* Memory required for codec driver */
+static uint8_t codecMem1[ADI_ADAU1761_MEMORY_SIZE];
+
+/* adau1761 device handle */
+static ADI_ADAU1761_HANDLE hADAU1761_1;
+#pragma align(4)
+int32_t AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL* 2 * 2];
+volatile void *pGetADC1 = NULL;
+void *pADC1;
+int32_t *pADC1Buffer;
+
+volatile bool ADC1Flag =false;
+
+volatile int32_t DacCount =0;
+
+static ADI_ADAU1761_HANDLE hADAU1761_2;
+
+#define ADAU1761_DEV_NUM1          1
+#pragma align 4
+int32_t AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL*2 * 2];
+
+#pragma align(4)
+static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
+
+static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
+
+volatile void *pGetADC2 = NULL;
+void *pADC2;
+int32_t *pADC2Buffer;
+volatile bool ADC2Flag =false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #pragma alignment_region (4)
 int32_t * pADCBuffer;
 float controlCoeffBuff[numControlSignal][controlLength] = { 0 };
@@ -121,7 +193,7 @@ float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 /* Channel Configurations parameters */
 //Max FIR channels = 32
 
-float refInputBuff[refInputSize + 1] = { 0 };
+float refInputBuff[refInputSize] = { 0 };
 
 uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryRef[ADI_FIR_CHANNEL_MEMORY_SIZE];
@@ -193,7 +265,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 volatile bool TRNGFlag = false;
 
 float forgettingFactor = 0.6;
-float stepSizeSMin = 0.00001;
+float stepSizeSMin = 0.0001;
 
 
 /* used for exit timeout */
@@ -220,8 +292,8 @@ static uint32_t count;
 
 volatile bool bEvent;
 
-uint32_t OSPMWNSignal_X =OSPMWindowSize-1;
-uint32_t OSPMWNSignal_Y =0;
+volatile uint32_t OSPMWNSignal_X =OSPMWindowSize-1;
+volatile uint32_t OSPMWNSignal_Y =0;
 
 /* ADC buffer pointer */
 volatile void *pGetADC = NULL;
@@ -313,10 +385,11 @@ extern void	Disable_PKIC_Interrupt(int iValue);
 
 extern int Read_PKIC_Unmasked_Interrupt_Source(void);
 
+extern void Read_TRNG_Output(int *iOutput);
 
 
 
-void Read_TRNG_Output_Imp();
+void Read_TRNG_Output_Imp(float *iOutput);
 
 
 static void PKIC_ISR(uint32_t iid, void* handlerArg);
@@ -325,6 +398,163 @@ static void TRNG_ISR(void);
 static void TRNG_ACK(void);
 
 
+static void CheckResult(ADI_ADAU1761_RESULT result);
+void MixerEnable(bool bEnable);
+static void CheckResult(ADI_ADAU1761_RESULT result) {
+	if (result != ADI_ADAU1761_SUCCESS) {
+		printf("Codec failure\n");
+		bError = true;
+	}
+}
+
+/* codec callback */
+static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
+	switch (Event) {
+	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
+		/* re-sumbit the buffer for processing */
+		//pGetADC = pArg;
+		//pADC = (void *)pGetADC;
+		//AdcCount++;
+		pADC1 = pArg;
+
+		eMode = RECIEVE;
+		ADC1Flag= true;
+		bEvent = true;
+		break;
+	default:
+		printf("test1");
+		break;
+	}
+}
+
+
+/* codec callback */
+static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
+	switch (Event) {
+	case (uint32_t) ADI_ADAU1761_EVENT_RX_BUFFER_PROCESSED:
+		//AdcCount++;
+		pADC2 = pArg;
+
+		eMode = RECIEVE;
+		bEvent = true;
+		ADC2Flag= true;
+		break;
+	default:
+		printf("test2");
+		break;
+
+	}
+}
+
+
+
+
+
+
+void MixerEnable(bool bEnable) {
+	ADI_ADAU1761_RESULT result1;
+	ADI_ADAU1761_RESULT result2;
+	uint8_t value;
+
+#ifdef USE_LINE_IN
+	if (bEnable) {
+		/* enable the record mixer (left) */
+		//0x5B 0 db
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x13); /* -12 dB */
+		CheckResult(result1);
+
+		/* enable the record mixer (right) */
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
+				0x13); /* 0 dB */
+		CheckResult(result1);
+		//RISING EDGE BCLK POLARITY
+		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
+		//CheckResult(result);
+
+		/* enable the record mixer (left) */
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,0x13); /* -12 dB */
+		CheckResult(result2);
+
+		/* enable the record mixer (right) */
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
+				0x13); /* 0 dB */
+		CheckResult(result2);
+
+		/* disable the output mixer (left) */
+		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4011, 0xFB); /* MUTE */
+		//CheckResult(result);
+		/* disable the output mixer (left) */
+		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4012, 0x3B); /* MUTE */
+		//CheckResult(result);
+		/* disable the output mixer (left) */
+		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4013, 0x68); /* MUTE */
+		//CheckResult(result);
+		/* disable the output mixer (left) */
+		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4014, 0x31); /* MUTE */
+		//CheckResult(result);
+	} else {
+		/* disable the record mixer (left) */
+		result1 = adi_adau1761_GetRegister(hADAU1761_1, REC_MIX_LEFT_REG,
+				&value);
+		CheckResult(result1);
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG,
+				value & 0xFE);
+		CheckResult(result1);
+
+		/* disable the record mixer (right) */
+		result1 = adi_adau1761_GetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
+				&value);
+		CheckResult(result1);
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
+				value & 0xFE);
+		CheckResult(result1);
+
+
+		/* disable the record mixer (left) */
+		result2 = adi_adau1761_GetRegister(hADAU1761_2, REC_MIX_LEFT_REG,
+				&value);
+		CheckResult(result2);
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_LEFT_REG,
+				value & 0xFE);
+		CheckResult(result2);
+
+		/* disable the record mixer (right) */
+		result2 = adi_adau1761_GetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
+				&value);
+		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
+				value & 0xFE);
+		CheckResult(result2);
+
+
+	}
+#else
+	/* disable the record mixer (left) */
+	result1 = adi_adau1761_GetRegister (hADAU1761_1, REC_MIX_LEFT_REG, &value);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, REC_MIX_LEFT_REG, value & 0xFE);
+	CheckResult(result1);
+
+	/* disable the record mixer (right) */
+	result1 = adi_adau1761_GetRegister (hADAU1761_1, REC_MIX_RIGHT_REG, &value);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister (hADAU1761_1, REC_MIX_RIGHT_REG, value & 0xFE);
+	CheckResult(result1);
+
+	/* disable the record mixer (left) */
+	result2 = adi_adau1761_GetRegister (hADAU1761_2, REC_MIX_LEFT_REG, &value);
+	CheckResult(result2);
+	result2 = adi_adau1761_SetRegister (hADAU1761_2, REC_MIX_LEFT_REG, value & 0xFE);
+	CheckResult(result2);
+
+	/* disable the record mixer (right) */
+	result2 = adi_adau1761_GetRegister (hADAU1761_2, REC_MIX_RIGHT_REG, &value);
+	CheckResult(result2);
+	result2 = adi_adau1761_SetRegister (hADAU1761_2, REC_MIX_RIGHT_REG, value & 0xFE);
+	CheckResult(result2);
+
+
+#endif
+}
 
 
 
@@ -334,7 +564,8 @@ static void TRNG_ACK(void);
 
 
 uint8_t ControlFIR() {
-	MemDma0Copy1D(&OSPMRefInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], &refOutputBuff[0], 4, NUM_AUDIO_SAMPLES_PER_CHANNEL);
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void*) &OSPMRefInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], (void *)&refOutputBuff[0], 4, NUM_AUDIO_SAMPLES_PER_CHANNEL);
 	while(bMemCopyInProgress);
 
 
@@ -378,7 +609,7 @@ uint8_t GenOutputSignal() {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-			outputSignal[j][i] = controlOutputBuff[j][i] + OSPMWNSignalSend[j][i];
+			outputSignal[j][i] = controlOutputBuff[j][i] + OSPMWNSignalSend[j][i]*10000000;
 		}
 	}
 
@@ -391,10 +622,9 @@ uint8_t PushOutputSignal() {
 	if (pGetDAC != NULL) {
 		pDAC = (void *) pGetDAC;
 		Adau1962aDoneWithBuffer(pGetDAC);
-
 		pGetDAC = NULL;
 		int32_t *pDst;
-		pDst = (int32_t *) pGetDAC;
+		pDst = (int32_t *) pDAC;
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
 			//TDM8 SHIFT <<8
 			/*
@@ -408,24 +638,25 @@ uint8_t PushOutputSignal() {
 			 */
 
 			/*
-			 *pDst++ = (conv_fix_by(outputSignal[0][i], 10)) ;
-			 *pDst++ = (conv_fix_by(outputSignal[1][i], 10)) ;
-			 *pDst++ = (conv_fix_by(outputSignal[2][i], 10)) ;
-			 *pDst++ = (conv_fix_by(outputSignal[3][i], 10)) ;
-			 *pDst++ = (conv_fix_by(outputSignal[4][i], 10)) ;
-			 *pDst++ = (conv_fix_by(outputSignal[5][i], 10)) ;
-			 *pDst++ = 0 ;
-			 *pDst++ = (conv_fix_by(outputSignal[6][i], 10)) ;
-			 *pDst++ = 0 ;
+			*pDst++ = (conv_fix_by(outputSignal[0][i], 1));
+			*pDst++ = (conv_fix_by(outputSignal[1][i], 1));
+			*pDst++ = (conv_fix_by(outputSignal[2][i], 1));
+			*pDst++ = (conv_fix_by(outputSignal[3][i], 1));
+			*pDst++ = (conv_fix_by(outputSignal[4][i], 1));
+			*pDst++ = 0;
+			*pDst++ = (conv_fix_by(outputSignal[5][i], 1));
+			*pDst++ = 0;
 			 */
-			*pDst++ = (conv_fix_by(outputSignal[0][i], 5));
-			*pDst++ = (conv_fix_by(outputSignal[1][i], 5));
-			*pDst++ = 0;
-			*pDst++ = 0;
-			*pDst++ = 0;
-			*pDst++ = 0;
-			*pDst++ = 0;
-			*pDst++ = 0;
+
+
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
 
 		}
 	}
@@ -447,12 +678,16 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
 		pGetDAC = pArg;
+
+		//DacCount++;
+		/*
 		if (ANCInProgress){
 			ANCERR = true;
 			printf("err");
-		}
+		}*/
 		break;
 	default:
+		printf("err");
 		break;
 	}
 }
@@ -472,13 +707,13 @@ void Read_TRNG_Output_Imp(float *iOutput)
 	//int range [-2147483647,2147483647]
 	float *iTemp;
 	iTemp= iOutput;
-	*iTemp=(((float)(*pREG_TRNG0_OUTPUT0))/(2147483647))*10;
+	*iTemp=(((float)(*pREG_TRNG0_OUTPUT0))/(2147483647))-1;
 	iTemp++;
-	*iTemp=(((float)(*pREG_TRNG0_OUTPUT1))/(2147483647))*10;
+	*iTemp=(((float)(*pREG_TRNG0_OUTPUT1))/(2147483647))-1;
 	iTemp++;
-	*iTemp=(((float)(*pREG_TRNG0_OUTPUT2))/(2147483647))*10;
+	*iTemp=(((float)(*pREG_TRNG0_OUTPUT2))/(2147483647))-1;
 	iTemp++;
-	*iTemp=(((float)(*pREG_TRNG0_OUTPUT3))/(2147483647))*10;
+	*iTemp=(((float)(*pREG_TRNG0_OUTPUT3))/(2147483647))-1;
 }
 
 void PKIC_ISR(uint32_t iid, void* handlerArg)
@@ -516,15 +751,31 @@ void TRNG_ISR()
 	{
 		if(OSPMWNSignal_Y < numControlSignal ){
 			if(OSPMWNSignal_X < OSPMInputSize ){
+				//Read_TRNG_Output(randBuff);
 				Read_TRNG_Output_Imp(&OSPMAuxInputBuff[OSPMWNSignal_Y][OSPMWNSignal_X]);
+				/*
+				for(int32_t i=0; i < 4; i++){
+				OSPMAuxInputBuff[OSPMWNSignal_Y][OSPMWNSignal_X+i]=(float)randBuff[i]/(2147483647);
+				OSPMWNSignalSend[OSPMWNSignal_Y][OSPMWNSignal_X-OSPMWindowSize+1+i]=(float)randBuff[i]/(2147483647);
+				}
+				*/
 				Read_TRNG_Output_Imp(&OSPMWNSignalSend[OSPMWNSignal_Y][OSPMWNSignal_X-OSPMWindowSize-1]);
 				OSPMWNSignal_X +=4;
 				Acknowledge_Interrupt(iTemp);
 			}
-			OSPMWNSignal_X = OSPMWindowSize - 1;
-			OSPMWNSignal_Y +=1;
+			else{
+				OSPMWNSignal_Y +=1;
+				OSPMWNSignal_X = OSPMWindowSize - 1;
+				Acknowledge_Interrupt(iTemp);
+
+			}
+
+
 		}
-		TRNGFlag = true;
+		else{
+			TRNGFlag = true;
+		}
+
 	}
 }
 
@@ -647,7 +898,7 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.0001;
+		stepSizeW[j] = 0.001;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
 				OSPMCoeffBuff[j][k][i] = 1;
@@ -966,6 +1217,14 @@ int main(void) {
 	uint32_t Result = 0u;
 	//uint32_t i;
 	bExit = false;
+	ADI_ADAU1761_RESULT result1;
+	ADI_ADAU1761_SPORT_INFO sportRxInfo1;
+	ADI_ADAU1761_SPORT_INFO sportTxInfo1;
+
+	ADI_ADAU1761_RESULT result2;
+	ADI_ADAU1761_SPORT_INFO sportRxInfo2;
+	ADI_ADAU1761_SPORT_INFO sportTxInfo2;
+
 
 	adi_initComponents(); /* auto-generated code */
 
@@ -990,11 +1249,11 @@ int main(void) {
 
 
 
-	/*
+
 	if (Result == 0u) {
 		Result = DMAInit();
 	}
-*/
+
 	configGpio();
 
 
@@ -1063,6 +1322,166 @@ int main(void) {
 		return 1;
 	}
 
+
+
+	//DEVICE 1
+	// Open the codec driver
+	result1 = adi_adau1761_Open(ADAU1761_DEV_NUM, codecMem1,
+	ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_1);
+	CheckResult(result1);
+
+	/* Configure TWI */
+	result1 = adi_adau1761_ConfigTWI(hADAU1761_1, TWI_DEV_NUM,
+			ADI_ADAU1761_TWI_ADDR0);
+	CheckResult(result1);
+
+	/* load Sigma Studio program exported from *_IC_1.h */
+	result1 = adi_adau1761_SigmaStudioLoad(hADAU1761_1, default_download_IC_1);
+	CheckResult(result1);
+
+	/* config SPORT for Rx data transfer */
+	sportRxInfo1.nDeviceNum = SPORT_RX_DEVICE1;
+	sportRxInfo1.eChannel = ADI_HALF_SPORT_B;
+	sportRxInfo1.eMode = ADI_ADAU1761_SPORT_I2S;
+	sportRxInfo1.hDevice = NULL;
+	sportRxInfo1.pMemory = sportRxMem1;
+	sportRxInfo1.bEnableDMA = true;
+	sportRxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
+	sportRxInfo1.bEnableStreaming = true;
+
+	result1 = adi_adau1761_ConfigSPORT(hADAU1761_1, ADI_ADAU1761_SPORT_INPUT,
+			&sportRxInfo1);
+	CheckResult(result1);
+	/* register a Rx callback */
+	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_1, ADAU1761Callback_1,
+	NULL);
+	CheckResult(result1);
+	//DISABLE MIXER BYPASS OUTPUT
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401C, 0x21); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401D, 0x00); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401E, 0x41); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401F, 0x00); // MUTE
+	CheckResult(result1);
+	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
+	//CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4016, 0x00);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
+	CheckResult(result1);
+	//high pass 2 hz filter
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
+
+#if defined(USE_LINE_IN)
+	result1 = adi_adau1761_SelectInputSource(hADAU1761_1,
+			ADI_ADAU1761_INPUT_ADC);
+	CheckResult(result1);
+#else
+	result1 = adi_adau1761_SelectInputSource(hADAU1761_1, ADI_ADAU1761_INPUT_MIC);
+	CheckResult(result1);
+#endif
+
+	// disable mixer
+	//MixerEnable(false);
+
+	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_HEADPHONE,
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_LINE_OUT,
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetSampleRate(hADAU1761_1, SAMPLE_RATE);
+	CheckResult(result1);
+
+
+	//DEVICE 2
+	// Open the codec driver
+	result2 = adi_adau1761_Open(ADAU1761_DEV_NUM1, codecMem2,
+	ADI_ADAU1761_MEMORY_SIZE, ADI_ADAU1761_COMM_DEV_TWI, &hADAU1761_2);
+	CheckResult(result2);
+
+	// Configure TWI
+	//The TWI address when ADD1 pin is high and ADD0 pin is low
+	result2 = adi_adau1761_ConfigTWI(hADAU1761_2, TWI_DEV_NUM,
+			ADI_ADAU1761_TWI_ADDR2);
+	CheckResult(result2);
+
+	// load Sigma Studio program exported from *_IC_1.h
+	result2 = adi_adau1761_SigmaStudioLoad(hADAU1761_2, default_download_IC_1);
+	CheckResult(result2);
+	// config SPORT for Rx data transfer
+	sportRxInfo2.nDeviceNum = SPORT_RX_DEVICE2;
+	sportRxInfo2.eChannel = ADI_HALF_SPORT_B;
+	sportRxInfo2.eMode = ADI_ADAU1761_SPORT_I2S;
+	sportRxInfo2.hDevice = NULL;
+	sportRxInfo2.pMemory = sportRxMem2;
+	sportRxInfo2.bEnableDMA = true;
+	sportRxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_32;
+	sportRxInfo2.bEnableStreaming = true;
+
+	result2 = adi_adau1761_ConfigSPORT(hADAU1761_2, ADI_ADAU1761_SPORT_INPUT,
+			&sportRxInfo2);
+	CheckResult(result2);
+
+	// register a Rx callback
+	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_2, ADAU1761Callback_2,
+	NULL);
+	CheckResult(result2);
+
+	//DISABLE MIXER BYPASS OUTPUT
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401D, 0x00); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401E, 0x41); // MUTE
+	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401F, 0x00); // MUTE
+	CheckResult(result1);
+	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
+	//CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
+	CheckResult(result1);
+	//high pass 2 hz filter
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
+#if defined(USE_LINE_IN)
+	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
+			ADI_ADAU1761_INPUT_ADC);
+	CheckResult(result2);
+#else
+	result2 = adi_adau1761_SelectInputSource(hADAU1761_2, ADI_ADAU1761_INPUT_MIC);
+	CheckResult(result2);
+#endif
+
+	// disable mixer
+	MixerEnable(false);
+
+	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_HEADPHONE,
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+	CheckResult(result2);
+
+	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_LINE_OUT,
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+	CheckResult(result2);
+
+	result2 = adi_adau1761_SetSampleRate(hADAU1761_2, SAMPLE_RATE);
+	CheckResult(result2);
+
+
+
 	bEvent = true;
 	eMode = START;
 
@@ -1080,26 +1499,69 @@ int main(void) {
 			case START:
 				printf("Started.\n");
 
+				MixerEnable(true);
+							//result1 = adi_adau1761_EnableOutput(hADAU1761_1, false);
+							//CheckResult(result1);
+							result1 = adi_adau1761_EnableInput(hADAU1761_1, false);
+							CheckResult(result1);
+							//result2 = adi_adau1761_EnableOutput(hADAU1761_2, false);
+							//CheckResult(result2);
+							result2 = adi_adau1761_EnableInput(hADAU1761_2, false);
+							CheckResult(result2);
+
+							//submit ping pong buffer
+							result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
+									&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 0u],
+									BUFFER_SIZE_1761);
+							CheckResult(result1);
+							result1 = adi_adau1761_SubmitRxBuffer(hADAU1761_1,
+									&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL *2  * 1u],
+									BUFFER_SIZE_1761);
+							CheckResult(result1);
+
+
+							result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
+									&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL *2  * 0u],
+									BUFFER_SIZE_1761);
+							CheckResult(result2);
+							result2 = adi_adau1761_SubmitRxBuffer(hADAU1761_2,
+									&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL *2  * 1u],
+									BUFFER_SIZE_1761);
+							CheckResult(result2);
+							//1962a ping pong buffers
+							if (Result == 0u) {
+								Result = Adau1962aSubmitBuffers();
+							}
+
+
+
+
+/*
 				//1979 ping pong buffers
 				if (Result == 0u) {
 					Result = Adau1979SubmitBuffers();
 				}
+*/
 
-				//1962a ping pong buffers
-				if (Result == 0u) {
-					Result = Adau1962aSubmitBuffers();
-				}
+
+				//Start recording
+				result1 = adi_adau1761_EnableInput(hADAU1761_1, true);
+				CheckResult(result1);
+
+				result2 = adi_adau1761_EnableInput(hADAU1761_2, true);
+				CheckResult(result2);
+
 				// Enable data flow for the ADC
 				if (Result == 0u) {
 					Adau1962aEnable();
 				}
-
+/*
 				// Enable data flow for the ADC
 				if (Result == 0u) {
 					Adau1979Enable();
 				}
 
-
+*/
 				break;
 			default:
 				break;
@@ -1149,22 +1611,47 @@ void RefFIR(){
 }
 //void ProcessBufferADC(uint32_t iid, void* handlerArg) {
 void ProcessBufferADC() {
+	/*
 	if (pGetADC != NULL) {
+
 		pADC = (void *)pGetADC;
 		Adau1979DoneWithBuffer(pGetADC);
-
-		pGetADC = NULL;
+				pGetADC = NULL;
 		pADCBuffer = (int32_t *) pADC;
+*/
+	if (pADC1 != NULL && pADC2 != NULL) {
+		pADC1Buffer = (int32_t *) pADC1;
+		pADC2Buffer = (int32_t *) pADC2;
+		adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
+				BUFFER_SIZE_1761);
+		adi_adau1761_SubmitRxBuffer(hADAU1761_2, (void *) pADC2,
+				BUFFER_SIZE_1761);
+		pADC1 = NULL;
+		pADC2 = NULL;
 		if (!ANCInProgress) {
 			ANCInProgress=true;
+			/*
 			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1;
 					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
 				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
-				refInputBuff[l] = conv_float_by(((*(pADCBuffer + 4 * i))<<16), -5);
+				refInputBuff[l] = conv_float_by(((*(pADCBuffer + 4 * i))<<8), -20);
 				//pADCBuffer1[i]=pADCBuffer[i];
 				for(uint8_t k = 0; k < numErrorSignal; k++){
 					//errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -5);
-					errorSignal[k][i] = conv_float_by(((*(pADCBuffer + 4 * i + 1 + k))<<16), -5);
+					errorSignal[k][i] = conv_float_by(((*(pADCBuffer + 4 * i + 1 + k))<<8), -20);
+				}
+			}
+*/
+
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1;
+					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
+				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
+				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -23);
+				//pADCBuffer1[i]=pADCBuffer[i];
+				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -23);
+				for(uint8_t k = 1; k < numErrorSignal; k++){
+					//errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -5);
+					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -23);
 				}
 			}
 
@@ -1173,7 +1660,7 @@ void ProcessBufferADC() {
 			ControlFIR();
 			ANCALG_1();
 			while(!TRNGFlag);
-
+			TRNGFlag = false;
 			ANCALG_2();
 
 
@@ -1424,15 +1911,11 @@ int32_t ANCALG_2(void) {
 
 return 0;
 }
-
-
 int32_t ANCALG_3(void) {
 	ADI_FIR_RESULT res;
-	for (int32_t j=0; j< numControlSignal; j++){
-	MemDma0Copy1D( &OSPMAuxInputBuff[j], &OSPMWNSignalSend[j], 4, OSPMWindowSize);
-	while(bMemCopyInProgress);
-	}
-	MemDma0Copy1D(&OSPMRefInputBuff[0], &refOutputBuff[0], 4, refOutputSize);
+
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&OSPMRefInputBuff[0], (void *)&refOutputBuff[0], 4, refOutputSize);
 
 	//	power of OSPMWNSignal
 #pragma vector_for(numControlSignal)
@@ -1449,7 +1932,11 @@ int32_t ANCALG_3(void) {
 	while (bOSPMAuxFIRInProgress);
 
 
-
+	for (int32_t j=0; j< numControlSignal; j++){
+		bMemCopyInProgress=true;
+	MemDma0Copy1D( (void *)&OSPMAuxInputBuff[j], (void *)&OSPMWNSignalSend[j], 4, OSPMWindowSize);
+	while(bMemCopyInProgress);
+	}
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
@@ -1486,9 +1973,9 @@ int32_t ANCALG_3(void) {
 
 			controlCoeffBuff[j][l] =
 					constrain(
-							(controlCoeffBuff[j][l]
+							(controlCoeffBuff[j][l]*(0.99)
 					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp)
-					, -1000000, 1000000 );
+					, -2000, 2000 );
 
 		}
 	}
@@ -1500,8 +1987,8 @@ int32_t ANCALG_3(void) {
 int32_t ANCALG_4(void) {
 	ADI_FIR_RESULT res;
 	int8_t disableAllOSPMChannelsResult = 0;
-
-	MemDma0Copy1D(&refInputBuff[0], &refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
 
 
 	//INDIRECT ERROR SIGNAL
@@ -1577,7 +2064,7 @@ int32_t ANCALG_4(void) {
 			}
 			OSPMWNGain[j][i] = constrain(
 					(powerFilteredErrorSignalSumTemp
-							/ powerpowerIndirectErrorSignalTemp), -1000000, 1000000);
+							/ powerpowerIndirectErrorSignalTemp), -10000, 10000);
 
 		}
 	}
@@ -1603,7 +2090,7 @@ int32_t ANCALG_4(void) {
 						(OSPMCoeffBuff[j][k][l]
 								+ (stepSizeS[j][k][i] * OSPMWNSignalSend[j][i]
 										* filteredErrorSignal[k][i]))
-						, -1000000, 1000000 )
+						, -100, 100 )
 						;
 			}
 			adi_fir_SetChannelCoefficientBuffer(hchannelOSPMRef[j][k],
