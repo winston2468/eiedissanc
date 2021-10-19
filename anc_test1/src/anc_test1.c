@@ -88,7 +88,7 @@ volatile void *pDAC = NULL;
 
 
 #pragma alignment_region (4)
-float controlOutputBuff[numControlSignal][controlInputSize + 1] = { 0 };
+float controlOutputBuff[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 float OSPMWNSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 #pragma alignment_region_end
 
@@ -219,6 +219,7 @@ float OSPMCoeffBuff[numControlSignal][numErrorSignal][OSPMLength] = { 0 };
 float outputSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 
 float OSPMAuxInputBuff[numControlSignal][OSPMInputSize] = { 0 };
+
 float OSPMWNSignalSend[numControlSignal][OSPMLength] = { 0 };
 float controlInputBuff[controlInputSize] = { 0 };
 
@@ -265,7 +266,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 volatile bool TRNGFlag = false;
 
 float forgettingFactor = 0.6;
-float stepSizeSMin = 0.0001;
+float stepSizeSMin = 1;
 
 
 /* used for exit timeout */
@@ -396,7 +397,26 @@ static void PKIC_ISR(uint32_t iid, void* handlerArg);
 
 static void TRNG_ISR(void);
 static void TRNG_ACK(void);
-
+unsigned int *randSeed;
+unsigned int randSeedInt = 0;
+int rand_r_imp(unsigned int *seed);
+int rand_r_imp(unsigned int *seed) {
+	unsigned int next = *seed;
+	int result;
+	next *= 1103515245;
+	next += 12345;
+	result = (unsigned int) (next / 65536) % 2048;
+	next *= 1103515245;
+	next += 12345;
+	result <<= 10;
+	result ^= (unsigned int) (next / 65536) % 1024;
+	next *= 1103515245;
+	next += 12345;
+	result <<= 10;
+	result ^= (unsigned int) (next / 65536) % 1024;
+	*seed = next;
+	return result;
+}
 
 static void CheckResult(ADI_ADAU1761_RESULT result);
 void MixerEnable(bool bEnable);
@@ -609,7 +629,7 @@ uint8_t GenOutputSignal() {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-			outputSignal[j][i] = controlOutputBuff[j][i] + OSPMWNSignalSend[j][i]*10000000;
+			outputSignal[j][i] = controlOutputBuff[j][i] + OSPMWNSignalSend[j][i]*1000000;
 		}
 	}
 
@@ -621,7 +641,7 @@ uint8_t GenOutputSignal() {
 uint8_t PushOutputSignal() {
 	if (pGetDAC != NULL) {
 		pDAC = (void *) pGetDAC;
-		Adau1962aDoneWithBuffer(pGetDAC);
+
 		pGetDAC = NULL;
 		int32_t *pDst;
 		pDst = (int32_t *) pDAC;
@@ -637,26 +657,30 @@ uint8_t PushOutputSignal() {
 			 }
 			 */
 
-			/*
+
 			*pDst++ = (conv_fix_by(outputSignal[0][i], 1));
 			*pDst++ = (conv_fix_by(outputSignal[1][i], 1));
 			*pDst++ = (conv_fix_by(outputSignal[2][i], 1));
 			*pDst++ = (conv_fix_by(outputSignal[3][i], 1));
+			*pDst++ = 0;
 			*pDst++ = (conv_fix_by(outputSignal[4][i], 1));
 			*pDst++ = 0;
 			*pDst++ = (conv_fix_by(outputSignal[5][i], 1));
+
+
+
+			/*
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
 			*pDst++ = 0;
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = 0;
+			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
 			 */
 
 
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OSPMWNSignalSend[0][i]*10000000, 1));
 
 		}
 	}
@@ -678,7 +702,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
 		pGetDAC = pArg;
-
+		Adau1962aDoneWithBuffer(pGetDAC);
 		//DacCount++;
 		/*
 		if (ANCInProgress){
@@ -898,7 +922,7 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.001;
+		stepSizeW[j] = 0.1;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
 				OSPMCoeffBuff[j][k][i] = 1;
@@ -1227,7 +1251,8 @@ int main(void) {
 
 
 	adi_initComponents(); /* auto-generated code */
-
+	randSeedInt = (unsigned int) rand();
+	randSeed = &randSeedInt;
 
 	//SC589 adau1979
 	/* PADS0 DAI0 Port Input Enable Control Register */
@@ -1276,6 +1301,7 @@ int main(void) {
 		printf("FIR init success\n");
 	}
 
+	/*
  	adi_int_InstallHandler(INTR_PKIC0_IRQ,PKIC_ISR,0,true);
  	int iTemp;
 
@@ -1322,7 +1348,7 @@ int main(void) {
 		return 1;
 	}
 
-
+*/
 
 	//DEVICE 1
 	// Open the codec driver
@@ -1659,13 +1685,14 @@ void ProcessBufferADC() {
 
 			ControlFIR();
 			ANCALG_1();
-			while(!TRNGFlag);
-			TRNGFlag = false;
+			//while(!TRNGFlag);
+
+			//TRNGFlag = false;
 			ANCALG_2();
 
 
 			ANCALG_3();
-			TRNG_ACK();
+			//TRNG_ACK();
 
 
 			ANCALG_4();
@@ -1862,6 +1889,14 @@ int32_t ANCALG_1(void) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
+#pragma vector_for
+	for(uint32_t j =0; j < numControlSignal; j++){
+#pragma vector_for
+	for(uint32_t i = 0, l = OSPMLength-1; i < OSPMLength, l < OSPMInputSize;i++,l++){
+		OSPMWNSignalSend[j][i]=     ((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5;
+		OSPMAuxInputBuff[j][l]=     ((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5;
+	}
+	}
 	while (bOSPMRefFIRInProgress);
 
 
@@ -1928,7 +1963,7 @@ int32_t ANCALG_3(void) {
 							* OSPMWNSignalSend[j][i]);
 		}
 	}
-
+	while(bMemCopyInProgress);
 	while (bOSPMAuxFIRInProgress);
 
 
@@ -1975,11 +2010,11 @@ int32_t ANCALG_3(void) {
 					constrain(
 							(controlCoeffBuff[j][l]*(0.99)
 					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp)
-					, -2000, 2000 );
+					, -15000, 15000 );
 
 		}
 	}
-	while(bMemCopyInProgress);
+
 
 	return 0;
 }

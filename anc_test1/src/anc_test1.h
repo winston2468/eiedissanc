@@ -56,7 +56,7 @@ void SPE1_ISR();
 
 
 
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       // Stream 0
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
