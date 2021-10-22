@@ -35,8 +35,8 @@ void SPE1_ISR();
 #define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
 #define OSPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define OSPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define numErrorSignal 3
-#define numControlSignal 6
+#define numErrorSignal 2
+#define numControlSignal 2
 #define NUM_DAC_CHANNELS (8u)
 #define NUM_ADAU1979_CHANNELS (4u)
 #define NUM_ADAU1761_CHANNELS (2u)
@@ -58,7 +58,7 @@ void SPE1_ISR();
 
 #define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -137,7 +137,7 @@ void SPE1_ISR();
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(32000u)
+#define SAMPLE_RATE_A   			(48000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)

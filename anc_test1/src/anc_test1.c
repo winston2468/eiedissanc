@@ -266,7 +266,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 volatile bool TRNGFlag = false;
 
 float forgettingFactor = 0.6;
-float stepSizeSMin = 1;
+float stepSizeSMin = 0.001;
 
 
 /* used for exit timeout */
@@ -660,12 +660,12 @@ uint8_t PushOutputSignal() {
 
 			*pDst++ = (conv_fix_by(outputSignal[0][i], 1));
 			*pDst++ = (conv_fix_by(outputSignal[1][i], 1));
-			*pDst++ = (conv_fix_by(outputSignal[2][i], 1));
-			*pDst++ = (conv_fix_by(outputSignal[3][i], 1));
 			*pDst++ = 0;
-			*pDst++ = (conv_fix_by(outputSignal[4][i], 1));
 			*pDst++ = 0;
-			*pDst++ = (conv_fix_by(outputSignal[5][i], 1));
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
 
 
 
@@ -922,7 +922,7 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.1;
+		stepSizeW[j] = 0.0001;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OSPMLength; i++) {
 				OSPMCoeffBuff[j][k][i] = 1;
@@ -1266,7 +1266,7 @@ int main(void) {
 
 /*
 	adi_sec_SetPriority(INTR_SOFT5, 62); // set the priority of SOFT5 interrupt (priority 60)
-	// Register and install a handler for the software interrupt SOFT5 (priority 60)
+	// Register and install a handler for the software interrupt f10000SOFT5 (priority 60)
 	adi_int_InstallHandler(INTR_SOFT5, ProcessBufferADC, 0, true);
 
 */
@@ -1860,8 +1860,8 @@ int32_t ANCALG_1(void) {
 #pragma vector_for
 		for(uint8_t k = 0; k < numErrorSignal; k++) {
 
-			res = adi_fir_SubmitInputCircBuffer(hchannelOSPMRef[j][k], OSPMRefInputBuff,
-					OSPMRefInputBuff, OSPMInputSize, 1);
+			res = adi_fir_SubmitInputCircBuffer(hchannelOSPMRef[j][k], refInputBuff,
+					refInputBuff, OSPMInputSize, 1);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf("adi_fir_SubmitInputCircBuffer hchannelOSPMRef[%d][%d] failed\n", j ,k);
 				return -1;
@@ -1893,8 +1893,8 @@ int32_t ANCALG_1(void) {
 	for(uint32_t j =0; j < numControlSignal; j++){
 #pragma vector_for
 	for(uint32_t i = 0, l = OSPMLength-1; i < OSPMLength, l < OSPMInputSize;i++,l++){
-		OSPMWNSignalSend[j][i]=     ((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5;
-		OSPMAuxInputBuff[j][l]=     ((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5;
+		OSPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
+		OSPMAuxInputBuff[j][l]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
 	}
 	}
 	while (bOSPMRefFIRInProgress);
@@ -2008,9 +2008,9 @@ int32_t ANCALG_3(void) {
 
 			controlCoeffBuff[j][l] =
 					constrain(
-							(controlCoeffBuff[j][l]*(0.99)
+							(controlCoeffBuff[j][l]*(0.9999)
 					+ stepSizeW[j] * filteredErrorSignal_OSPMRef_SumTemp)
-					, -15000, 15000 );
+					, -1000000, 1000000 );
 
 		}
 	}
