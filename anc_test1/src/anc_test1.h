@@ -21,6 +21,7 @@ void SPE1_ISR();
 */
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
+
 #define refLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define refInputSize (refLength + refWindowSize - 1)
 #define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
@@ -31,10 +32,14 @@ void SPE1_ISR();
 #define controlInputSize (controlLength + controlWindowSize - 1)
 #define controlWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define controlOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OSPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OSPMInputSize (OSPMLength + OSPMWindowSize - 1)
-#define OSPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OSPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OCPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OCPMInputSize (OCPMLength + OCPMWindowSize - 1)
+#define OCPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OCPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OPPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OPPMInputSize (OCPMLength + OCPMWindowSize - 1)
+#define OPPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OPPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (8u)
@@ -44,7 +49,7 @@ void SPE1_ISR();
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
-#define OSPMWNSignal_BufferSize (numControlSignal*OSPMLength*sizeof(float))
+#define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 
 
