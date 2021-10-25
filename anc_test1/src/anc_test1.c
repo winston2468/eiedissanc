@@ -81,8 +81,8 @@ static volatile bool bOCPMAuxFIRInProgress = false;
 static volatile bool bRefFIRInProgress = false;
 #endif
 static volatile bool bControlFIRInProgress = false;
-static volatile bool bOPPMRefFIRInProgress = false;
-static volatile bool bOPPMAuxFIRInProgress = false;
+static volatile bool bOFPMFIRInProgress = false;
+static volatile bool bOFPMErrorFIRInProgress = false;
 //*****************************************************************************
 uint8_t DacStarted = 0u;
 /* ADC/DAC buffer pointer */
@@ -92,7 +92,7 @@ volatile void *pDAC = NULL;
 
 #pragma alignment_region (4)
 float controlOutputBuff[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
-float OCPMWNSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+
 #pragma alignment_region_end
 
 
@@ -194,9 +194,9 @@ float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
-#ifdef RefFilter
+
 float refInputBuff[refInputSize] = { 0 };
-#endif
+
 uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryRef[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
@@ -209,28 +209,34 @@ uint8_t ConfigMemoryControl[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryControl[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
 
 
-uint8_t ConfigMemoryOPPMRef[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryOPPMRef[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+uint8_t ConfigMemoryOFPM[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOFPM[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+
+uint8_t ConfigMemoryOFPMError[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOFPMError[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
 float OCPMRefInputBuff[OCPMInputSize] = { 0 };
 
-float OPPMInputBuff[numControlSignal][OPPMInputSize] = { 0 };
-float OPPMCoeffBuff[numControlSignal][OPPMLength] = { 0 };
+float OFPMInputBuff[numControlSignal][OFPMInputSize] = { 0 };
+float OFPMCoeffBuff[numControlSignal][OFPMLength] = { 0 };
 
-
+float OFPMErrorInputBuff[OFPMInputSize] = { 0 };
+float OFPMErrorCoeffBuff[OFPMLength] = { 0 };
 
 float OCPMCoeffBuff[numControlSignal][numErrorSignal][OCPMLength] = { 0 };
 
 
-float controlSignal[numControlSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+float controlOutputSignal[numControlSignal][OFPMInputSize] = { 0 };
 
 float OCPMAuxInputBuff[numControlSignal][OCPMInputSize] = { 0 };
 
 float OCPMWNSignalSend[numControlSignal][OCPMLength] = { 0 };
 float controlInputBuff[controlInputSize] = { 0 };
 
+float OFPMErrorSignal[OCPMLength] = { 0 };
+
 float uncorruptedErrorSignal[numErrorSignal][OCPMLength] = { 0 };
-float uncorruptedRefSignal[OPPMLength] = { 0 };
+float uncorruptedRefSignal[OFPMInputSize] = { 0 };
 
 float OCPMWNGain[numControlSignal][OCPMLength] = { 0 };
 float powerOCPMWNSignal[numControlSignal][OCPMLength] = { 0 };
@@ -238,15 +244,20 @@ float indirectErrorSignal[numControlSignal][numErrorSignal][OCPMLength];
 float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OCPMLength] = {
 		0 };
 float powerUncorruptedErrorSignal[numErrorSignal][OCPMLength] = { 0 };
-float powerUncorruptedRefSignal[OCPMLength] = { 0 };
+float powerUncorruptedRefSignal[OFPMLength] = { 0 };
+float powerOFPMErrorSignal[OFPMLength] = { 0 };
+float OFPMPowerRatio[OFPMLength] = {0};
 float stepSizeS[numControlSignal][numErrorSignal][OCPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
+float stepSizeF[OFPMLength] = { 0 };
+float stepSizeH = { 0 };
 
 
 float OCPMRefOutputBuff[numControlSignal][numErrorSignal][OCPMOutputSize];
 
 float OCPMAuxOutputBuff[numControlSignal][numErrorSignal][OCPMOutputSize];
-float OCPMRefOutputBuff[numControlSignal][numErrorSignal][OCPMOutputSize];
+float OFPMOutputBuff[numControlSignal][OFPMOutputSize] = {0};
+float OFPMErrorOutputBuff[OFPMOutputSize]= {0};
 #ifdef RefFilter
 float refCoeffBuff[refLength] = {
 #include "data/lowpass_filter_2000_2500.dat"
@@ -261,18 +272,22 @@ ADI_FIR_CHANNEL_PARAMS channelRef;
 ADI_FIR_CHANNEL_PARAMS channelOCPMRef[numControlSignal][numErrorSignal];
 ADI_FIR_CHANNEL_PARAMS channelOCPMAux[numControlSignal][numErrorSignal];
 ADI_FIR_CHANNEL_PARAMS channelControl[numControlSignal];
-ADI_FIR_CHANNEL_PARAMS channelOPPM[numControlSignal];
+ADI_FIR_CHANNEL_PARAMS channelOFPM[numControlSignal];
+ADI_FIR_CHANNEL_PARAMS channelOFPMError;
+
 
 ADI_FIR_RESULT res;
 ADI_FIR_HANDLE hFir;
 ADI_FIR_CONFIG_HANDLE hConfigOCPMRef;
 ADI_FIR_CONFIG_HANDLE hConfigOCPMAux;
-ADI_FIR_CONFIG_HANDLE hConfigOPPM;
+ADI_FIR_CONFIG_HANDLE hConfigOFPM;
+ADI_FIR_CONFIG_HANDLE hConfigOFPMError;
 ADI_FIR_CONFIG_HANDLE hConfigControl;
-ADI_FIR_CHANNEL_HANDLE hchannelOCPMRef[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_HANDLE hchannelOCPMAux[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_HANDLE hchannelOPPM[numControlSignal];
-ADI_FIR_CHANNEL_HANDLE hchannelControl[numControlSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOCPMRef[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOCPMAux[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelControl[numControlSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOFPM[numControlSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOFPMError;
 #ifdef RefFilter
 ADI_FIR_CONFIG_HANDLE hConfigRef;
 ADI_FIR_CHANNEL_HANDLE hChannelRef;
@@ -280,9 +295,16 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
 volatile bool TRNGFlag = false;
 
-float forgettingFactor = 0.6;
-float stepSizeSMin = 0.001;
+float forgettingFactorOSPM = 0.6;
+float forgettingFactorOFPM = 0.9;
+float stepSizeSMin = 0.00001;
+float stepSizeFMin = 0.00001;
+float stepSizeFMax = 0.0001;
 
+float OFPMLeak = 0.999;
+float OFPMErrorLeak = 0.999;
+float controlLeak = 0.999;
+float OSPMlLeak = 0.999;
 
 /* used for exit timeout */
 //#define MAXCOUNT (50000000000u)
@@ -351,12 +373,17 @@ void RefFIR(void);
 #endif
 int32_t FIR_init(void);
 void reverseArrayf(float*, uint32_t);
+int32_t OCPMRefFIR(void);
+int32_t OCPMAuxFIR(void);
+int32_t OFPMFIR(void);
+int32_t OFPMErrorFIR(void);
 int32_t ANCALG_1(void);
 int32_t ANCALG_2(void);
 int32_t ANCALG_3(void);
 int32_t ANCALG_4(void);
+int32_t ANCALG_5(void);
 int8_t DisableAllOCPMChannels(void);
-float WN_generator(void);
+int32_t WN_Gen(void);
 
 extern uint32_t DMAInit(void);
 #ifdef RefFilter
@@ -365,7 +392,8 @@ static void RefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void OCPMRefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void OCPMAuxFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 static void ControlFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
-static void OPPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
+static void OFPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
+static void OFPMErrorFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 
 void *DMASlaveDestinationAddress;
 
@@ -602,23 +630,38 @@ void MixerEnable(bool bEnable) {
 
 
 uint8_t ControlFIR() {
+#ifdef RefFilter
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void*) &OCPMRefInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], (void *)&refOutputBuff[0], 4, NUM_AUDIO_SAMPLES_PER_CHANNEL);
 	while(bMemCopyInProgress);
 
 
+
+#endif
+
+
+
+
+
+
 for(uint32_t j=0; j< numControlSignal; j++){
-	res = adi_fir_SubmitInputCircBuffer(hchannelControl[j],
+
+	res = adi_fir_SubmitInputCircBuffer(hChannelControl[j],
+#ifdef RefFilter
 			OCPMRefInputBuff, OCPMRefInputBuff,
+#else
+			uncorruptedRefSignal, uncorruptedRefSignal,
+#endif
 			controlInputSize, 1);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf(
-				"adi_fir_SubmitInputCircBuffer hChannelControl failed\n");
+				"adi_fir_SubmitInputCircBuffer hChannelControl %d failed\n", j);
 	}
 
 }
+
 for(uint32_t j=0; j< numControlSignal; j++){
-res = adi_fir_EnableChannel(hchannelControl[j], true);
+res = adi_fir_EnableChannel(hChannelControl[j], true);
 if (res != ADI_FIR_RESULT_SUCCESS) {
 	printf("adi_fir_EnableChannel hChannelControl failed\n");
 }
@@ -629,25 +672,19 @@ if (res != ADI_FIR_RESULT_SUCCESS) {
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_EnableConfig hConfigControl failed\n");
 	}
-	while(bControlFIRInProgress);
-
-	for(uint32_t j=0; j< numControlSignal; j++){
-	res = adi_fir_EnableChannel(hchannelControl[j], false);
-	if (res != ADI_FIR_RESULT_SUCCESS) {
-		printf("adi_fir_EnableChannel hChannelControl disable failed\n");
-	}
 
 
-	}
+
 
 	return 0;
 }
 
 uint8_t GenControlSignal() {
+#pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-
+#pragma vector_for
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-			controlSignal[j][i] = controlOutputBuff[j][i] + OCPMWNSignalSend[j][i]*1000000;
+			controlOutputSignal[j][i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1] = controlOutputBuff[j][i] + OCPMWNSignalSend[j][i];
 		}
 	}
 
@@ -663,7 +700,7 @@ uint8_t PushControlSignal() {
 		pGetDAC = NULL;
 		int32_t *pDst;
 		pDst = (int32_t *) pDAC;
-		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
+		for (uint32_t i = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < OFPMInputSize; i++) {
 			//TDM8 SHIFT <<8
 			/*
 			 for(int32_t j =0; j< numControlSignal;j++){
@@ -674,10 +711,10 @@ uint8_t PushControlSignal() {
 			 *pDst++ = 0;
 			 }
 			 */
+			/*
 
-
-			*pDst++ = (conv_fix_by(controlSignal[0][i], 1));
-			*pDst++ = (conv_fix_by(controlSignal[1][i], 1));
+			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 10));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -685,7 +722,15 @@ uint8_t PushControlSignal() {
 			*pDst++ = 0;
 			*pDst++ = 0;
 
-
+*/
+			*pDst++ = (conv_fix_by(controlOutputBuff[0][i] + OCPMWNSignalSend[0][i]*1000000, 1));
+			*pDst++ = (conv_fix_by(controlOutputBuff[1][i] + OCPMWNSignalSend[1][i]*1000000, 1));
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
 
 			/*
 			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
@@ -791,16 +836,11 @@ void TRNG_ISR()
 	}
 	if((iTemp & 0x1)==1)
 	{
+		/*
 		if(OCPMWNSignal_Y < numControlSignal ){
 			if(OCPMWNSignal_X < OCPMInputSize ){
 				//Read_TRNG_Output(randBuff);
 				Read_TRNG_Output_Imp(&OCPMAuxInputBuff[OCPMWNSignal_Y][OCPMWNSignal_X]);
-				/*
-				for(int32_t i=0; i < 4; i++){
-				OCPMAuxInputBuff[OCPMWNSignal_Y][OCPMWNSignal_X+i]=(float)randBuff[i]/(2147483647);
-				OCPMWNSignalSend[OCPMWNSignal_Y][OCPMWNSignal_X-OCPMWindowSize+1+i]=(float)randBuff[i]/(2147483647);
-				}
-				*/
 				Read_TRNG_Output_Imp(&OCPMWNSignalSend[OCPMWNSignal_Y][OCPMWNSignal_X-OCPMWindowSize-1]);
 				OCPMWNSignal_X +=4;
 				Acknowledge_Interrupt(iTemp);
@@ -817,7 +857,9 @@ void TRNG_ISR()
 		else{
 			TRNGFlag = true;
 		}
-
+		*/
+		Read_TRNG_Output(randBuff);
+		TRNGFlag = true;
 	}
 }
 
@@ -840,8 +882,10 @@ void TRNG_ACK()
 	}
 	if((iTemp & 0x1)==1)
 	{
+		/*
 		OCPMWNSignal_Y =0;
 		OCPMWNSignal_X=OCPMWindowSize - 1;
+		*/
 		Acknowledge_Interrupt(iTemp);
 	}
 
@@ -921,7 +965,7 @@ int32_t FIR_init() {
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OCPMLength; i++) {
-			controlCoeffBuff[j][i] = 1;
+			controlCoeffBuff[j][i] = 0.1;
 			powerOCPMWNSignal[j][i] = 1;
 
 		}
@@ -940,14 +984,26 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.0001;
+		stepSizeW[j] = 0.000001;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OCPMLength; i++) {
-				OCPMCoeffBuff[j][k][i] = 1;
+				OCPMCoeffBuff[j][k][i] = 0.1;
 			}
 		}
+			for (int32_t i = 0; i < OCPMLength; i++) {
+				OFPMCoeffBuff[j][i] =0.1;
+
+			}
+
+	}
+	for (int32_t i = 0; i < OFPMLength; i++) {
+		stepSizeF[i] = 0.00001;
+		OFPMErrorCoeffBuff[i] =0;
+		powerOFPMErrorSignal[i] = 1;
+		powerUncorruptedRefSignal[i] = 1;
 	}
 
+	stepSizeH = 0.001;
 #ifdef RefFilter
 	channelRef.nTapLength = refLength;
 	channelRef.nWindowSize = refWindowSize;
@@ -1008,6 +1064,72 @@ int32_t FIR_init() {
 	channelControl[j].nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
 
 	}
+
+
+
+
+	channelOFPM[0].nTapLength = OFPMLength;
+	channelOFPM[0].nWindowSize = OFPMWindowSize;
+	channelOFPM[0].eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
+	channelOFPM[0].nSamplingRatio = 1u; /*!< Sampling Ratio */
+	channelOFPM[0].nGroupNum = 1u; /*!< Group Number of the Channel - Channels in groups 0 will always be
+	 scheduled before group 1 and so on. Group number of the channel
+	 determines the order in which channels in a configuration will be linked */
+
+	channelOFPM[0].pInputBuffBase = (void *) OFPMInputBuff; /*!< Pointer to the base of the input circular buffer */
+	channelOFPM[0].pInputBuffIndex = (void *) OFPMInputBuff; /*!< Pointer to the current index of the input circular buffer */
+	channelOFPM[0].nInputBuffCount = OFPMInputSize; /*!< Number of elements in the input circular buffer */
+	channelOFPM[0].nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
+
+	channelOFPM[0].pCoefficientBase = (void *) OFPMCoeffBuff[0]; /*!< Pointer to the start of the coefficient buffer */
+	channelOFPM[0].nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
+	channelOFPM[0].pCoefficientIndex = (void *) OFPMCoeffBuff[0]; /*!< Pointer to the start of the coefficient buffer */
+
+	channelOFPM[0].pOutputBuffBase = (void *) OFPMOutputBuff[0]; /*!< Pointer to the base of the output circular buffer */
+	channelOFPM[0].pOutputBuffIndex = (void *) OFPMOutputBuff[0]; /*!< Pointer to the current index of the output circular buffer */
+	channelOFPM[0].nOutputBuffCount = OFPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOFPM[0].nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
+
+
+	for (uint8_t j = 1; j < numControlSignal; j++) {
+		channelOFPM[j] = channelControl[0];
+
+		channelOFPM[j].pCoefficientBase = (void *) OFPMCoeffBuff[j]; /*!< Pointer to the start of the coefficient buffer */
+		channelOFPM[j].nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
+		channelOFPM[j].pCoefficientIndex = (void *) OFPMCoeffBuff[j]; /*!< Pointer to the start of the coefficient buffer */
+
+		channelOFPM[j].pOutputBuffBase = (void *) OFPMOutputBuff[j]; /*!< Pointer to the base of the output circular buffer */
+		channelOFPM[j].pOutputBuffIndex = (void *) OFPMOutputBuff[j]; /*!< Pointer to the current index of the output circular buffer */
+		channelOFPM[j].nOutputBuffCount = OFPMWindowSize; /*!< Number of elements in the output circular buffer */
+		channelOFPM[j].nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
+
+	}
+
+	channelOFPMError.nTapLength = OFPMLength;
+	channelOFPMError.nWindowSize = OFPMWindowSize;
+	channelOFPMError.eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
+	channelOFPMError.nSamplingRatio = 1u; /*!< Sampling Ratio */
+	channelOFPMError.nGroupNum = 1u; /*!< Group Number of the Channel - Channels in groups 0 will always be
+	 scheduled before group 1 and so on. Group number of the channel
+	 determines the order in which channels in a configuration will be linked */
+
+	channelOFPMError.pInputBuffBase = (void *) OFPMErrorInputBuff; /*!< Pointer to the base of the input circular buffer */
+	channelOFPMError.pInputBuffIndex = (void *) OFPMErrorInputBuff; /*!< Pointer to the current index of the input circular buffer */
+	channelOFPMError.nInputBuffCount = OFPMInputSize; /*!< Number of elements in the input circular buffer */
+	channelOFPMError.nInputBuffModify = 1; /*!< Modifier to be used for the input circular buffer */
+
+	channelOFPMError.pCoefficientBase = (void *) OFPMErrorCoeffBuff; /*!< Pointer to the start of the coefficient buffer */
+	channelOFPMError.nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
+	channelOFPMError.pCoefficientIndex = (void *) OFPMErrorCoeffBuff; /*!< Pointer to the start of the coefficient buffer */
+
+	channelOFPMError.pOutputBuffBase = (void *) OFPMErrorOutputBuff; /*!< Pointer to the base of the output circular buffer */
+	channelOFPMError.pOutputBuffIndex = (void *) OFPMErrorOutputBuff; /*!< Pointer to the current index of the output circular buffer */
+	channelOFPMError.nOutputBuffCount = OFPMWindowSize; /*!< Number of elements in the output circular buffer */
+	channelOFPMError.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
+
+
+
+
 
 	channelOCPMRef[0][0].nTapLength = OCPMLength;
 	channelOCPMRef[0][0].nWindowSize = OCPMWindowSize;
@@ -1162,6 +1284,31 @@ int32_t FIR_init() {
 	}
 
 	// ------------------------------- Create Configurations --------------------------------------------
+	res = adi_fir_CreateConfig(hFir, ConfigMemoryOFPM,
+	ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigOFPM);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_CreateConfig failed\n");
+		return -1;
+	}
+	res = adi_fir_RegisterCallback(hConfigOFPM, OFPMFIRCallback, NULL);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_RegisterCallback failed\n");
+		return -1;
+	}
+	// ------------------------------- Create Configurations --------------------------------------------
+	res = adi_fir_CreateConfig(hFir, ConfigMemoryOFPMError,
+	ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigOFPMError);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_CreateConfig failed\n");
+		return -1;
+	}
+	res = adi_fir_RegisterCallback(hConfigOFPMError, OFPMErrorFIRCallback, NULL);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_RegisterCallback failed\n");
+		return -1;
+	}
+
+	// ------------------------------- Create Configurations --------------------------------------------
 	res = adi_fir_CreateConfig(hFir, ConfigMemoryOCPMRef,
 	ADI_FIR_CONFIG_MEMORY_SIZE, &hConfigOCPMRef);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
@@ -1200,19 +1347,36 @@ int32_t FIR_init() {
 	for (int8_t j = 0; j < numControlSignal; j++) {
 			res = adi_fir_AddChannel(hConfigControl, ChannelMemoryControl[j],
 			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelControl[j],
-					&hchannelControl[j]);
+					&hChannelControl[j]);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf("adi_fir_AddChannel Control failed\n");
 				return -1;
 			}
 	}
 
+	for (int8_t j = 0; j < numControlSignal; j++) {
+			res = adi_fir_AddChannel(hConfigOFPM, ChannelMemoryOFPM[j],
+			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOFPM[j],
+					&hChannelOFPM[j]);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_AddChannel OFPM failed\n");
+				return -1;
+			}
+	}
+
+		res = adi_fir_AddChannel(hConfigOFPMError, ChannelMemoryOFPMError,
+		ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOFPMError,
+				&hChannelOFPMError);
+		if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_AddChannel OFPMError failed\n");
+			return -1;
+		}
 
 	for (int8_t j = 0; j < numControlSignal; j++) {
 		for (int8_t k = 0; k < numErrorSignal; k++) {
 			res = adi_fir_AddChannel(hConfigOCPMRef, ChannelMemoryOCPMRef[j][k],
 			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOCPMRef[j][k],
-					&hchannelOCPMRef[j][k]);
+					&hChannelOCPMRef[j][k]);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf("adi_fir_AddChannel OCPM Ref %d%d failed\n");
 				return -1;
@@ -1224,7 +1388,7 @@ int32_t FIR_init() {
 		for (int8_t k = 0; k < numErrorSignal; k++) {
 			res = adi_fir_AddChannel(hConfigOCPMAux, ChannelMemoryOCPMAux[j][k],
 			ADI_FIR_CHANNEL_MEMORY_SIZE, &channelOCPMAux[j][k],
-					&hchannelOCPMAux[j][k]);
+					&hChannelOCPMAux[j][k]);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf("adi_fir_AddChannel OCPM Aux %d%d failed\n");
 				return -1;
@@ -1250,6 +1414,18 @@ int32_t FIR_init() {
 	}
 #endif
 	res = adi_fir_ChannelInterruptEnable(hConfigControl, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_ChannelInterruptEnable failed\n");
+		return -1;
+	}
+
+	res = adi_fir_ChannelInterruptEnable(hConfigOFPM, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_ChannelInterruptEnable failed\n");
+		return -1;
+	}
+
+	res = adi_fir_ChannelInterruptEnable(hConfigOFPMError, true);
 	if (res != ADI_FIR_RESULT_SUCCESS) {
 		printf("adi_fir_ChannelInterruptEnable failed\n");
 		return -1;
@@ -1324,8 +1500,8 @@ int main(void) {
 	if (firResult == 0) {
 		printf("FIR init success\n");
 	}
+/*
 
-	/*
  	adi_int_InstallHandler(INTR_PKIC0_IRQ,PKIC_ISR,0,true);
  	int iTemp;
 
@@ -1371,8 +1547,8 @@ int main(void) {
 		printf("Init Error");
 		return 1;
 	}
-
 */
+
 
 	//DEVICE 1
 	// Open the codec driver
@@ -1540,7 +1716,7 @@ int main(void) {
 			switch (eMode) {
 			case RECIEVE:
 				if(bEnableOCPM){
-				//ANCALG_2();
+				//OCPMAuxFIR();
 				}
 				//ProcessBufferADC1();
 				 ProcessBufferADC();
@@ -1696,10 +1872,10 @@ void ProcessBufferADC() {
 			}
 */
 
-			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1;
-					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
-				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++)
+			{
 				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -23);
+
 				//pADCBuffer1[i]=pADCBuffer[i];
 				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -23);
 				for(uint8_t k = 1; k < numErrorSignal; k++){
@@ -1711,20 +1887,74 @@ void ProcessBufferADC() {
 			RefFIR();
 #endif
 			ControlFIR();
-			ANCALG_1();
+			OCPMRefFIR();
+
 			//while(!TRNGFlag);
 
 			//TRNGFlag = false;
+			WN_Gen();
+
+
+
+			OCPMAuxFIR();
+			while(bControlFIRInProgress);
+			for(uint32_t j=0; j< numControlSignal; j++){
+			res = adi_fir_EnableChannel(hChannelControl[j], false);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel hChannelControl disable failed\n");
+			}
+
+			}
+
+			GenControlSignal();
+
+			bMemCopyInProgress=true;
+			MemDma0Copy1D((void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], (void *)&controlOutputBuff[0], 4, OFPMLength);
+#pragma vector_for
+		for (int32_t i = 0; i < OFPMOutputSize; i++) {
+
+			float OFPMSumTemp = 0;
+			for (uint8_t j = 0; j < numControlSignal; j++) {
+				OFPMSumTemp += OFPMOutputBuff[j][i];
+			}
+			uncorruptedRefSignal[i+OFPMWindowSize-1] = (refInputBuff[i+OFPMWindowSize-1] - OFPMSumTemp);
+		}
+
+
+			while(bMemCopyInProgress);
+
+			OFPMErrorFIR();
+
+
+			OFPMFIR();
+			while (bOFPMErrorFIRInProgress);
+			ANCALG_1();
+			res = adi_fir_EnableChannel(hChannelOFPMError, false);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel hChannelOFPMError disable failed\n");
+			}
+
+			while (bOFPMFIRInProgress);
+
+
+
 			ANCALG_2();
 
 
+			while (bOCPMRefFIRInProgress);
 			ANCALG_3();
 			//TRNG_ACK();
+
+			while (bOCPMAuxFIRInProgress);
+
+
 
 
 			ANCALG_4();
 
-			GenControlSignal();
+
+
+			ANCALG_5();
 			PushControlSignal();
 
 		}
@@ -1854,21 +2084,48 @@ static void ControlFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg) {
 	}
 }
 
+static void OFPMFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg) {
+	/* CASEOF (Event) */
+	switch ((ADI_FIR_EVENT) eEvent) {
+	/* CASE (Processed a one-shot/circular buffer) */
+	case (ADI_FIR_EVENT_ALL_CHANNEL_DONE):
+		/* Update memory copy status flag */
+		bOFPMFIRInProgress = false;
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void OFPMErrorFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg) {
+	/* CASEOF (Event) */
+	switch ((ADI_FIR_EVENT) eEvent) {
+	/* CASE (Processed a one-shot/circular buffer) */
+	case (ADI_FIR_EVENT_ALL_CHANNEL_DONE):
+		/* Update memory copy status flag */
+		bOFPMErrorFIRInProgress = false;
+		break;
+
+	default:
+		break;
+	}
+}
 
 int8_t DisableAllOCPMChannels() {
 	ADI_FIR_RESULT res;
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			res = adi_fir_EnableChannel(hchannelOCPMRef[j][k], false);
+			res = adi_fir_EnableChannel(hChannelOCPMRef[j][k], false);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf(
-						"adi_fir_EnableChannel disable hchannelOCPMRef[%d][%d] failed\n",
+						"adi_fir_EnableChannel disable hChannelOCPMRef[%d][%d] failed\n",
 						j, k);
 				return -1;
 			}
-			res = adi_fir_EnableChannel(hchannelOCPMAux[j][k], false);
+			res = adi_fir_EnableChannel(hChannelOCPMAux[j][k], false);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf("adi_fir_EnableChannel failed hchannelOCPMAux[%d][%d]\n", j, k);
+				printf("adi_fir_EnableChannel failed hChannelOCPMAux[%d][%d]\n", j, k);
 				return -1;
 			}
 		}
@@ -1878,7 +2135,7 @@ int8_t DisableAllOCPMChannels() {
 }
 
 
-int32_t ANCALG_1(void) {
+int32_t OCPMRefFIR(void) {
 	ADI_FIR_RESULT res;
 
 
@@ -1887,10 +2144,10 @@ int32_t ANCALG_1(void) {
 #pragma vector_for
 		for(uint8_t k = 0; k < numErrorSignal; k++) {
 
-			res = adi_fir_SubmitInputCircBuffer(hchannelOCPMRef[j][k], refInputBuff,
-					refInputBuff, OCPMInputSize, 1);
+			res = adi_fir_SubmitInputCircBuffer(hChannelOCPMRef[j][k], uncorruptedRefSignal,
+					uncorruptedRefSignal, OCPMInputSize, 1);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf("adi_fir_SubmitInputCircBuffer hchannelOCPMRef[%d][%d] failed\n", j ,k);
+				printf("adi_fir_SubmitInputCircBuffer hChannelOCPMRef[%d][%d] failed\n", j ,k);
 				return -1;
 			}
 		}
@@ -1901,9 +2158,9 @@ int32_t ANCALG_1(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 
-			res = adi_fir_EnableChannel(hchannelOCPMRef[j][k], true);
+			res = adi_fir_EnableChannel(hChannelOCPMRef[j][k], true);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf("adi_fir_EnableChannel hchannelOCPMRef[%d][%d] failed\n", j,
+				printf("adi_fir_EnableChannel hChannelOCPMRef[%d][%d] failed\n", j,
 						k);
 				return -1;
 			}
@@ -1916,33 +2173,39 @@ int32_t ANCALG_1(void) {
 		printf("adi_fir_EnableConfig failed\n");
 		return -1;
 	}
-#pragma vector_for
-	for(uint32_t j =0; j < numControlSignal; j++){
-#pragma vector_for
-	for(uint32_t i = 0, l = OCPMLength-1; i < OCPMLength, l < OCPMInputSize;i++,l++){
-		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
-		OCPMAuxInputBuff[j][l]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
-	}
-	}
-	while (bOCPMRefFIRInProgress);
+
 
 
 return 0;
 }
 
 
-int32_t ANCALG_2(void) {
+int32_t WN_Gen(void) {
+
+	//*randSeed = (unsigned int) randBuff[0];
+#pragma vector_for
+	for(uint32_t j =0; j < numControlSignal; j++){
+	for(uint32_t i = 0, l = OCPMLength-1; i < OCPMLength, l < OCPMInputSize;i++,l++){
+		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
+		OCPMAuxInputBuff[j][l]=    OCPMWNSignalSend[j][i];
+	}
+	}
+return 0;
+}
+
+
+int32_t OCPMAuxFIR(void) {
 	ADI_FIR_RESULT res;
-	ADI_DMA_RESULT eResult = ADI_DMA_SUCCESS;
+
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			res = adi_fir_SubmitInputCircBuffer(hchannelOCPMAux[j][k],
+			res = adi_fir_SubmitInputCircBuffer(hChannelOCPMAux[j][k],
 					OCPMAuxInputBuff[j], OCPMAuxInputBuff[j],
 					OCPMInputSize, 1);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf(
-						"adi_fir_SubmitInputCircBuffer hchannelOCPMAux[%d][%d] failed\n",
+						"adi_fir_SubmitInputCircBuffer hChannelOCPMAux[%d][%d] failed\n",
 						j, k);
 				return -1;
 			}
@@ -1954,7 +2217,7 @@ int32_t ANCALG_2(void) {
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			res = adi_fir_EnableChannel(hchannelOCPMAux[j][k], true);
+			res = adi_fir_EnableChannel(hChannelOCPMAux[j][k], true);
 			if (res != ADI_FIR_RESULT_SUCCESS) {
 				printf("adi_fir_EnableChannel channelOCPMAux[%d][%d] failed\n", j,
 						k);
@@ -1973,25 +2236,184 @@ int32_t ANCALG_2(void) {
 
 return 0;
 }
-int32_t ANCALG_3(void) {
+
+int32_t OFPMFIR(void) {
 	ADI_FIR_RESULT res;
 
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+			res = adi_fir_SubmitInputCircBuffer(hChannelOFPM[j],
+					controlOutputSignal[j], controlOutputSignal[j],
+					OFPMInputSize, 1);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf(
+						"adi_fir_SubmitInputCircBuffer hChannelOFPM[%d] failed\n",
+						j);
+				return -1;
+			}
+
+
+	}
+
+
+
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+			res = adi_fir_EnableChannel(hChannelOFPM[j], true);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel channelOFPM[%d] failed\n", j);
+				return -1;
+			}
+	}
+
+	bOFPMFIRInProgress = true;
+	res = adi_fir_EnableConfig(hConfigOFPM, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableConfig failed\n");
+		return -1;
+	}
+
+
+return 0;
+}
+
+
+
+int32_t OFPMErrorFIR(void) {
+	ADI_FIR_RESULT res;
+
+
+			res = adi_fir_SubmitInputCircBuffer(hChannelOFPMError,
+					OFPMErrorInputBuff, OFPMErrorInputBuff,
+					OFPMInputSize, 1);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf(
+						"adi_fir_SubmitInputCircBuffer hChannelOFPMError failed\n");
+				return -1;
+			}
+
+
+
+
+
+			res = adi_fir_EnableChannel(hChannelOFPMError, true);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel hChannelOFPMError failed\n");
+				return -1;
+			}
+
+
+	bOFPMErrorFIRInProgress = true;
+	res = adi_fir_EnableConfig(hConfigOFPMError, true);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableConfig failed\n");
+		return -1;
+	}
+
+
+return 0;
+}
+
+
+int32_t ANCALG_1(void) {
+
+
+
+	//OFPMError Coeff
+
+#pragma vector_for
+		for (int32_t i = 0, l = OFPMOutputSize - 1;
+				i < OFPMOutputSize, l > (-1); i++, l--) {
+			OFPMErrorSignal[i]= uncorruptedRefSignal[i]-OFPMErrorOutputBuff[i];
+			OFPMErrorCoeffBuff[l] =
+					constrain(
+							(OFPMErrorCoeffBuff[l]*(OFPMErrorLeak)
+					+ stepSizeH * OFPMErrorSignal[i]*controlOutputBuff[0][i])
+
+
+					, -10000, 10000 );
+
+		}
+
+#pragma vector_for
+		for (int32_t i = 0;i < OFPMOutputSize; i++) {
+			powerOFPMErrorSignal[i] = forgettingFactorOFPM*powerOFPMErrorSignal[i] + (1 - forgettingFactorOFPM)*OFPMErrorSignal[i]*OFPMErrorSignal[i];
+
+		}
+
+
+	return 0;
+}
+
+int32_t ANCALG_2(void) {
+
+
+	adi_fir_SetChannelCoefficientBuffer(hChannelOFPMError,
+			OFPMErrorCoeffBuff, OFPMErrorCoeffBuff, 1);
+
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+	res = adi_fir_EnableChannel(hChannelOFPM[j], false);
+	if (res != ADI_FIR_RESULT_SUCCESS) {
+		printf("adi_fir_EnableChannel hChannelOFPM %d disable failed\n", j);
+	}
+	}
+
+#pragma vector_for
+		for (int32_t i = 0;i < OFPMOutputSize; i++) {
+			powerUncorruptedRefSignal[i] = forgettingFactorOFPM*powerUncorruptedRefSignal[i] + (1 - forgettingFactorOFPM)*uncorruptedRefSignal[i]*uncorruptedRefSignal[i];
+			OFPMPowerRatio[i] = powerOFPMErrorSignal[i]/(0.00000001+ powerUncorruptedRefSignal[i]);
+			stepSizeF[i] = constrain((OFPMPowerRatio[i]*stepSizeFMin + (1-OFPMPowerRatio[i])*stepSizeFMax), stepSizeFMin, stepSizeFMax);
+		}
+
+
+	//OFPM Coeff
+#pragma vector_for
+		for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (int32_t i = 0, l = OFPMOutputSize - 1;
+				i < OFPMOutputSize, l > (-1); i++, l--) {
+			OFPMCoeffBuff[j][l] =
+					constrain(
+							(OFPMCoeffBuff[j][l]*(OFPMErrorLeak)
+					+ stepSizeF[i] * OFPMErrorSignal[i]*OCPMWNSignalSend[j][i])
+					, -10000, 10000 );
+
+		}
+		adi_fir_SetChannelCoefficientBuffer(hChannelOFPM[j],
+				OFPMCoeffBuff[j], OFPMCoeffBuff[j], 1);
+}
+
+
+	return 0;
+}
+
+int32_t ANCALG_3(void) {
+
+#ifdef RefFilter
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&OCPMRefInputBuff[0], (void *)&refOutputBuff[0], 4, refOutputSize);
-
+#endif
 	//	power of OCPMWNSignal
 #pragma vector_for(numControlSignal)
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for(OCPMOutputSize)
 		for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-			powerOCPMWNSignal[j][i] = (forgettingFactor
+			powerOCPMWNSignal[j][i] = (forgettingFactorOSPM
 					* powerOCPMWNSignal[j][i]
-					+ (1.0 - forgettingFactor) * OCPMWNSignalSend[j][i]
+					+ (1.0 - forgettingFactorOSPM) * OCPMWNSignalSend[j][i]
 							* OCPMWNSignalSend[j][i]);
 		}
 	}
+#ifdef RefFilter
 	while(bMemCopyInProgress);
-	while (bOCPMAuxFIRInProgress);
+#endif
+
+
+
+	return 0;
+}
+
+int32_t ANCALG_4(void) {
+	ADI_FIR_RESULT res;
+
 
 
 	for (int32_t j=0; j< numControlSignal; j++){
@@ -2012,13 +2434,21 @@ int32_t ANCALG_3(void) {
 		}
 	}
 
+return 0;
+}
 
 
 
 
 
+int32_t ANCALG_5(void) {
+	ADI_FIR_RESULT res;
+	int8_t disableAllOCPMChannelsResult = 0;
 
 
+
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
 
 	//Control Coeff
 #pragma vector_for(numControlSignal)
@@ -2043,16 +2473,6 @@ int32_t ANCALG_3(void) {
 	}
 
 
-	return 0;
-}
-
-int32_t ANCALG_4(void) {
-	ADI_FIR_RESULT res;
-	int8_t disableAllOCPMChannelsResult = 0;
-	bMemCopyInProgress=true;
-	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
-
-
 	//INDIRECT ERROR SIGNAL
 #pragma vector_for(numControlSignal)
 	for (uint8_t j = 0; j < numControlSignal; j++) {
@@ -2067,18 +2487,23 @@ int32_t ANCALG_4(void) {
 	}
 
 
+	while(bMemCopyInProgress);
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&OFPMErrorInputBuff[0], (void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
 
 	//	power of uncorruptedErrorSignal
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OCPMOutputSize)
 		for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-			powerUncorruptedErrorSignal[k][i] = (forgettingFactor
+			powerUncorruptedErrorSignal[k][i] = (forgettingFactorOSPM
 					* powerUncorruptedErrorSignal[k][i]
-					+ (1.0 - forgettingFactor) * uncorruptedErrorSignal[k][i]
+					+ (1.0 - forgettingFactorOSPM) * uncorruptedErrorSignal[k][i]
 							* uncorruptedErrorSignal[k][i]);
 		}
 	}
+
+
 
 
 	//power of indirectErrorSignal
@@ -2088,15 +2513,17 @@ int32_t ANCALG_4(void) {
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for(OCPMOutputSize)
 			for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-				powerIndirectErrorSignal[j][k][i] = (forgettingFactor
+				powerIndirectErrorSignal[j][k][i] = (forgettingFactorOSPM
 						* powerIndirectErrorSignal[j][k][i]
-						+ (1.0 - forgettingFactor)
+						+ (1.0 - forgettingFactorOSPM)
 								* indirectErrorSignal[j][k][i]
 								* indirectErrorSignal[j][k][i]);
 
 			}
 		}
 	}
+
+
 
 	//stepSizeS
 #pragma vector_for(numControlSignal)
@@ -2110,6 +2537,12 @@ int32_t ANCALG_4(void) {
 			}
 		}
 	}
+
+
+	while(bMemCopyInProgress);
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&uncorruptedRefSignal[0], (void *)&uncorruptedRefSignal[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
+
 
 	//OCPMWNGain
 #pragma vector_for(numControlSignal)
@@ -2155,12 +2588,17 @@ int32_t ANCALG_4(void) {
 						, -100, 100 )
 						;
 			}
-			adi_fir_SetChannelCoefficientBuffer(hchannelOCPMRef[j][k],
+			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
 					OCPMCoeffBuff[j][k], OCPMCoeffBuff[j][k], 1);
 		}
 	}
 
 	while(bMemCopyInProgress);
+	for (int32_t j=0; j< numControlSignal; j++){
+	bMemCopyInProgress=true;
+	MemDma0Copy1D((void *)&controlOutputSignal[j][0], (void *)&controlOutputSignal[j][NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
+	while(bMemCopyInProgress);
+	}
 
 	ANCInProgress = false;
 

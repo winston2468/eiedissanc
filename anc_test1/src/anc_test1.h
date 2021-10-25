@@ -36,10 +36,10 @@ void SPE1_ISR();
 #define OCPMInputSize (OCPMLength + OCPMWindowSize - 1)
 #define OCPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define OCPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OPPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OPPMInputSize (OCPMLength + OCPMWindowSize - 1)
-#define OPPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OPPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OFPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OFPMInputSize (OCPMLength + OCPMWindowSize - 1)
+#define OFPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define OFPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (8u)
