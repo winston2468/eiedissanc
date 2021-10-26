@@ -158,11 +158,49 @@ static ADI_ADAU1761_HANDLE hADAU1761_2;
 #define ADAU1761_DEV_NUM1          1
 #pragma align 4
 int32_t AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL*2 * 2];
+uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryRef[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
-#pragma align(4)
+uint8_t ConfigMemoryOCPMRef[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOCPMRef[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+uint8_t ConfigMemoryOCPMAux[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOCPMAux[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+
+uint8_t ConfigMemoryControl[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryControl[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+
+
+uint8_t ConfigMemoryOFPM[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOFPM[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
+
+uint8_t ConfigMemoryOFPMError[ADI_FIR_CONFIG_MEMORY_SIZE];
+uint8_t ChannelMemoryOFPMError[ADI_FIR_CHANNEL_MEMORY_SIZE];
+
 static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
 
 static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
+ADI_FIR_CHANNEL_PARAMS channelRef;
+ADI_FIR_CHANNEL_PARAMS channelOCPMRef[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_PARAMS channelOCPMAux[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_PARAMS channelControl[numControlSignal];
+ADI_FIR_CHANNEL_PARAMS channelOFPM[numControlSignal];
+ADI_FIR_CHANNEL_PARAMS channelOFPMError;
+
+
+ADI_FIR_RESULT res;
+ADI_FIR_HANDLE hFir;
+ADI_FIR_CONFIG_HANDLE hConfigOCPMRef;
+ADI_FIR_CONFIG_HANDLE hConfigOCPMAux;
+ADI_FIR_CONFIG_HANDLE hConfigOFPM;
+ADI_FIR_CONFIG_HANDLE hConfigOFPMError;
+ADI_FIR_CONFIG_HANDLE hConfigControl;
+ADI_FIR_CHANNEL_HANDLE hChannelOCPMRef[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOCPMAux[numControlSignal][numErrorSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelControl[numControlSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOFPM[numControlSignal];
+ADI_FIR_CHANNEL_HANDLE hChannelOFPMError;
+
+#pragma align(4)
 
 volatile void *pGetADC2 = NULL;
 void *pADC2;
@@ -194,27 +232,11 @@ float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
-
+float dummy[10]= {0};
 float refInputBuff[refInputSize] = { 0 };
 
-uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryRef[ADI_FIR_CHANNEL_MEMORY_SIZE];
 
-uint8_t ConfigMemoryOCPMRef[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryOCPMRef[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
-uint8_t ConfigMemoryOCPMAux[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryOCPMAux[numControlSignal][numErrorSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
-
-uint8_t ConfigMemoryControl[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryControl[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
-
-
-uint8_t ConfigMemoryOFPM[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryOFPM[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
-
-uint8_t ConfigMemoryOFPMError[ADI_FIR_CONFIG_MEMORY_SIZE];
-uint8_t ChannelMemoryOFPMError[ADI_FIR_CHANNEL_MEMORY_SIZE];
-
+float dummy1[10]= {0};
 float OCPMRefInputBuff[OCPMInputSize] = { 0 };
 
 float OFPMInputBuff[numControlSignal][OFPMInputSize] = { 0 };
@@ -250,12 +272,12 @@ float OFPMPowerRatio[OFPMLength] = {0};
 float stepSizeS[numControlSignal][numErrorSignal][OCPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
 float stepSizeF[OFPMLength] = { 0 };
-float stepSizeH = 0.00001;
+float stepSizeH = 0.0001;
 float forgettingFactorOSPM = 0.9;
 float forgettingFactorOFPM = 0.9;
-float stepSizeSMin = 0.00001;//0.00001;
-float stepSizeFMin = 0.00000001;//0.00001;
-float stepSizeFMax = 0.00001;//0.0001;
+float stepSizeSMin = 0.0001;//0.00001;
+float stepSizeFMin = 0.000000001;//0.00001;
+float stepSizeFMax = 0.0001;//0.0001;
 
 float OFPMLeak = 1;
 float OFPMErrorLeak = 1;
@@ -277,26 +299,7 @@ float refOutputBuff[refOutputSize] = { 0 };
 #pragma alignment_region_end
 
 
-ADI_FIR_CHANNEL_PARAMS channelRef;
-ADI_FIR_CHANNEL_PARAMS channelOCPMRef[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_PARAMS channelOCPMAux[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_PARAMS channelControl[numControlSignal];
-ADI_FIR_CHANNEL_PARAMS channelOFPM[numControlSignal];
-ADI_FIR_CHANNEL_PARAMS channelOFPMError;
 
-
-ADI_FIR_RESULT res;
-ADI_FIR_HANDLE hFir;
-ADI_FIR_CONFIG_HANDLE hConfigOCPMRef;
-ADI_FIR_CONFIG_HANDLE hConfigOCPMAux;
-ADI_FIR_CONFIG_HANDLE hConfigOFPM;
-ADI_FIR_CONFIG_HANDLE hConfigOFPMError;
-ADI_FIR_CONFIG_HANDLE hConfigControl;
-ADI_FIR_CHANNEL_HANDLE hChannelOCPMRef[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_HANDLE hChannelOCPMAux[numControlSignal][numErrorSignal];
-ADI_FIR_CHANNEL_HANDLE hChannelControl[numControlSignal];
-ADI_FIR_CHANNEL_HANDLE hChannelOFPM[numControlSignal];
-ADI_FIR_CHANNEL_HANDLE hChannelOFPMError;
 #ifdef RefFilter
 ADI_FIR_CONFIG_HANDLE hConfigRef;
 ADI_FIR_CHANNEL_HANDLE hChannelRef;
@@ -684,7 +687,7 @@ uint8_t GenControlSignal() {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-			controlOutputSignal[j][i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1] = controlOutputBuff[j][i] + OCPMWNSignalSend[j][i];
+			controlOutputSignal[j][i+NUM_AUDIO_SAMPLES_PER_CHANNEL/2] = controlOutputBuff[j][i] + OCPMWNSignalSend[j][i];
 		}
 	}
 
@@ -700,7 +703,7 @@ uint8_t PushControlSignal() {
 		pGetDAC = NULL;
 		int32_t *pDst;
 		pDst = (int32_t *) pDAC;
-		for (uint32_t i = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < OFPMInputSize; i++) {
+		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
 			//TDM8 SHIFT <<8
 			/*
 			 for(int32_t j =0; j< numControlSignal;j++){
@@ -984,7 +987,7 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.000001;
+		stepSizeW[j] = 0.00001;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OCPMLength; i++) {
 				OCPMCoeffBuff[j][k][i] = 0;
@@ -1884,17 +1887,20 @@ void ProcessBufferADC() {
 			}
 */
 
-			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++)
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL/2; i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize+1 - NUM_AUDIO_SAMPLES_PER_CHANNEL/2; i++, l++)
 			{
 				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -25);
 
 				//pADCBuffer1[i]=pADCBuffer[i];
 				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -25);
+				errorSignal[1][i] = conv_float_by(((*(pADC2Buffer + 2 * i))<<8), -25);
+				/*
 				for(uint8_t k = 1; k < numErrorSignal; k++){
 					//errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -5);
 					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -25);
-				}
+				}*/
 			}
+
 #ifdef RefFilter
 			RefFIR();
 #endif
@@ -1919,9 +1925,10 @@ void ProcessBufferADC() {
 			}
 
 			GenControlSignal();
-
+			OFPMFIR();
 			bMemCopyInProgress=true;
-			MemDma0Copy1D((void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], (void *)&controlOutputBuff[0], 4, OFPMLength);
+			MemDma0Copy1D((void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL/2], (void *)&controlOutputBuff[0], 4, OFPMLength);
+			while (bOFPMFIRInProgress);
 #pragma vector_for
 		for (int32_t i = 0; i < OFPMOutputSize; i++) {
 
@@ -1929,7 +1936,7 @@ void ProcessBufferADC() {
 			for (uint8_t j = 0; j < numControlSignal; j++) {
 				OFPMSumTemp += OFPMOutputBuff[j][i];
 			}
-			uncorruptedRefSignal[i+OFPMWindowSize-1] = (refInputBuff[i+OFPMWindowSize-1] - OFPMSumTemp);
+			uncorruptedRefSignal[i+OFPMWindowSize/2] = (refInputBuff[i+OFPMWindowSize/2] - OFPMSumTemp);
 		}
 
 
@@ -1938,7 +1945,7 @@ void ProcessBufferADC() {
 			OFPMErrorFIR();
 
 
-			OFPMFIR();
+
 			while (bOFPMErrorFIRInProgress);
 			ANCALG_1();
 			res = adi_fir_EnableChannel(hChannelOFPMError, false);
@@ -1946,7 +1953,7 @@ void ProcessBufferADC() {
 				printf("adi_fir_EnableChannel hChannelOFPMError disable failed\n");
 			}
 
-			while (bOFPMFIRInProgress);
+
 
 
 
@@ -2197,7 +2204,7 @@ int32_t WN_Gen(void) {
 	//*randSeed = (unsigned int) randBuff[0];
 #pragma vector_for
 	for(uint32_t j =0; j < numControlSignal; j++){
-	for(uint32_t i = 0, l = OCPMLength-1; i < OCPMLength, l < OCPMInputSize;i++,l++){
+	for(uint32_t i = 0, l = OCPMLength/2; i < OCPMLength, l < OCPMInputSize;i++,l++){
 		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2*OCPMWNGain[j][i];
 		OCPMAuxInputBuff[j][l]=    OCPMWNSignalSend[j][i];
 	}
@@ -2334,14 +2341,15 @@ int32_t ANCALG_1(void) {
 #pragma vector_for
 		for (int32_t i = 0, l = OFPMOutputSize - 1;
 				i < OFPMOutputSize, l > (-1); i++, l--) {
-			OFPMErrorSignal[i]= uncorruptedRefSignal[i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1]-OFPMErrorOutputBuff[i];
+			OFPMErrorSignal[i]= uncorruptedRefSignal[i+NUM_AUDIO_SAMPLES_PER_CHANNEL/2]-OFPMErrorOutputBuff[i];
+
 			OFPMErrorCoeffBuff[l] =
 					constrain(
 							(OFPMErrorCoeffBuff[l]*(OFPMErrorLeak)
 					+ stepSizeH * OFPMErrorSignal[i]*controlOutputBuff[0][i])
 
 
-					, -1000000, 1000000 );
+					, -10, 10 );
 
 		}
 
@@ -2386,7 +2394,7 @@ int32_t ANCALG_2(void) {
 					constrain(
 							(OFPMCoeffBuff[j][l]*(OFPMErrorLeak)
 					+ stepSizeF[i] * OFPMErrorSignal[i]*OCPMWNSignalSend[j][i])
-					, -10000, 10000 )*1;
+					, -10, 10 )*1;
 
 		}
 		adi_fir_SetChannelCoefficientBuffer(hChannelOFPM[j],
@@ -2427,12 +2435,13 @@ int32_t ANCALG_4(void) {
 	ADI_FIR_RESULT res;
 
 
-
+/*
 	for (int32_t j=0; j< numControlSignal; j++){
 		bMemCopyInProgress=true;
 	MemDma0Copy1D( (void *)&OCPMAuxInputBuff[j], (void *)&OCPMWNSignalSend[j], 4, OCPMWindowSize);
 	while(bMemCopyInProgress);
 	}
+	*/
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
@@ -2458,10 +2467,10 @@ int32_t ANCALG_5(void) {
 	int8_t disableAllOCPMChannelsResult = 0;
 
 
-
+/*
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
-
+*/
 	//Control Coeff
 #pragma vector_for(numControlSignal)
 	for (uint8_t j = 0; j < numControlSignal; j++) {
@@ -2479,7 +2488,7 @@ int32_t ANCALG_5(void) {
 					constrain(
 							(controlCoeffBuff[j][l]*(0.9999)
 					+ stepSizeW[j] * uncorruptedErrorSignal_OCPMRef_SumTemp)
-					, -1000000, 1000000 );
+					, -10, 10 );
 
 		}
 	}
@@ -2497,12 +2506,12 @@ int32_t ANCALG_5(void) {
 			}
 		}
 	}
-
+/*
 
 	while(bMemCopyInProgress);
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&OFPMErrorInputBuff[0], (void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
-
+*/
 	//	power of uncorruptedErrorSignal
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2550,11 +2559,11 @@ int32_t ANCALG_5(void) {
 		}
 	}
 
-
+/*
 	while(bMemCopyInProgress);
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&uncorruptedRefSignal[0], (void *)&uncorruptedRefSignal[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
-
+*/
 
 	//OCPMWNGain
 #pragma vector_for(numControlSignal)
@@ -2597,21 +2606,21 @@ int32_t ANCALG_5(void) {
 						(OCPMCoeffBuff[j][k][l]
 								+ (stepSizeS[j][k][i] * OCPMWNSignalSend[j][i]
 										* uncorruptedErrorSignal[k][i]))
-						, -100, 100 )
+						, -10, 10 )
 						;
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
 					OCPMCoeffBuff[j][k], OCPMCoeffBuff[j][k], 1);
 		}
 	}
-
+/*
 	while(bMemCopyInProgress);
 	for (int32_t j=0; j< numControlSignal; j++){
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&controlOutputSignal[j][0], (void *)&controlOutputSignal[j][NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
 	while(bMemCopyInProgress);
 	}
-
+*/
 	ANCInProgress = false;
 
 return 0;
