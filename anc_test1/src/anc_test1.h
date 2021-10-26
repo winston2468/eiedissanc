@@ -63,7 +63,7 @@ void SPE1_ISR();
 
 #define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -142,7 +142,7 @@ void SPE1_ISR();
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(48000u)
+#define SAMPLE_RATE_A   			(32000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)

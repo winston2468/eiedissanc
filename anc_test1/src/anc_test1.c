@@ -250,8 +250,17 @@ float OFPMPowerRatio[OFPMLength] = {0};
 float stepSizeS[numControlSignal][numErrorSignal][OCPMLength] = { 0 };
 float stepSizeW[numControlSignal] = { 0 };
 float stepSizeF[OFPMLength] = { 0 };
-float stepSizeH = { 0 };
+float stepSizeH = 0.00001;
+float forgettingFactorOSPM = 0.9;
+float forgettingFactorOFPM = 0.9;
+float stepSizeSMin = 0.00001;//0.00001;
+float stepSizeFMin = 0.00000001;//0.00001;
+float stepSizeFMax = 0.00001;//0.0001;
 
+float OFPMLeak = 1;
+float OFPMErrorLeak = 1;
+float controlLeak = 1;
+float OSPMlLeak = 1;
 
 float OCPMRefOutputBuff[numControlSignal][numErrorSignal][OCPMOutputSize];
 
@@ -295,16 +304,7 @@ ADI_FIR_CHANNEL_HANDLE hChannelRef;
 
 volatile bool TRNGFlag = false;
 
-float forgettingFactorOSPM = 0.6;
-float forgettingFactorOFPM = 0.9;
-float stepSizeSMin = 0.00001;
-float stepSizeFMin = 0.00001;
-float stepSizeFMax = 0.0001;
 
-float OFPMLeak = 0.999;
-float OFPMErrorLeak = 0.999;
-float controlLeak = 0.999;
-float OSPMlLeak = 0.999;
 
 /* used for exit timeout */
 //#define MAXCOUNT (50000000000u)
@@ -723,8 +723,8 @@ uint8_t PushControlSignal() {
 			*pDst++ = 0;
 
 */
-			*pDst++ = (conv_fix_by(controlOutputBuff[0][i] + OCPMWNSignalSend[0][i]*1000000, 1));
-			*pDst++ = (conv_fix_by(controlOutputBuff[1][i] + OCPMWNSignalSend[1][i]*1000000, 1));
+			*pDst++ = (conv_fix_by(controlOutputBuff[0][i]*1 + OCPMWNSignalSend[0][i], 20));
+			*pDst++ = (conv_fix_by(controlOutputBuff[1][i]*1 + OCPMWNSignalSend[1][i], 20));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -965,7 +965,7 @@ int32_t FIR_init() {
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OCPMLength; i++) {
-			controlCoeffBuff[j][i] = 0.1;
+			controlCoeffBuff[j][i] = 0;
 			powerOCPMWNSignal[j][i] = 1;
 
 		}
@@ -987,23 +987,23 @@ int32_t FIR_init() {
 		stepSizeW[j] = 0.000001;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OCPMLength; i++) {
-				OCPMCoeffBuff[j][k][i] = 0.1;
+				OCPMCoeffBuff[j][k][i] = 0;
 			}
 		}
 			for (int32_t i = 0; i < OCPMLength; i++) {
-				OFPMCoeffBuff[j][i] =0.1;
+				OFPMCoeffBuff[j][i] =0;
 
 			}
 
 	}
 	for (int32_t i = 0; i < OFPMLength; i++) {
-		stepSizeF[i] = 0.00001;
+		stepSizeF[i] = stepSizeFMin;//0.00001;
 		OFPMErrorCoeffBuff[i] =0;
 		powerOFPMErrorSignal[i] = 1;
 		powerUncorruptedRefSignal[i] = 1;
 	}
 
-	stepSizeH = 0.001;
+	//stepSizeH = 0.0001;
 #ifdef RefFilter
 	channelRef.nTapLength = refLength;
 	channelRef.nWindowSize = refWindowSize;
@@ -1092,16 +1092,16 @@ int32_t FIR_init() {
 
 
 	for (uint8_t j = 1; j < numControlSignal; j++) {
-		channelOFPM[j] = channelControl[0];
+		channelOFPM[j] = channelOFPM[0];
 
-		channelOFPM[j].pCoefficientBase = (void *) OFPMCoeffBuff[j]; /*!< Pointer to the start of the coefficient buffer */
-		channelOFPM[j].nCoefficientModify = 1; /*!< Modify for the Coefficient Buffer */
-		channelOFPM[j].pCoefficientIndex = (void *) OFPMCoeffBuff[j]; /*!< Pointer to the start of the coefficient buffer */
+		channelOFPM[j].pCoefficientBase = (void *) OFPMCoeffBuff[j]; //!< Pointer to the start of the coefficient buffer
+		channelOFPM[j].nCoefficientModify = 1; //!< Modify for the Coefficient Buffer
+		channelOFPM[j].pCoefficientIndex = (void *) OFPMCoeffBuff[j]; //!< Pointer to the start of the coefficient buffer
 
-		channelOFPM[j].pOutputBuffBase = (void *) OFPMOutputBuff[j]; /*!< Pointer to the base of the output circular buffer */
-		channelOFPM[j].pOutputBuffIndex = (void *) OFPMOutputBuff[j]; /*!< Pointer to the current index of the output circular buffer */
-		channelOFPM[j].nOutputBuffCount = OFPMWindowSize; /*!< Number of elements in the output circular buffer */
-		channelOFPM[j].nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
+		channelOFPM[j].pOutputBuffBase = (void *) OFPMOutputBuff[j]; //!< Pointer to the base of the output circular buffer
+		channelOFPM[j].pOutputBuffIndex = (void *) OFPMOutputBuff[j]; //!< Pointer to the current index of the output circular buffer
+		channelOFPM[j].nOutputBuffCount = OFPMWindowSize; //!< Number of elements in the output circular buffer
+		channelOFPM[j].nOutputBuffModify = 1; //!< Modifier to be used for the output circular buffer
 
 	}
 
@@ -1126,11 +1126,23 @@ int32_t FIR_init() {
 	channelOFPMError.pOutputBuffIndex = (void *) OFPMErrorOutputBuff; /*!< Pointer to the current index of the output circular buffer */
 	channelOFPMError.nOutputBuffCount = OFPMWindowSize; /*!< Number of elements in the output circular buffer */
 	channelOFPMError.nOutputBuffModify = 1; /*!< Modifier to be used for the output circular buffer */
+/*
 
+	for (uint8_t j = 1; j < numControlSignal; j++) {
+		channelOFPMError[j] = channelOFPMError[0];
 
+		channelOFPMError[j].pCoefficientBase = (void *) OFPMErrorCoeffBuff[j]; //!< Pointer to the start of the coefficient buffer
+		channelOFPMError[j].nCoefficientModify = 1; //!< Modify for the Coefficient Buffer
+		channelOFPMError[j].pCoefficientIndex = (void *) OFPMErrorCoeffBuff[j]; //!< Pointer to the start of the coefficient buffer
 
+		channelOFPMError[j].pOutputBuffBase = (void *) OFPMErrorOutputBuff[j]; //!< Pointer to the base of the output circular buffer
+		channelOFPMError[j].pOutputBuffIndex = (void *) OFPMErrorOutputBuff[j]; //!< Pointer to the current index of the output circular buffer
+		channelOFPMError[j].nOutputBuffCount = OFPMWindowSize; //!< Number of elements in the output circular buffer
+		channelOFPMError[j].nOutputBuffModify = 1; //!< Modifier to be used for the output circular buffer
 
+	}
 
+*/
 	channelOCPMRef[0][0].nTapLength = OCPMLength;
 	channelOCPMRef[0][0].nWindowSize = OCPMWindowSize;
 	channelOCPMRef[0][0].eSampling = ADI_FIR_SAMPLING_SINGLE_RATE;
@@ -1874,13 +1886,13 @@ void ProcessBufferADC() {
 
 			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++)
 			{
-				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -23);
+				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -25);
 
 				//pADCBuffer1[i]=pADCBuffer[i];
-				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -23);
+				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -25);
 				for(uint8_t k = 1; k < numErrorSignal; k++){
 					//errorSignal[k][i] = conv_float_by((pADCBuffer[4 * i + 1 + k]<<8), -5);
-					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -23);
+					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -25);
 				}
 			}
 #ifdef RefFilter
@@ -2186,7 +2198,7 @@ int32_t WN_Gen(void) {
 #pragma vector_for
 	for(uint32_t j =0; j < numControlSignal; j++){
 	for(uint32_t i = 0, l = OCPMLength-1; i < OCPMLength, l < OCPMInputSize;i++,l++){
-		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2;
+		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2*OCPMWNGain[j][i];
 		OCPMAuxInputBuff[j][l]=    OCPMWNSignalSend[j][i];
 	}
 	}
@@ -2322,20 +2334,20 @@ int32_t ANCALG_1(void) {
 #pragma vector_for
 		for (int32_t i = 0, l = OFPMOutputSize - 1;
 				i < OFPMOutputSize, l > (-1); i++, l--) {
-			OFPMErrorSignal[i]= uncorruptedRefSignal[i]-OFPMErrorOutputBuff[i];
+			OFPMErrorSignal[i]= uncorruptedRefSignal[i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1]-OFPMErrorOutputBuff[i];
 			OFPMErrorCoeffBuff[l] =
 					constrain(
 							(OFPMErrorCoeffBuff[l]*(OFPMErrorLeak)
 					+ stepSizeH * OFPMErrorSignal[i]*controlOutputBuff[0][i])
 
 
-					, -10000, 10000 );
+					, -1000000, 1000000 );
 
 		}
 
 #pragma vector_for
 		for (int32_t i = 0;i < OFPMOutputSize; i++) {
-			powerOFPMErrorSignal[i] = forgettingFactorOFPM*powerOFPMErrorSignal[i] + (1 - forgettingFactorOFPM)*OFPMErrorSignal[i]*OFPMErrorSignal[i];
+			powerOFPMErrorSignal[i] = constrain(forgettingFactorOFPM*powerOFPMErrorSignal[i] + (1 - forgettingFactorOFPM)*OFPMErrorSignal[i]*OFPMErrorSignal[i], -1000, 1000);
 
 		}
 
@@ -2358,7 +2370,7 @@ int32_t ANCALG_2(void) {
 
 #pragma vector_for
 		for (int32_t i = 0;i < OFPMOutputSize; i++) {
-			powerUncorruptedRefSignal[i] = forgettingFactorOFPM*powerUncorruptedRefSignal[i] + (1 - forgettingFactorOFPM)*uncorruptedRefSignal[i]*uncorruptedRefSignal[i];
+			powerUncorruptedRefSignal[i] = constrain(forgettingFactorOFPM*powerUncorruptedRefSignal[i] + (1 - forgettingFactorOFPM)*uncorruptedRefSignal[i]*uncorruptedRefSignal[i],-1000,1000);
 			OFPMPowerRatio[i] = powerOFPMErrorSignal[i]/(0.00000001+ powerUncorruptedRefSignal[i]);
 			stepSizeF[i] = constrain((OFPMPowerRatio[i]*stepSizeFMin + (1-OFPMPowerRatio[i])*stepSizeFMax), stepSizeFMin, stepSizeFMax);
 		}
@@ -2374,7 +2386,7 @@ int32_t ANCALG_2(void) {
 					constrain(
 							(OFPMCoeffBuff[j][l]*(OFPMErrorLeak)
 					+ stepSizeF[i] * OFPMErrorSignal[i]*OCPMWNSignalSend[j][i])
-					, -10000, 10000 );
+					, -10000, 10000 )*1;
 
 		}
 		adi_fir_SetChannelCoefficientBuffer(hChannelOFPM[j],
@@ -2559,7 +2571,7 @@ int32_t ANCALG_5(void) {
 			}
 			OCPMWNGain[j][i] = constrain(
 					(powerUncorruptedErrorSignalSumTemp
-							/ powerpowerIndirectErrorSignalTemp), -10000, 10000);
+							/ powerpowerIndirectErrorSignalTemp), -10000000, 10000000);
 
 		}
 	}
