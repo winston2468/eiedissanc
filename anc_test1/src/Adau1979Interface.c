@@ -119,7 +119,7 @@ uint32_t Adau1979Init(void) {
 	}
 
 	if ((uint32_t) adi_adau1979_SetSampleRate(phAdau1979,
-			ADI_ADAU1979_SAMPLE_RATE_48000HZ) != 0u) {
+			ADI_ADAU1979_SAMPLE_RATE_32000HZ) != 0u) {
 		printf("ADAU1979: adi_adau1979_SetSampleRate failed\n");
 		/* return error */
 		return 1u;

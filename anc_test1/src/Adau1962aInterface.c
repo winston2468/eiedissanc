@@ -175,6 +175,16 @@ uint32_t Adau1962aInit(void) {
 		// return error
 		return 1u;
 	}
+	if ((eResult = adi_adau1962a_ConfigDeEmphasis(phAdau1962a, false,
+			true,  false, false))
+			!= ADI_ADAU1962A_SUCCESS) {
+		printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
+				eResult);
+		// return error
+		return 1u;
+	}
+
+
 
 	return 0u;
 }

@@ -13,7 +13,7 @@ void SPE1_ISR();
 
 //#define ControlFIRA
 
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL       256
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL       512
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -63,7 +63,7 @@ void SPE1_ISR();
 
 #define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_48KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector
@@ -112,7 +112,6 @@ void SPE1_ISR();
 
 /* GPIO port to which LED 1 is connected to */
 #define LED1_PORT                   (ADI_GPIO_PORT_E)
-
 /* GPIO pin within the port to which LED 1 is connected to */
 #define LED1_PIN                    (ADI_GPIO_PIN_14)
 
@@ -142,7 +141,7 @@ void SPE1_ISR();
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(48000u)
+#define SAMPLE_RATE_A   			(32000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
