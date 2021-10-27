@@ -13,7 +13,7 @@ void SPE1_ISR();
 
 //#define ControlFIRA
 
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL       512
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL       256
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -63,7 +63,7 @@ void SPE1_ISR();
 
 #define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_32KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_12KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector

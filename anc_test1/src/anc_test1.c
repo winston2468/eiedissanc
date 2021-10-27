@@ -770,9 +770,10 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
 		pGetDAC = pArg;
+
 		if (ANCInProgress){
 			ANCERR = true;
-			printf("anc err");
+			printf("anc err\n");
 		}
 		Adau1962aDoneWithBuffer(pGetDAC);
 		//DacCount++;
@@ -1487,6 +1488,7 @@ int main(void) {
 	ADI_ADAU1761_SPORT_INFO sportTxInfo2;
 
 
+
 	adi_initComponents(); /* auto-generated code */
 	randSeedInt = (unsigned int) rand();
 	randSeed = &randSeedInt;
@@ -1527,7 +1529,8 @@ int main(void) {
 	if (Result == 0u) {
 		Result = Adau1979Init();
 	}
-
+	PcgDacInit();
+	AsrcDacInit();
 	// Initialize ADAU1962a
 	if (Result == 0u) {
 		Result = Adau1962aInit();
@@ -1746,7 +1749,8 @@ int main(void) {
 	result2 = adi_adau1761_SetSampleRate(hADAU1761_2, SAMPLE_RATE);
 	CheckResult(result2);
 
-
+	PcgDacEnable();
+	AsrcDacEnable();
 
 	bEvent = true;
 	eMode = START;
@@ -1901,7 +1905,7 @@ void ProcessBufferADC() {
 
 		if (!ANCInProgress) {
 			ANCInProgress=true;
-
+			/*
 			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1;
 					i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++) {
 				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
@@ -1913,8 +1917,8 @@ void ProcessBufferADC() {
 					errorSignal[k][i] = conv_float_by(((*(pADCBuffer + 4 * i + 1 + k))<<8), -20);
 				}
 			}
+*/
 
-			/*
 			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL || l < refInputSize; i++, l++)
 			{
 				refSignal[i] =  conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -25);
@@ -1926,7 +1930,7 @@ void ProcessBufferADC() {
 					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -25);
 				}
 			}
-*/
+
 			bMemCopyInProgress=true;
 			MemDma0Copy1D((void *)&refInputBuff[controlLength - 1], (void *)&refSignal[0], 4, controlWindowSize);
 
