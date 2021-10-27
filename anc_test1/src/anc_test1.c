@@ -194,7 +194,7 @@ float errorSignal[numErrorSignal][NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 
 /* Channel Configurations parameters */
 //Max FIR channels = 32
-
+float refSignal[NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
 float refInputBuff[refInputSize] = { 0 };
 
 uint8_t ConfigMemoryRef[ADI_FIR_CONFIG_MEMORY_SIZE];
@@ -230,7 +230,7 @@ float controlOutputSignal[numControlSignal][OFPMInputSize] = { 0 };
 
 float OCPMAuxInputBuff[numControlSignal][OCPMInputSize] = { 0 };
 
-float OCPMWNSignalSend[numControlSignal][OCPMLength] = { 0 };
+float WNSignal[OCPMLength] = { 0 };
 float controlInputBuff[controlInputSize] = { 0 };
 
 float OFPMErrorSignal[OCPMLength] = { 0 };
@@ -238,29 +238,31 @@ float OFPMErrorSignal[OCPMLength] = { 0 };
 float uncorruptedErrorSignal[numErrorSignal][OCPMLength] = { 0 };
 float uncorruptedRefSignal[OFPMInputSize] = { 0 };
 
-float OCPMWNGain[numControlSignal][OCPMLength] = { 0 };
-float powerOCPMWNSignal[numControlSignal][OCPMLength] = { 0 };
+float OCPMWNGain[numControlSignal] = { 0 };
+float powerOCPMWNSignal[numControlSignal] = { 0 };
 float indirectErrorSignal[numControlSignal][numErrorSignal][OCPMLength];
-float powerIndirectErrorSignal[numControlSignal][numErrorSignal][OCPMLength] = {
+float powerIndirectErrorSignal[numControlSignal][numErrorSignal] = {
 		0 };
-float powerUncorruptedErrorSignal[numErrorSignal][OCPMLength] = { 0 };
-float powerUncorruptedRefSignal[OFPMLength] = { 0 };
-float powerOFPMErrorSignal[OFPMLength] = { 0 };
-float OFPMPowerRatio[OFPMLength] = {0};
-float stepSizeS[numControlSignal][numErrorSignal][OCPMLength] = { 0 };
-float stepSizeW[numControlSignal] = { 0 };
-float stepSizeF[OFPMLength] = { 0 };
-float stepSizeH = 0.00001;
-float forgettingFactorOSPM = 0.9;
-float forgettingFactorOFPM = 0.9;
-float stepSizeSMin = 0.00001;//0.00001;
-float stepSizeFMin = 0.00000001;//0.00001;
-float stepSizeFMax = 0.00001;//0.0001;
+float powerUncorruptedErrorSignal[numErrorSignal] = { 0 };
+float powerUncorruptedRefSignal = 0;
+float powerOFPMErrorSignal = 0;
+float OFPMPowerRatio = 0;
 
-float OFPMLeak = 1;
-float OFPMErrorLeak = 1;
-float controlLeak = 1;
-float OSPMlLeak = 1;
+float stepSizeH = 0;
+float stepSizeHMin =  0.000001;//0.00001;
+float stepSizeHMax =  0.00000000001;//0.0001;
+float forgettingFactorOCPM = 0.9;
+float forgettingFactorOFPM = 0.9;
+float stepSizeW[numControlSignal] = { 0 };
+float stepSizeSMin = 0.01;//0.00001;
+float stepSizeS[numControlSignal][numErrorSignal] = { 0 };
+float stepSizeFMin = 0.000001;//0.00001;
+float stepSizeFMax = 0.01;//0.0001;
+float stepSizeF = 0;
+float OFPMLeak = 0.999;
+float OFPMErrorLeak = 0.999;
+float controlLeak = 0.999;
+float OSPMlLeak = 0.999;
 
 float OCPMRefOutputBuff[numControlSignal][numErrorSignal][OCPMOutputSize];
 
@@ -329,9 +331,9 @@ static bool bError;
 static uint32_t count;
 
 volatile bool bEvent;
-
-volatile uint32_t OCPMWNSignal_X =OCPMWindowSize-1;
-volatile uint32_t OCPMWNSignal_Y =0;
+volatile uint32_t OCPMWNSignal_X =0;
+//volatile uint32_t OCPMWNSignal_X =OCPMWindowSize-1;
+//volatile uint32_t OCPMWNSignal_Y =0;
 
 /* ADC buffer pointer */
 volatile void *pGetADC = NULL;
@@ -684,7 +686,7 @@ uint8_t GenControlSignal() {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-			controlOutputSignal[j][i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1] = controlOutputBuff[j][i] + OCPMWNSignalSend[j][i];
+			controlOutputSignal[j][i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1] = controlOutputBuff[j][i] + OCPMAuxInputBuff[j][i+ OCPMWindowSize -1];
 		}
 	}
 
@@ -712,9 +714,8 @@ uint8_t PushControlSignal() {
 			 }
 			 */
 			/*
-
-			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 10));
-			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 10));
+			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 18));
+			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 18));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -723,8 +724,9 @@ uint8_t PushControlSignal() {
 			*pDst++ = 0;
 
 */
-			*pDst++ = (conv_fix_by(controlOutputBuff[0][i]*1 + OCPMWNSignalSend[0][i], 20));
-			*pDst++ = (conv_fix_by(controlOutputBuff[1][i]*1 + OCPMWNSignalSend[1][i], 20));
+
+			*pDst++ = (conv_fix_by(controlOutputBuff[0][i-NUM_AUDIO_SAMPLES_PER_CHANNEL+1] + OCPMAuxInputBuff[0][i], 18));
+			*pDst++ = (conv_fix_by(controlOutputBuff[1][i-NUM_AUDIO_SAMPLES_PER_CHANNEL+1] + OCPMAuxInputBuff[1][i], 18));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -733,14 +735,14 @@ uint8_t PushControlSignal() {
 			*pDst++ = 0;
 
 			/*
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
 			*pDst++ = 0;
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
 			*pDst++ = 0;
-			*pDst++ = (conv_fix_by(OCPMWNSignalSend[0][i]*10000000, 1));
+			*pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
 			 */
 
 
@@ -841,7 +843,7 @@ void TRNG_ISR()
 			if(OCPMWNSignal_X < OCPMInputSize ){
 				//Read_TRNG_Output(randBuff);
 				Read_TRNG_Output_Imp(&OCPMAuxInputBuff[OCPMWNSignal_Y][OCPMWNSignal_X]);
-				Read_TRNG_Output_Imp(&OCPMWNSignalSend[OCPMWNSignal_Y][OCPMWNSignal_X-OCPMWindowSize-1]);
+				Read_TRNG_Output_Imp(&WNSignal[OCPMWNSignal_Y][OCPMWNSignal_X-OCPMWindowSize-1]);
 				OCPMWNSignal_X +=4;
 				Acknowledge_Interrupt(iTemp);
 			}
@@ -857,9 +859,23 @@ void TRNG_ISR()
 		else{
 			TRNGFlag = true;
 		}
-		*/
+
 		Read_TRNG_Output(randBuff);
 		TRNGFlag = true;
+		*/
+
+
+			if(OCPMWNSignal_X < OCPMWindowSize ){
+				//Read_TRNG_Output(randBuff);
+				Read_TRNG_Output_Imp(&WNSignal[OCPMWNSignal_X]);
+				OCPMWNSignal_X +=4;
+				Acknowledge_Interrupt(iTemp);
+			}
+			else{
+				TRNGFlag = true;
+
+			}
+
 	}
 }
 
@@ -886,6 +902,7 @@ void TRNG_ACK()
 		OCPMWNSignal_Y =0;
 		OCPMWNSignal_X=OCPMWindowSize - 1;
 		*/
+		OCPMWNSignal_X=0;
 		Acknowledge_Interrupt(iTemp);
 	}
 
@@ -966,26 +983,28 @@ int32_t FIR_init() {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		for (int32_t i = 0; i < OCPMLength; i++) {
 			controlCoeffBuff[j][i] = 0;
-			powerOCPMWNSignal[j][i] = 1;
+			powerOCPMWNSignal[j] = 1;
 
 		}
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			for (int32_t i = 0; i < OCPMLength; i++) {
-				powerIndirectErrorSignal[j][k][i] = 1.0;
-				OCPMWNGain[j][i] = 1;
+				powerIndirectErrorSignal[j][k] = 1.0;
+				OCPMWNGain[j] = 1;
+
 			}
 		}
 	}
 
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 		for (int32_t i = 0; i < OCPMLength; i++) {
-			powerUncorruptedErrorSignal[k][i] = 1.0;
+			powerUncorruptedErrorSignal[k] = 1.0;
 		}
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.000001;
+		stepSizeW[j] = 0.01;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
+			stepSizeS[j][k] = stepSizeSMin;
 			for (int32_t i = 0; i < OCPMLength; i++) {
 				OCPMCoeffBuff[j][k][i] = 0;
 			}
@@ -997,12 +1016,14 @@ int32_t FIR_init() {
 
 	}
 	for (int32_t i = 0; i < OFPMLength; i++) {
-		stepSizeF[i] = stepSizeFMin;//0.00001;
+		//stepSizeF[i] = stepSizeFMin;//0.00001;
 		OFPMErrorCoeffBuff[i] =0;
-		powerOFPMErrorSignal[i] = 1;
-		powerUncorruptedRefSignal[i] = 1;
+		powerOFPMErrorSignal = 1.0;
+		powerUncorruptedRefSignal = 1.0;
 	}
 
+	stepSizeF = stepSizeFMin;
+	stepSizeH = stepSizeHMin;
 	//stepSizeH = 0.0001;
 #ifdef RefFilter
 	channelRef.nTapLength = refLength;
@@ -1512,7 +1533,7 @@ int main(void) {
 	if (firResult == 0) {
 		printf("FIR init success\n");
 	}
-/*
+
 
  	adi_int_InstallHandler(INTR_PKIC0_IRQ,PKIC_ISR,0,true);
  	int iTemp;
@@ -1559,7 +1580,7 @@ int main(void) {
 		printf("Init Error");
 		return 1;
 	}
-*/
+
 
 
 	//DEVICE 1
@@ -1884,9 +1905,9 @@ void ProcessBufferADC() {
 			}
 */
 
-			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL, l < refInputSize; i++, l++)
+			for (uint32_t i = 0, l = NUM_AUDIO_SAMPLES_PER_CHANNEL-1; i < NUM_AUDIO_SAMPLES_PER_CHANNEL || l < refInputSize; i++, l++)
 			{
-				refInputBuff[l] = conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -25);
+				refSignal[i] =  conv_float_by(((*(pADC1Buffer + 2 * i))<<8), -31);
 
 				//pADCBuffer1[i]=pADCBuffer[i];
 				errorSignal[0][i] = conv_float_by(((*(pADC1Buffer + 2 * i + 1 ))<<8), -25);
@@ -1895,15 +1916,20 @@ void ProcessBufferADC() {
 					errorSignal[k][i] = conv_float_by(((*(pADC2Buffer + 2 * i + k-1))<<8), -25);
 				}
 			}
+
+			bMemCopyInProgress=true;
+			MemDma0Copy1D((void *)&refInputBuff[controlLength - 1], (void *)&refSignal[0], 4, controlWindowSize);
+
+			while(bMemCopyInProgress);
 #ifdef RefFilter
 			RefFIR();
 #endif
 			ControlFIR();
 			OCPMRefFIR();
 
-			//while(!TRNGFlag);
+			while(!TRNGFlag);
 
-			//TRNGFlag = false;
+			TRNGFlag = false;
 			WN_Gen();
 
 
@@ -1921,7 +1947,7 @@ void ProcessBufferADC() {
 			GenControlSignal();
 
 			bMemCopyInProgress=true;
-			MemDma0Copy1D((void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], (void *)&controlOutputBuff[0], 4, OFPMLength);
+			MemDma0Copy1D((void *)&OFPMErrorInputBuff[OFPMLength - 1], (void *)&controlOutputBuff[0], 4, OFPMWindowSize);
 #pragma vector_for
 		for (int32_t i = 0; i < OFPMOutputSize; i++) {
 
@@ -1929,7 +1955,7 @@ void ProcessBufferADC() {
 			for (uint8_t j = 0; j < numControlSignal; j++) {
 				OFPMSumTemp += OFPMOutputBuff[j][i];
 			}
-			uncorruptedRefSignal[i+OFPMWindowSize-1] = (refInputBuff[i+OFPMWindowSize-1] - OFPMSumTemp);
+			uncorruptedRefSignal[i+OFPMLength-1] = (refInputBuff[i+controlLength-1] - OFPMSumTemp);
 		}
 
 
@@ -1941,10 +1967,6 @@ void ProcessBufferADC() {
 			OFPMFIR();
 			while (bOFPMErrorFIRInProgress);
 			ANCALG_1();
-			res = adi_fir_EnableChannel(hChannelOFPMError, false);
-			if (res != ADI_FIR_RESULT_SUCCESS) {
-				printf("adi_fir_EnableChannel hChannelOFPMError disable failed\n");
-			}
 
 			while (bOFPMFIRInProgress);
 
@@ -1955,7 +1977,7 @@ void ProcessBufferADC() {
 
 			while (bOCPMRefFIRInProgress);
 			ANCALG_3();
-			//TRNG_ACK();
+			TRNG_ACK();
 
 			while (bOCPMAuxFIRInProgress);
 
@@ -2198,8 +2220,8 @@ int32_t WN_Gen(void) {
 #pragma vector_for
 	for(uint32_t j =0; j < numControlSignal; j++){
 	for(uint32_t i = 0, l = OCPMLength-1; i < OCPMLength, l < OCPMInputSize;i++,l++){
-		OCPMWNSignalSend[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2*OCPMWNGain[j][i];
-		OCPMAuxInputBuff[j][l]=    OCPMWNSignalSend[j][i];
+		//WNSignal[j][i]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2*OCPMWNGain[j][i];
+		OCPMAuxInputBuff[j][l]=    WNSignal[i]*OCPMWNGain[j];
 	}
 	}
 return 0;
@@ -2332,24 +2354,47 @@ int32_t ANCALG_1(void) {
 	//OFPMError Coeff
 
 #pragma vector_for
+	for (int32_t i = 0; i < OFPMOutputSize; i++) {
+	OFPMErrorSignal[i]= uncorruptedRefSignal[i+controlLength-1]-OFPMErrorOutputBuff[i];
+	}
+#pragma vector_for
 		for (int32_t i = 0, l = OFPMOutputSize - 1;
-				i < OFPMOutputSize, l > (-1); i++, l--) {
-			OFPMErrorSignal[i]= uncorruptedRefSignal[i+NUM_AUDIO_SAMPLES_PER_CHANNEL-1]-OFPMErrorOutputBuff[i];
+				l > (-1), i < OFPMOutputSize; i++, l--) {
+			float OFPMErrorCoeffSum =0;
+#pragma vector_for
+			for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
+				OFPMErrorCoeffSum+=OFPMErrorSignal[n]*controlOutputBuff[0][i]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+			}
+
 			OFPMErrorCoeffBuff[l] =
-					constrain(
-							(OFPMErrorCoeffBuff[l]*(OFPMErrorLeak)
-					+ stepSizeH * OFPMErrorSignal[i]*controlOutputBuff[0][i])
+					//dconstrain((
+							OFPMErrorCoeffBuff[l]*(OFPMErrorLeak)
+					+ stepSizeH * OFPMErrorCoeffSum
 
-
-					, -1000000, 1000000 );
+					//), -0.0001, 0.0001 )
+					;
 
 		}
 
+
+		float powerOFPMErrorSignalSum = 0;
 #pragma vector_for
 		for (int32_t i = 0;i < OFPMOutputSize; i++) {
-			powerOFPMErrorSignal[i] = constrain(forgettingFactorOFPM*powerOFPMErrorSignal[i] + (1 - forgettingFactorOFPM)*OFPMErrorSignal[i]*OFPMErrorSignal[i], -1000, 1000);
-
+			powerOFPMErrorSignalSum += OFPMErrorSignal[i]*OFPMErrorSignal[i]/OFPMOutputSize;
 		}
+			powerOFPMErrorSignal = //constrain(
+					forgettingFactorOFPM*powerOFPMErrorSignal + (1 - forgettingFactorOFPM)*powerOFPMErrorSignalSum
+																																 //, -1000, 1000)
+																																 ;
+
+			res = adi_fir_EnableChannel(hChannelOFPMError, false);
+			if (res != ADI_FIR_RESULT_SUCCESS) {
+				printf("adi_fir_EnableChannel hChannelOFPMError disable failed\n");
+			}
+
+			adi_fir_SetChannelCoefficientBuffer(hChannelOFPMError,
+					OFPMErrorCoeffBuff, OFPMErrorCoeffBuff, 1);
+
 
 
 	return 0;
@@ -2358,8 +2403,6 @@ int32_t ANCALG_1(void) {
 int32_t ANCALG_2(void) {
 
 
-	adi_fir_SetChannelCoefficientBuffer(hChannelOFPMError,
-			OFPMErrorCoeffBuff, OFPMErrorCoeffBuff, 1);
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 	res = adi_fir_EnableChannel(hChannelOFPM[j], false);
@@ -2368,12 +2411,19 @@ int32_t ANCALG_2(void) {
 	}
 	}
 
+
+		float powerUncorruptedRefSignalSum =0;
 #pragma vector_for
 		for (int32_t i = 0;i < OFPMOutputSize; i++) {
-			powerUncorruptedRefSignal[i] = constrain(forgettingFactorOFPM*powerUncorruptedRefSignal[i] + (1 - forgettingFactorOFPM)*uncorruptedRefSignal[i]*uncorruptedRefSignal[i],-1000,1000);
-			OFPMPowerRatio[i] = powerOFPMErrorSignal[i]/(0.00000001+ powerUncorruptedRefSignal[i]);
-			stepSizeF[i] = constrain((OFPMPowerRatio[i]*stepSizeFMin + (1-OFPMPowerRatio[i])*stepSizeFMax), stepSizeFMin, stepSizeFMax);
+			powerUncorruptedRefSignalSum += uncorruptedRefSignal[i+OFPMWindowSize-1]*uncorruptedRefSignal[i+OFPMWindowSize-1]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
 		}
+
+		powerUncorruptedRefSignal = //constrain(
+				forgettingFactorOFPM*powerUncorruptedRefSignal + (1 - forgettingFactorOFPM)*powerUncorruptedRefSignalSum
+																																			//,-1000,1000)
+																																					;
+		OFPMPowerRatio = powerOFPMErrorSignal/(0.00000001+ powerUncorruptedRefSignal);
+		stepSizeF = constrain((OFPMPowerRatio*stepSizeFMin + (1-OFPMPowerRatio)*stepSizeFMax), stepSizeFMin, stepSizeFMax);
 
 
 	//OFPM Coeff
@@ -2381,14 +2431,23 @@ int32_t ANCALG_2(void) {
 		for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
 		for (int32_t i = 0, l = OFPMOutputSize - 1;
-				i < OFPMOutputSize, l > (-1); i++, l--) {
+				l > (-1), i < OFPMOutputSize; i++, l--) {
+
+			float OFPMCoeffSum =0;
+#pragma vector_for
+			for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
+				OFPMCoeffSum+=OFPMErrorSignal[n]*OCPMAuxInputBuff[j][i];
+			}
+
+
 			OFPMCoeffBuff[j][l] =
-					constrain(
-							(OFPMCoeffBuff[j][l]*(OFPMErrorLeak)
-					+ stepSizeF[i] * OFPMErrorSignal[i]*OCPMWNSignalSend[j][i])
-					, -10000, 10000 )*1;
+					//constrain((
+							OFPMCoeffBuff[j][l]*(OFPMErrorLeak)
+					+ stepSizeF * OFPMCoeffSum/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+					//), -10000, 10000 )*1;
 
 		}
+
 		adi_fir_SetChannelCoefficientBuffer(hChannelOFPM[j],
 				OFPMCoeffBuff[j], OFPMCoeffBuff[j], 1);
 }
@@ -2403,17 +2462,23 @@ int32_t ANCALG_3(void) {
 	bMemCopyInProgress=true;
 	MemDma0Copy1D((void *)&OCPMRefInputBuff[0], (void *)&refOutputBuff[0], 4, refOutputSize);
 #endif
-	//	power of OCPMWNSignal
-#pragma vector_for(numControlSignal)
+
+
+
+
+#pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-#pragma vector_for(OCPMOutputSize)
-		for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-			powerOCPMWNSignal[j][i] = (forgettingFactorOSPM
-					* powerOCPMWNSignal[j][i]
-					+ (1.0 - forgettingFactorOSPM) * OCPMWNSignalSend[j][i]
-							* OCPMWNSignalSend[j][i]);
-		}
+	float powerOCPMWNSignalSum =0;
+#pragma vector_for
+	for (int32_t i = OFPMWindowSize-1;i < OCPMInputSize; i++) {
+		powerOCPMWNSignalSum += OCPMAuxInputBuff[j][i]* OCPMAuxInputBuff[j][i]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
 	}
+
+	powerOCPMWNSignal[j] =
+			forgettingFactorOCPM*powerOCPMWNSignal[j] + (1.0 - forgettingFactorOCPM)*powerOCPMWNSignalSum;
+
+	}
+
 #ifdef RefFilter
 	while(bMemCopyInProgress);
 #endif
@@ -2430,9 +2495,11 @@ int32_t ANCALG_4(void) {
 
 	for (int32_t j=0; j< numControlSignal; j++){
 		bMemCopyInProgress=true;
-	MemDma0Copy1D( (void *)&OCPMAuxInputBuff[j], (void *)&OCPMWNSignalSend[j], 4, OCPMWindowSize);
+	MemDma0Copy1D( (void *)&OCPMAuxInputBuff[j], (void *)&OCPMAuxInputBuff[j][OCPMInputSize-1-OCPMLength], 4, OCPMLength);
 	while(bMemCopyInProgress);
 	}
+
+
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
@@ -2442,7 +2509,8 @@ int32_t ANCALG_4(void) {
 			for (uint8_t j = 0; j < numControlSignal; j++) {
 				OCPMAuxSumTemp += OCPMAuxOutputBuff[j][k][i];
 			}
-			uncorruptedErrorSignal[k][i] = (errorSignal[k][i] - OCPMAuxSumTemp);
+
+			uncorruptedErrorSignal[k][i] = errorSignal[k][i] - OCPMAuxSumTemp;
 		}
 	}
 
@@ -2460,7 +2528,7 @@ int32_t ANCALG_5(void) {
 
 
 	bMemCopyInProgress=true;
-	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, refLength);
+	MemDma0Copy1D((void *)&refInputBuff[0], (void *)&refSignal[1], 4, controlLength-1);
 
 	//Control Coeff
 #pragma vector_for(numControlSignal)
@@ -2468,21 +2536,27 @@ int32_t ANCALG_5(void) {
 #pragma vector_for
 		for (int32_t i = 0, l = controlOutputSize - 1;
 				i < controlOutputSize, l > (-1); i++, l--) {
-			float uncorruptedErrorSignal_OCPMRef_SumTemp = 0;
 
+
+			float controlCoeffBuffSum = 0;
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
-				uncorruptedErrorSignal_OCPMRef_SumTemp += uncorruptedErrorSignal[k][i]
-						* OCPMRefOutputBuff[j][k][i];
+				float uncorruptedErrorSignal_OCPMRef_SumTemp = 0;
+				for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
+				uncorruptedErrorSignal_OCPMRef_SumTemp += uncorruptedErrorSignal[k][n]
+						* OCPMRefOutputBuff[j][k][i]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
 			}
-
+				controlCoeffBuffSum+=uncorruptedErrorSignal_OCPMRef_SumTemp;
+			}
 			controlCoeffBuff[j][l] =
-					constrain(
-							(controlCoeffBuff[j][l]*(0.9999)
-					+ stepSizeW[j] * uncorruptedErrorSignal_OCPMRef_SumTemp)
-					, -1000000, 1000000 );
+				//	constrain((
+							controlCoeffBuff[j][l]*(controlLeak)
+					+ stepSizeW[j] * controlCoeffBuffSum
 
+					//), -1000000, 1000000 )
+					;
 		}
 	}
+
 
 
 	//INDIRECT ERROR SIGNAL
@@ -2501,21 +2575,24 @@ int32_t ANCALG_5(void) {
 
 	while(bMemCopyInProgress);
 	bMemCopyInProgress=true;
-	MemDma0Copy1D((void *)&OFPMErrorInputBuff[0], (void *)&OFPMErrorInputBuff[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
+	MemDma0Copy1D((void *)&OFPMErrorInputBuff[0], (void *)&controlOutputBuff[1], 4, OFPMLength-1);
 
 	//	power of uncorruptedErrorSignal
 #pragma vector_for(numErrorSignal)
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
-#pragma vector_for(OCPMOutputSize)
-		for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-			powerUncorruptedErrorSignal[k][i] = (forgettingFactorOSPM
-					* powerUncorruptedErrorSignal[k][i]
-					+ (1.0 - forgettingFactorOSPM) * uncorruptedErrorSignal[k][i]
-							* uncorruptedErrorSignal[k][i]);
+
+
+		float powerUncorruptedErrorSignalSum =0;
+	#pragma vector_for
+		for (int32_t i = 0;i < OCPMWindowSize; i++) {
+			powerUncorruptedErrorSignalSum += uncorruptedErrorSignal[k][i]* uncorruptedErrorSignal[k][i]/OCPMWindowSize;
 		}
+
+		powerUncorruptedErrorSignal[k] = forgettingFactorOCPM
+				* powerUncorruptedErrorSignal[k]
+				+ (1.0 - forgettingFactorOCPM) * powerUncorruptedErrorSignalSum;
+
 	}
-
-
 
 
 	//power of indirectErrorSignal
@@ -2523,17 +2600,21 @@ int32_t ANCALG_5(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for(numErrorSignal)
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-#pragma vector_for(OCPMOutputSize)
-			for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-				powerIndirectErrorSignal[j][k][i] = (forgettingFactorOSPM
-						* powerIndirectErrorSignal[j][k][i]
-						+ (1.0 - forgettingFactorOSPM)
-								* indirectErrorSignal[j][k][i]
-								* indirectErrorSignal[j][k][i]);
 
-			}
+		float powerIndirectErrorSignalSum =0;
+	#pragma vector_for
+		for (int32_t i = 0;i < OFPMWindowSize; i++) {
+			powerIndirectErrorSignalSum += indirectErrorSignal[j][k][i]*indirectErrorSignal[j][k][i]/OCPMWindowSize;
 		}
+
+		powerIndirectErrorSignal[j][k] = forgettingFactorOCPM
+				* powerIndirectErrorSignal[j][k]
+				+ (1.0 - forgettingFactorOCPM) * powerIndirectErrorSignalSum;
+
 	}
+
+	}
+
 
 
 
@@ -2542,38 +2623,34 @@ int32_t ANCALG_5(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for(numErrorSignal)
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-#pragma vector_for(OCPMOutputSize)
-			for (uint32_t i = 0; i < OCPMOutputSize; i++) {
-				stepSizeS[j][k][i] = ((powerOCPMWNSignal[j][i] * stepSizeSMin)
-						/ powerIndirectErrorSignal[j][k][i]);
-			}
+				stepSizeS[j][k] = powerOCPMWNSignal[j] * stepSizeSMin
+						/ powerIndirectErrorSignal[j][k];
 		}
 	}
 
 
 	while(bMemCopyInProgress);
 	bMemCopyInProgress=true;
-	MemDma0Copy1D((void *)&uncorruptedRefSignal[0], (void *)&uncorruptedRefSignal[NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
+	MemDma0Copy1D((void *)&uncorruptedRefSignal[0], (void *)&uncorruptedRefSignal[OFPMInputSize - OFPMLength], 4, OFPMLength - 1);
 
 
 	//OCPMWNGain
 #pragma vector_for(numControlSignal)
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		for (uint32_t i = 0; i < OCPMOutputSize; i++) {
+
 			float powerUncorruptedErrorSignalSumTemp = 0;
 			float powerpowerIndirectErrorSignalTemp = 0;
 
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
 				powerUncorruptedErrorSignalSumTemp +=
-						powerUncorruptedErrorSignal[k][i];
+						powerUncorruptedErrorSignal[k];
 				powerpowerIndirectErrorSignalTemp +=
-						powerIndirectErrorSignal[j][k][i];
+						powerIndirectErrorSignal[j][k];
 			}
-			OCPMWNGain[j][i] = constrain(
+			OCPMWNGain[j] = constrain(
 					(powerUncorruptedErrorSignalSumTemp
 							/ powerpowerIndirectErrorSignalTemp), -10000000, 10000000);
 
-		}
 	}
 
 	disableAllOCPMChannelsResult = DisableAllOCPMChannels();
@@ -2582,6 +2659,32 @@ int32_t ANCALG_5(void) {
 	}
 
 
+	//Control Coeff
+#pragma vector_for(numControlSignal)
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (int32_t i = 0, l = controlOutputSize - 1;
+				i < controlOutputSize, l > (-1); i++, l--) {
+
+
+			float controlCoeffBuffSum = 0;
+			for (uint8_t k = 0; k < numErrorSignal; k++) {
+				float uncorruptedErrorSignal_OCPMRef_SumTemp = 0;
+				for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
+				uncorruptedErrorSignal_OCPMRef_SumTemp += uncorruptedErrorSignal[k][n]
+						* OCPMRefOutputBuff[j][k][i]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+			}
+				controlCoeffBuffSum+=uncorruptedErrorSignal_OCPMRef_SumTemp;
+			}
+			controlCoeffBuff[j][l] =
+				//	constrain((
+							controlCoeffBuff[j][l]*(controlLeak)
+					+ stepSizeW[j] * controlCoeffBuffSum
+
+					//), -1000000, 1000000 )
+					;
+		}
+	}
 
 	//OCPM Coeff
 
@@ -2592,13 +2695,19 @@ int32_t ANCALG_5(void) {
 #pragma vector_for(OCPMOutputSize)
 			for (int32_t i = 0, l = OCPMOutputSize - 1;
 					i < OCPMOutputSize, l > (-1); i++, l--) {
+
+
+				float OCPMCoeffBuffSum = 0;
+
+					for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
+						OCPMCoeffBuffSum += uncorruptedErrorSignal[k][n]
+							*  OCPMAuxInputBuff[j][i]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+				}
+
+
 				OCPMCoeffBuff[j][k][l] =
-				constrain(
-						(OCPMCoeffBuff[j][k][l]
-								+ (stepSizeS[j][k][i] * OCPMWNSignalSend[j][i]
-										* uncorruptedErrorSignal[k][i]))
-						, -100, 100 )
-						;
+						OCPMCoeffBuff[j][k][l]
+								+ stepSizeS[j][k] * OCPMCoeffBuffSum;
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
 					OCPMCoeffBuff[j][k], OCPMCoeffBuff[j][k], 1);
@@ -2608,7 +2717,7 @@ int32_t ANCALG_5(void) {
 	while(bMemCopyInProgress);
 	for (int32_t j=0; j< numControlSignal; j++){
 	bMemCopyInProgress=true;
-	MemDma0Copy1D((void *)&controlOutputSignal[j][0], (void *)&controlOutputSignal[j][NUM_AUDIO_SAMPLES_PER_CHANNEL - 1], 4, OFPMLength);
+	MemDma0Copy1D((void *)&controlOutputSignal[j][0], (void *)&controlOutputSignal[j][controlInputSize- OFPMLength], 4, OFPMLength - 1);
 	while(bMemCopyInProgress);
 	}
 
