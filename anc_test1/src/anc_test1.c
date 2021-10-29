@@ -241,7 +241,7 @@ float powerUncorruptedRefSignal = 0;
 float forgettingFactorOCPM = 0.6;
 
 float stepSizeW[numControlSignal] = { 0 };
-float stepSizeSMin =  0.001;// 0.0005;//0.00001;
+float stepSizeSMin =  0.0005;// 0.0005;//0.00001;
 float stepSizeS[numControlSignal][numErrorSignal] = { 0 };
 #ifdef OFPMFilter
 uint8_t ConfigMemoryOFPM[ADI_FIR_CONFIG_MEMORY_SIZE];
@@ -1023,9 +1023,9 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW[j] = 0.0001 ;// 0.000005;
+		stepSizeW[j] = 0.00001 ;// 0.000005;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			stepSizeSMin =  0.001;
+			stepSizeSMin =  0.0001;
 			stepSizeS[j][k] = stepSizeSMin;
 			for (int32_t i = 0; i < OCPMLength; i++) {
 				OCPMCoeffBuff[j][k][i] = 0;
@@ -2642,8 +2642,10 @@ int32_t ANCALG_5(void) {
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma SIMD_for(numErrorSignal)
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-				stepSizeS[j][k] = stepSizeSMin *powerOCPMWNSignal[j]
-						/ (powerIndirectErrorSignal[j][k]+0.0000000001);
+				stepSizeS[j][k] = constrain((
+						stepSizeSMin *powerOCPMWNSignal[j]
+						/ (powerIndirectErrorSignal[j][k]+0.0000000001)
+						),0.0000001, 0.01);
 		}
 	}
 
@@ -2671,7 +2673,7 @@ int32_t ANCALG_5(void) {
 			OCPMWNGain[j] =constrain((
 					(powerUncorruptedErrorSignalSumTemp)
 							/ (powerIndirectErrorSignalTemp+0.0000000001)
-							),0,10)
+							),0,5)
 							;
 
 	}
@@ -2709,7 +2711,7 @@ if(1){
 							controlCoeffBuff[j][l]*(controlLeak)
 					+ stepSizeW[j] * controlCoeffBuffSum/(NSum+0.000000001)
 
-					), -1, 1 )
+					), -2, 2 )
 					;
 		}
 
@@ -2734,8 +2736,8 @@ if(1){
 				float OCPMCoeffBuffSum = 0;
 				//float NSum = 0;
 					for (int32_t n = 0; n < NUM_AUDIO_SAMPLES_PER_CHANNEL; n++){
-						OCPMCoeffBuffSum += uncorruptedErrorSignal[k][n]
-							*  OCPMAuxInputBuff[j][i+controlLength-1]/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+						OCPMCoeffBuffSum += uncorruptedErrorSignal[k][n]/NUM_AUDIO_SAMPLES_PER_CHANNEL
+							*  OCPMAuxInputBuff[j][i+controlLength-1];
 
 						//NSum += OCPMAuxInputBuff[j][n]*OCPMAuxInputBuff[j][n];
 				}
@@ -2744,8 +2746,8 @@ if(1){
 				OCPMCoeffBuff[j][k][l] =
 						constrain((
 						OCPMCoeffBuff[j][k][l]*OCPMLeak
-								+ stepSizeS[j][k] * OCPMCoeffBuffSum/(OCPMAuxInputBuff[j][i+controlLength-1]*OCPMAuxInputBuff[j][i+controlLength-1]+0.0000000001)
-						), -100, 100 );
+								+ stepSizeS[j][k] * OCPMCoeffBuffSum/(OCPMAuxInputBuff[j][i+controlLength-1]*OCPMAuxInputBuff[j][i+controlLength-1])
+						), -2, 2 );
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
 					OCPMCoeffBuff[j][k], OCPMCoeffBuff[j][k], 1);
