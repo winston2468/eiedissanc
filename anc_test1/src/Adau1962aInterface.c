@@ -261,6 +261,7 @@ uint32_t Adau1962aDoneWithBuffer( volatile void *pBuffer )
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0];
 	}
+	}
 
 	else
 	{

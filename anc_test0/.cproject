@@ -4,14 +4,6 @@
 		<cconfiguration id="arm.toolchain.bare.target.exe.debug.1623205023">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="arm.toolchain.bare.target.exe.debug.1623205023" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<macros>
-					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pwr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
 				</macros>
 				<externalSettings/>
@@ -55,7 +47,6 @@
 									<listOptionValue builtIn="false" value="_DEBUG"/>
 									<listOptionValue builtIn="false" value="ADI_MCAPI"/>
 									<listOptionValue builtIn="false" value="CORE0"/>
-									<listOptionValue builtIn="false" value="ADI_DEBUG"/>
 								</option>
 								<option id="arm.toolchain.cpp.compiler.option.coreid.1936794066" name="Specify the core Id (-DCORE[A|B|0-2])" superClass="arm.toolchain.cpp.compiler.option.coreid" useByScannerDiscovery="false" value="0" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="arm.base.compiler.option.include.paths.1182395648" name="Additional include directories (-I):" superClass="arm.base.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
@@ -137,14 +128,6 @@
 		<cconfiguration id="arm.toolchain.bare.target.exe.release.1466825986">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="arm.toolchain.bare.target.exe.release.1466825986" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<macros>
-					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pwr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
 				</macros>
 				<externalSettings/>
@@ -291,9 +274,6 @@
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="arm.toolchain.bare.target.exe.release.1466825986;arm.toolchain.bare.target.exe.release.1466825986.;arm.toolchain.bare.c.compiler.1626549034;arm.toolchain.bare.c.input.957916549">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="arm.toolchain.bare.target.exe.debug.1623205023;arm.toolchain.bare.target.exe.debug.1623205023.;arm.toolchain.bare.c.compiler.2124782198;arm.toolchain.bare.c.input.160735378">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>

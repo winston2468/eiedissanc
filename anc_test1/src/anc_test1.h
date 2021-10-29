@@ -13,7 +13,7 @@ void SPE1_ISR();
 
 //#define ControlFIRA
 
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL       256
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL      128
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -51,7 +51,7 @@ void SPE1_ISR();
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
-
+#define WNLength OCPMLength+32*numErrorSignal
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
