@@ -48,7 +48,13 @@ uint32_t Adau1962aInit(void) {
 	ADI_ADAU1962A_SPORT_CONFIG SportConfig;
 
 	/* Open ADAU1962A device instance */
-	if ((eResult = adi_adau1962a_Open(0u, ADI_ADAU1962A_SERIAL_MODE_TDM8,
+	if ((eResult = adi_adau1962a_Open(0u,
+
+#ifdef TDM_MODE
+            						 ADI_ADAU1962A_SERIAL_MODE_TDM8,
+#else
+             					     ADI_ADAU1962A_SERIAL_MODE_STEREO,
+#endif
 			&Adau1962aMemory,
 			ADI_ADAU1962A_MEMORY_SIZE, &phAdau1962a))
 			!= ADI_ADAU1962A_SUCCESS) {
@@ -74,13 +80,17 @@ uint32_t Adau1962aInit(void) {
 		return 1u;
 	}
 
-	SportConfig.SportDevNum = 4u;
+	SportConfig.SportDevNum 	= 4u;
+	SportConfig.eSportChnl	    = ADI_ADAU1962A_SPORT_B;
+	SportConfig.eSportPri	    = ADI_ADAU1962A_SERIAL_PORT_DSDATA1;
+#ifdef TDM_MODE
+	SportConfig.eSportSec	    = ADI_ADAU1962A_SERIAL_PORT_NONE;
+#else
+	SportConfig.eSportSec	    = ADI_ADAU1962A_SERIAL_PORT_DSDATA2;
+#endif
+	SportConfig.SportDevMemSize	= ADI_SPORT_DMA_MEMORY_SIZE;
+	SportConfig.pSportDevMem 	= &Adau1962aSportMemory;
 
-	SportConfig.eSportChnl = ADI_ADAU1962A_SPORT_B;
-	SportConfig.eSportPri = ADI_ADAU1962A_SERIAL_PORT_DSDATA1;
-	SportConfig.eSportSec = ADI_ADAU1962A_SERIAL_PORT_NONE;
-	SportConfig.SportDevMemSize = ADI_SPORT_DMA_MEMORY_SIZE;
-	SportConfig.pSportDevMem = &Adau1962aSportMemory;
 
 	/* Configure SPORT */
 	if ((eResult = adi_adau1962a_ConfigSport(phAdau1962a, &SportConfig))
@@ -121,7 +131,15 @@ uint32_t Adau1962aInit(void) {
 	 */
 	if ((eResult = adi_adau1962a_ConfigSerialClk(phAdau1962a,
 	LR_B_CLK_MASTER_1962, false,
-	BCLK_RISING_1962, true, false,
+	BCLK_RISING_1962,
+	/* pulse mode - true */
+	#ifdef TDM_MODE
+		                                              true,
+	#else
+		                                              false,
+	#endif
+
+	false,
 	LRCLK_HI_LO_1962)) != ADI_ADAU1962A_SUCCESS) {
 		printf(
 				"ADAU1962A: Failed to configure serial data clock, Error Code: 0x%08X\n",
@@ -261,7 +279,7 @@ uint32_t Adau1962aDoneWithBuffer( volatile void *pBuffer )
 	{
 		pDAC = (void *)&DacBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL * NUM_DAC_CHANNELS * 0];
 	}
-	}
+
 
 	else
 	{

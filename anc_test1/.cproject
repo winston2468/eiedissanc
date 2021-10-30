@@ -81,6 +81,8 @@
 								<option id="compiler.option.cpp11.1214698180" name="Compile C++ source files with C++11 feature extensions (-c++11)" superClass="compiler.option.cpp11" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="compiler.option.cppexecpt.600913804" name="C++ exceptions and RTTI (-eh -rtti)" superClass="compiler.option.cppexecpt" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="compiler.option.threads.374365604" name="Enable toolchain RTOS support (-threads)" superClass="compiler.option.threads" useByScannerDiscovery="false" value="false" valueType="boolean"/>
+								<option id="sharc.compiler.option.disableshifttoadd.1920622192" name="Disable shift-to-add conversion (-no-shift-to-add)" superClass="sharc.compiler.option.disableshifttoadd" useByScannerDiscovery="false" value="false" valueType="boolean"/>
+								<option id="sharc.compiler.option.visa.1919024854" name="Variable Instruction Set Encoding (VISA)" superClass="sharc.compiler.option.visa" useByScannerDiscovery="false" value="sharc.compiler.option.visa.enumerated.generatevisa" valueType="enumerated"/>
 								<inputType id="compiler.inputType.663269820" name="C/C++ Source" superClass="compiler.inputType"/>
 							</tool>
 							<tool id="sharc.toolchain.linker.1667429023" name="CrossCore SHARC Linker" superClass="sharc.toolchain.linker">

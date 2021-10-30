@@ -4,26 +4,7 @@
 		<cconfiguration id="sharc.toolchain.configuration.debug.1787658133">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.debug.1787658133" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<macros>
-					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="acm-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="iir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="uart-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
-					<stringMacro name="tmr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
-					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pwr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fft-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pcg-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
 				</macros>
 				<externalSettings/>
 				<extensions>
@@ -66,7 +47,6 @@
 								<option id="compiler.option.coreid.1524956660" name="Specify the core Id (-DCORE[A|B|0-2])" superClass="compiler.option.coreid" value="2" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="compiler.option.additionaldirectories.686010759" name="Additional include directories (-I):" superClass="compiler.option.additionaldirectories" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/system}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${COM_ANALOG_CROSSCORE_ADDINS_SC58X_EZ_KIT_2_0_2_LOC}/include&quot;"/>
 								</option>
 								<option id="compiler.option.compilerswitch.2115008706" name="Compiler Switch" superClass="compiler.option.compilerswitch" value="false" valueType="boolean"/>
 								<inputType id="compiler.inputType.1242846295" name="C/C++ Source" superClass="compiler.inputType"/>
@@ -130,26 +110,7 @@
 		<cconfiguration id="sharc.toolchain.configuration.release.1052930825">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.release.1052930825" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<macros>
-					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="acm-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="spu-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="iir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="uart-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
-					<stringMacro name="tmr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
-					<stringMacro name="tru-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pwr-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fft-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="pcg-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
 				</macros>
 				<externalSettings/>
 				<extensions>
@@ -191,7 +152,6 @@
 								<option id="compiler.option.coreid.1829707386" name="Specify the core Id (-DCORE[A|B|0-2])" superClass="compiler.option.coreid" value="2" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="compiler.option.additionaldirectories.1378754606" name="Additional include directories (-I):" superClass="compiler.option.additionaldirectories" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/system}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${COM_ANALOG_CROSSCORE_ADDINS_SC58X_EZ_KIT_2_0_2_LOC}/include&quot;"/>
 								</option>
 								<option id="compiler.option.compilerswitch.2147039386" name="Compiler Switch" superClass="compiler.option.compilerswitch" value="false" valueType="boolean"/>
 								<inputType id="compiler.inputType.589065735" name="C/C++ Source" superClass="compiler.inputType"/>
