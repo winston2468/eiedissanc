@@ -7,7 +7,6 @@
 
 
 #include <stdio.h>
-#include "adi_adau1979_def.h"
 
 #include <drivers/adc/adau1979/adi_adau1979.h>
 #include "anc_test1.h"
@@ -55,7 +54,7 @@ uint32_t Adau1979Init(void) {
 	/* open ADAU1979 instance */
 	if ((uint32_t) adi_adau1979_Open(0u,
 #ifdef TDM_MODE
-			ADI_ADAU1979_SERIAL_MODE_TDM4,
+			ADI_ADAU1979_SERIAL_MODE_TDM8,
 #else
 			ADI_ADAU1979_SERIAL_MODE_STEREO,
 #endif

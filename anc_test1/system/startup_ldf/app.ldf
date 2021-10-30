@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 core 1 linker description file generated on Oct 07, 2021 at 20:40:09.
+** ADSP-SC589 core 1 linker description file generated on Oct 30, 2021 at 23:22:06.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -148,8 +148,8 @@ MEMORY
    // The data cache attached to block 1 caches all the external memory access
    // requests for the DM bus. The size of the cache can be adjusted with a
    // corresponding reduction of the available non-cache L1 space.
-   // 32 KB at the end of block 1 is DM cache
-   mem_block1_bw           { TYPE(BW RAM) START(0x002c0000) END(0x002e7fff) WIDTH(8) }
+   // 128 KB at the end of block 1 is DM cache
+   mem_block1_bw           { TYPE(BW RAM) START(0x002c0000) END(0x002cffff) WIDTH(8) }
 
    // ----------------------- L1-Block 2 RAM (1 MBit) --------------------------
    // The data cache attached to block 2 caches all the external memory access
@@ -160,8 +160,8 @@ MEMORY
 
    // ----------------------- L1-Block 3 RAM (1 MBit) --------------------------
    // The instruction cache is attached to block 3.
-   // 32 KB at the end of block 3 is instruction cache
-   mem_block3_bw           { TYPE(BW RAM) START(0x00380000) END(0x00397fff) WIDTH(8) }
+   // 64 KB at the end of block 3 is instruction cache
+   mem_block3_bw           { TYPE(BW RAM) START(0x00380000) END(0x0038ffff) WIDTH(8) }
 
    // ----------------------- L2-RAM (2 MBit) -----------------------------------
    // The 256 KB L2 memory has 8 banks partitioned as follows:
@@ -527,7 +527,7 @@ PROCESSOR SC589_CORE_1
     // The values used match the bits in the L1C0_CFG register size bits or
     // -1 if cache is off.
 
-      ___ldf_dmcachesize = 1; // 32 KB DM cache
+      ___ldf_dmcachesize = 3; // 128 KB DM cache
       
       /*$VDSG<insert-new-sections-for-l1_block1>                */
       /* Text inserted between these $VDSG comments will be preserved */
@@ -904,7 +904,7 @@ PROCESSOR SC589_CORE_1
     // The values used match the bits in the L1C0_CFG register size bits or
     // -1 if cache is off.
 
-      ___ldf_icachesize = 1; // 32 KB instruction cache
+      ___ldf_icachesize = 2; // 64 KB instruction cache
       
       /*$VDSG<insert-new-sections-for-l1_block3>                */
       /* Text inserted between these $VDSG comments will be preserved */

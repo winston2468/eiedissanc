@@ -154,8 +154,8 @@ It provides information needed to link your code. It can be used to configure me
 					</crt>
 					<ldf>
 						<propertygroup name="system_heap" value="L1">
-							<property name="min_size" value="2"/>
 							<property name="size_units" value="kB"/>
+							<property name="min_size" value="2"/>
 							<property name="customized" value="false"/>
 						</propertygroup>
 						<propertygroup name="system_stack" value="L1">
@@ -167,8 +167,8 @@ It provides information needed to link your code. It can be used to configure me
 							<property name="partitioned" value="default"/>
 							<property name="size" value="1024"/>
 							<property name="dmc_size_1" value="1024"/>
-							<property name="size_units" value="MegaBytes"/>
 							<property name="dmc_size_0" value="1024"/>
+							<property name="size_units" value="MegaBytes"/>
 						</propertygroup>
 						<propertygroup name="running_from_internal_memory" value="true"/>
 						<propertygroup name="libraries" value="true">
@@ -180,8 +180,8 @@ It provides information needed to link your code. It can be used to configure me
 							<property name="use_alt_io_lib" value="false"/>
 						</propertygroup>
 						<property name="use_eh" value="true"/>
-						<property name="user_heap_src_file" value="app_heaptab.c"/>
 						<property name="use_full_cpplib" value="false"/>
+						<property name="user_heap_src_file" value="app_heaptab.c"/>
 						<property name="use_software_modules" value="false"/>
 						<property name="use_user_mod_ldf" value="true"/>
 						<property name="use_pgo_hw" value="true"/>
@@ -190,7 +190,7 @@ It provides information needed to link your code. It can be used to configure me
 				<sharc_caches>
 					<propertygroup name="icache" value="true">
 						<property name="disabled" value="false"/>
-						<property name="size_in_KB" value="32"/>
+						<property name="size_in_KB" value="64"/>
 					</propertygroup>
 					<propertygroup name="pmcache" value="true">
 						<property name="disabled" value="false"/>
@@ -198,7 +198,7 @@ It provides information needed to link your code. It can be used to configure me
 					</propertygroup>
 					<propertygroup name="dmcache" value="true">
 						<property name="disabled" value="false"/>
-						<property name="size_in_KB" value="32"/>
+						<property name="size_in_KB" value="128"/>
 					</propertygroup>
 					<propertygroup name="cache_ranges" value="true">
 						<property name="noncacheable_arm_sdram" value="true"/>

@@ -8,12 +8,13 @@
 #include "TRNG.h"
 
 #define TDM_MODE
-
+#define OCPMExtendedFilter
 void SPE1_ISR();
 
 //#define ControlFIRA
 
 #define NUM_AUDIO_SAMPLES_PER_CHANNEL      128
+
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
