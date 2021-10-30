@@ -276,5 +276,8 @@
 		<scannerConfigBuildInfo instanceId="arm.toolchain.bare.target.exe.release.1466825986;arm.toolchain.bare.target.exe.release.1466825986.;arm.toolchain.bare.c.compiler.1626549034;arm.toolchain.bare.c.input.957916549">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="arm.toolchain.bare.target.exe.debug.1623205023;arm.toolchain.bare.target.exe.debug.1623205023.;arm.toolchain.bare.c.compiler.2124782198;arm.toolchain.bare.c.input.160735378">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>

@@ -7,7 +7,7 @@
 #include "PKIC.h"
 #include "TRNG.h"
 
-
+#define TDM_MODE
 
 void SPE1_ISR();
 

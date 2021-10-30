@@ -7,6 +7,8 @@
 
 
 #include <stdio.h>
+#include "adi_adau1979_def.h"
+
 #include <drivers/adc/adau1979/adi_adau1979.h>
 #include "anc_test1.h"
 
