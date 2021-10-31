@@ -259,9 +259,9 @@ float OFPMErrorLeak = 0.999999;
 float OFPMOutputBuff[numControlSignal][OFPMOutputSize] = {0};
 float OFPMErrorOutputBuff[OFPMOutputSize]= {0};
 #endif
-float controlLeak = 0.999999;
-float OCPMLeak = 0.999999;
-float OCPMExtendedLeak = 0.999999;
+float controlLeak = 0.99999;
+float OCPMLeak = 0.99999;
+float OCPMExtendedLeak = 0.99999;
 
 #ifdef RefFilter
 float OCPMRefInputBuff[OCPMInputSize] = {0};
@@ -1000,11 +1000,11 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW = 0.000001;	// 0.000005;
+		stepSizeW = 0.001;	// 0.000005;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			stepSizeSMin = 0.00001;
+			stepSizeSMin = 0.25;
 			stepSizeS[j][k] = stepSizeSMin;
-			stepSizeE = 0.00001;	// 0.000005;
+			stepSizeE = 0.01;	// 0.000005;
 
 			for (int32_t i = 0; i < OCPMLength; i++) {
 				OCPMCoeffBuff[j][k][i] = 0;
@@ -1579,7 +1579,7 @@ int main(void) {
 
 #endif
 
-	adi_initComponents(); /* auto-generated code */
+ 	adi_initComponents(); /* auto-generated code */
 	randSeedInt = (unsigned int) rand();
 	randSeed = &randSeedInt;
 
@@ -2825,16 +2825,16 @@ int32_t ControlWeightUpdate(void) {
 			float OCPMRefOutputBuffSum = 0;
 			//float uncorruptedErrorSignalSumA = 0;
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
-				OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][l]*
+				OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][i]*
 						//uncorruptedErrorSignalSum
-						uncorruptedErrorSignal[k][i]
+						uncorruptedErrorSignal[k][l]
 						;
 				//OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][i];
 				//uncorruptedErrorSignalSumA +=uncorruptedErrorSignal[k][i];
 			}
 			controlCoeffBuff[j][l] = constrain(
 					(controlCoeffBuff[j][l] * (controlLeak)
-							+stepSizeW
+							-stepSizeW
 									* (
 											//uncorruptedErrorSignalSumA
 
@@ -2900,11 +2900,11 @@ int32_t OCPMWeightUpdate(void) {
 						(OCPMCoeffBuff[j][k][l] * OCPMLeak
 								+ stepSizeS[j][k] *
 								//OCPMExtendedErrorSumT[k]
-								OCPMExtendedError[k][i]
+								OCPMExtendedError[k][l]
 										*
 										//OCPMAuxInputBuff_old[j][i]
 										//OCPMAuxInputBuff[j][i + controlLength- 1]
-										OCPMAuxInputBuff[j][l+ controlLength]
+										OCPMAuxInputBuff[j][l+ controlLength-1]
 												/ OCPMNSum), -3, 3);
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
@@ -2957,9 +2957,11 @@ int32_t OCPMExtendedWeightUpdate(void) {
 
 			OCPMExtendedCoeffBuff[k][l] = constrain(
 					(OCPMExtendedCoeffBuff[k][l] * (OCPMExtendedLeak)
-							+ stepSizeE * OCPMExtendedError[k][i]
+							+ stepSizeE * OCPMExtendedError[k][l]
 							//OCPMExtendedErrorSum
-									* refSignal[l]
+									*
+									refSignal[i]
+									//refSignal[l]
 									/ OCPMNSum
 									), -100, 100);
 		}
