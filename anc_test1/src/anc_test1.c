@@ -192,6 +192,8 @@ uint8_t ConfigMemoryControl[ADI_FIR_CONFIG_MEMORY_SIZE];
 uint8_t ChannelMemoryControl[numControlSignal][ADI_FIR_CHANNEL_MEMORY_SIZE];
 
 float refSignal[NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+float refSignal_old[NUM_AUDIO_SAMPLES_PER_CHANNEL] = { 0 };
+float OCPMAuxInputBuff_old[numControlSignal][OCPMLength] = { 0 };
 float refInputBuff[refInputSize] = { 0 };
 float controlOutputSignal[numControlSignal][OFPMInputSize] = { 0 };
 float controlInputBuff[controlInputSize] = { 0 };
@@ -500,9 +502,12 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 		if(ANCInProgress) {
 			printf("ANC ERR");
 		}
-		eMode = RECIEVE;
+
 		ADC1Flag= true;
+		if(ADC1Flag && ADC2Flag){
+			eMode = RECIEVE;
 		bEvent = true;
+		}
 		break;
 		default:
 		printf("test1");
@@ -517,9 +522,11 @@ static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 		//AdcCount++;
 		pADC2 = pArg;
 
-		eMode = RECIEVE;
-		bEvent = true;
 		ADC2Flag= true;
+		if(ADC1Flag && ADC2Flag){
+			eMode = RECIEVE;
+		bEvent = true;
+		}
 		break;
 		default:
 		printf("test2");
@@ -696,6 +703,7 @@ uint8_t PushControlSignal() {
 		Adau1979DoneWithBuffer(pGetADC);
 		pGetADC = NULL;
 #endif
+		Adau1962aDoneWithBuffer(pGetDAC);
 
 		pGetDAC = NULL;
 		int32_t *pDst;
@@ -726,6 +734,10 @@ uint8_t PushControlSignal() {
 
 			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 18));
 			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 18));
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
+			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
 
@@ -759,7 +771,6 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		// store pointer to the processed buffer that caused the callback
 		// We can still copy to the buffer after it is submitted to the driver
 		pGetDAC = pArg;
-		Adau1962aDoneWithBuffer(pGetDAC);
 
 		/*
 		 if (ANCInProgress){
@@ -989,11 +1000,11 @@ int32_t FIR_init() {
 	}
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		stepSizeW = 0.0001;	// 0.000005;
+		stepSizeW = 0.000001;	// 0.000005;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
-			stepSizeSMin = 0.1;
+			stepSizeSMin = 0.00001;
 			stepSizeS[j][k] = stepSizeSMin;
-			stepSizeE = 0.001;	// 0.000005;
+			stepSizeE = 0.00001;	// 0.000005;
 
 			for (int32_t i = 0; i < OCPMLength; i++) {
 				OCPMCoeffBuff[j][k][i] = 0;
@@ -2156,7 +2167,22 @@ void ProcessBufferADC() {
 		    OCPMExtendedWeightUpdate();
 			ANCALG_5();
 			PushControlSignal();
+			/*
+			for(uint32_t j = 0; j < numControlSignal; j++){
+			bMemCopyInProgress = true;
+			MemDma0Copy1D((void *) &OCPMAuxInputBuff_old[j][0],
+					(void *) &OCPMAuxInputBuff[j][controlWindowSize-1], 4, controlWindowSize);
 
+			while (bMemCopyInProgress)
+				;
+			}
+			MemDma0Copy1D((void *) &refSignal_old[0],
+					(void *) &refSignal[0], 4, controlWindowSize);
+*/
+			while (bMemCopyInProgress)
+				;
+			ADC2Flag =false;
+			ADC1Flag = false;
 		} else {
 			ANCERR = true;
 			fprintf(stdout, "ERROR, ANC processing time too long");
@@ -2783,12 +2809,12 @@ int32_t ControlWeightUpdate(void) {
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 		float controlCoeffNSum = 0;
-		float uncorruptedErrorSignalSum = 0;
+		//float uncorruptedErrorSignalSum = 0;
 		for (uint8_t k = 0; k < numErrorSignal; k++) {
 			controlCoeffNSum += vecdotf((void *) &OCPMRefOutputBuff[j][k][0],
 					(void *) &OCPMRefOutputBuff[j][k][0], OCPMOutputSize);
-			uncorruptedErrorSignalSum +=
-					VecSumf((void *) &uncorruptedErrorSignal[k][0], NUM_AUDIO_SAMPLES_PER_CHANNEL)/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+			//uncorruptedErrorSignalSum += VecSumf((void *) &uncorruptedErrorSignal[k][0], NUM_AUDIO_SAMPLES_PER_CHANNEL)/NUM_AUDIO_SAMPLES_PER_CHANNEL;
+
 		}
 		if (controlCoeffNSum == 0.0) {
 			controlCoeffNSum = 1.0;
@@ -2797,15 +2823,23 @@ int32_t ControlWeightUpdate(void) {
 		for (int32_t i = 0, l = controlOutputSize - 1;
 				i < controlOutputSize || l > (-1); i++, l--) {
 			float OCPMRefOutputBuffSum = 0;
+			//float uncorruptedErrorSignalSumA = 0;
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
-
-				OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][i];
+				OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][l]*
+						//uncorruptedErrorSignalSum
+						uncorruptedErrorSignal[k][i]
+						;
+				//OCPMRefOutputBuffSum += OCPMRefOutputBuff[j][k][i];
+				//uncorruptedErrorSignalSumA +=uncorruptedErrorSignal[k][i];
 			}
 			controlCoeffBuff[j][l] = constrain(
 					(controlCoeffBuff[j][l] * (controlLeak)
-							+ stepSizeW
-									* (uncorruptedErrorSignalSum
-											* OCPMRefOutputBuffSum
+							+stepSizeW
+									* (
+											//uncorruptedErrorSignalSumA
+
+											//*
+											OCPMRefOutputBuffSum
 											/ controlCoeffNSum)), -3, 3);
 		}
 	}
@@ -2840,14 +2874,14 @@ int32_t OCPMWeightUpdate(void) {
 	}
 
 	//OCPM Coeff
-
+/*
 	float OCPMExtendedErrorSumT[numErrorSignal] = { 0 };
 
 #pragma vector_for
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 		OCPMExtendedErrorSumT[k] = VecSumf((void *) &OCPMExtendedError[k][0], NUM_AUDIO_SAMPLES_PER_CHANNEL) / NUM_AUDIO_SAMPLES_PER_CHANNEL;
 	}
-
+*/
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 
@@ -2864,9 +2898,14 @@ int32_t OCPMWeightUpdate(void) {
 
 				OCPMCoeffBuff[j][k][l] = constrain(
 						(OCPMCoeffBuff[j][k][l] * OCPMLeak
-								+ stepSizeS[j][k] * OCPMExtendedErrorSumT[k]
-										* OCPMAuxInputBuff[j][i + controlLength
-												- 1] / OCPMNSum), -3, 3);
+								+ stepSizeS[j][k] *
+								//OCPMExtendedErrorSumT[k]
+								OCPMExtendedError[k][i]
+										*
+										//OCPMAuxInputBuff_old[j][i]
+										//OCPMAuxInputBuff[j][i + controlLength- 1]
+										OCPMAuxInputBuff[j][l+ controlLength]
+												/ OCPMNSum), -3, 3);
 			}
 			adi_fir_SetChannelCoefficientBuffer(hChannelOCPMRef[j][k],
 					OCPMCoeffBuff[j][k], OCPMCoeffBuff[j][k], 1);
@@ -2885,9 +2924,14 @@ int32_t OCPMExtendedWeightUpdate(void) {
 
 //#pragma vector_for
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
+
+		for (uint32_t i = 0; i < OCPMLength; i++) {
+			OCPMExtendedError[k][i] = uncorruptedErrorSignal[k][i]- OCPMExtendedOutputBuff[k][i];
+		/*
 		vecvsubf((void * )&uncorruptedErrorSignal[k][0],
 				(void * )&OCPMExtendedOutputBuff[k][0],
-				(void * )&OCPMExtendedError[k][0], OCPMLength);
+				(void * )&OCPMExtendedError[k][0], OCPMLength);*/
+		}
 	}
 
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
@@ -2907,15 +2951,17 @@ int32_t OCPMExtendedWeightUpdate(void) {
 
 	for (uint8_t k = 0; k < numErrorSignal; k++) {
 
-		float OCPMExtendedErrorSum = VecSumf((void *) &OCPMExtendedError[k], NUM_AUDIO_SAMPLES_PER_CHANNEL) / NUM_AUDIO_SAMPLES_PER_CHANNEL;
+		//float OCPMExtendedErrorSum = VecSumf((void *) &OCPMExtendedError[k], NUM_AUDIO_SAMPLES_PER_CHANNEL) / NUM_AUDIO_SAMPLES_PER_CHANNEL;
 		for (int32_t i = 0, l = OCPMOutputSize - 1;
 				i < OCPMOutputSize || l > (-1); i++, l--) {
 
 			OCPMExtendedCoeffBuff[k][l] = constrain(
 					(OCPMExtendedCoeffBuff[k][l] * (OCPMExtendedLeak)
-							+ stepSizeE * OCPMExtendedErrorSum
-									* refSignal[i]
-									/ OCPMNSum), -100, 100);
+							+ stepSizeE * OCPMExtendedError[k][i]
+							//OCPMExtendedErrorSum
+									* refSignal[l]
+									/ OCPMNSum
+									), -100, 100);
 		}
 	}
 
