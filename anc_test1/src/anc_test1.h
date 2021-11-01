@@ -53,7 +53,7 @@ void SPE1_ISR();
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
-#define WNLength OCPMLength+32*numErrorSignal
+#define WNLength OCPMLength+NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal/4
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
