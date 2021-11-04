@@ -62,9 +62,7 @@
 #include "cycle_count.h"
 #include "anc_test1.h"
 
-/* select input source */
-#define USE_LINE_IN
-//#define USE_MICROPHONE
+
 
 static ADI_DMA_2D_MEM_TRANSFER Src_2DMemXfer;
 static ADI_DMA_2D_MEM_TRANSFER Dest_2DMemXfer;
@@ -117,18 +115,9 @@ uint8_t ControlFIR(void);
 uint8_t GenControlSignal(void);
 uint8_t PushControlSignal(void);
 
+#ifdef USE_ADAU1761
 int32_t randBuff[4] = { 0 };
 
-#define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
-
-#ifdef USE_ADAU1761
-/* the ADAU1761 Rec Mixer Left 0 register */
-#define REC_MIX_LEFT_REG    (0x400A)
-/* the ADAU1761 Rec Mixer Right 0 register */
-#define REC_MIX_RIGHT_REG   (0x400C)
-
-/* codec device instance to be tested */
-#define ADAU1761_DEV_NUM          0
 
 /* used for exit timeout */
 //#define MAXCOUNT (50000000000u)
@@ -137,6 +126,9 @@ int32_t randBuff[4] = { 0 };
 
 #pragma align(4)
 static uint8_t sportRxMem1[ADI_SPORT_DMA_MEMORY_SIZE];
+
+#pragma align(4)
+static uint8_t sportTxMem1[ADI_SPORT_DMA_MEMORY_SIZE];
 
 /* Memory required for codec driver */
 static uint8_t codecMem1[ADI_ADAU1761_MEMORY_SIZE];
@@ -151,6 +143,16 @@ int32_t *pADC1Buffer;
 
 volatile bool ADC1Flag =false;
 
+#pragma align(4)
+int32_t DacBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL* 2 * 2];
+volatile void *pGetDAC1 = NULL;
+void *pDAC1;
+int32_t *pDAC1Buffer;
+
+volatile bool DAC1Flag =false;
+
+
+
 static ADI_ADAU1761_HANDLE hADAU1761_2;
 
 #define ADAU1761_DEV_NUM1          1
@@ -160,12 +162,24 @@ int32_t AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL*2 * 2];
 #pragma align(4)
 static uint8_t sportRxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
 
+#pragma align(4)
+static uint8_t sportTxMem2[ADI_SPORT_DMA_MEMORY_SIZE];
+
+
 static uint8_t codecMem2[ADI_ADAU1761_MEMORY_SIZE];
 
 volatile void *pGetADC2 = NULL;
 void *pADC2;
 int32_t *pADC2Buffer;
 volatile bool ADC2Flag =false;
+
+#pragma align(4)
+int32_t DacBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL* 2 * 2];
+volatile void *pGetDAC2 = NULL;
+void *pDAC2;
+int32_t *pDAC2Buffer;
+
+volatile bool DAC2Flag =false;
 
 #endif
 
@@ -262,9 +276,7 @@ float OFPMErrorLeak = 0.999999;
 float OFPMOutputBuff[numControlSignal][OFPMOutputSize] = {0};
 float OFPMErrorOutputBuff[OFPMOutputSize]= {0};
 #endif
-float controlLeak = 0.0001;
-float OCPMLeak = 0.0001;
-float OCPMExtendedLeak = 0.0001;
+
 
 #ifdef RefFilter
 float OCPMRefInputBuff[OCPMInputSize] = {0};
@@ -513,10 +525,18 @@ static void ADAU1761Callback_1(void *pCBParam, uint32_t Event, void *pArg) {
 		bEvent = true;
 		}
 		break;
+    	case (uint32_t)ADI_ADAU1761_EVENT_TX_BUFFER_PROCESSED:
+    	pGetDAC1 = pArg;
+
+    	break;
 		default:
 		printf("test1");
 		break;
+
 	}
+
+
+
 }
 
 /* codec callback */
@@ -532,6 +552,10 @@ static void ADAU1761Callback_2(void *pCBParam, uint32_t Event, void *pArg) {
 		bEvent = true;
 		}
 		break;
+    	case (uint32_t)ADI_ADAU1761_EVENT_TX_BUFFER_PROCESSED:
+    	pGetDAC2 = pArg;
+
+    	break;
 		default:
 		printf("test2");
 		break;
@@ -553,7 +577,7 @@ void MixerEnable(bool bEnable) {
 
 		/* enable the record mixer (right) */
 		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_RIGHT_REG,
-				0x13); /* 0 dB */
+				0x13); /* -12 dB */
 		CheckResult(result1);
 		//RISING EDGE BCLK POLARITY
 		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4015, 0x11); /* MUTE */
@@ -565,7 +589,7 @@ void MixerEnable(bool bEnable) {
 
 		/* enable the record mixer (right) */
 		result2 = adi_adau1761_SetRegister(hADAU1761_2, REC_MIX_RIGHT_REG,
-				0x13); /* 0 dB */
+				0x13); /* -12 dB */
 		CheckResult(result2);
 
 		/* disable the output mixer (left) */
@@ -580,6 +604,7 @@ void MixerEnable(bool bEnable) {
 		/* disable the output mixer (left) */
 		//result = adi_adau1761_SetRegister (hADAU1761_1, 0x4014, 0x31); /* MUTE */
 		//CheckResult(result);
+
 	} else {
 		/* disable the record mixer (left) */
 		result1 = adi_adau1761_GetRegister(hADAU1761_1, REC_MIX_LEFT_REG,
@@ -719,17 +744,20 @@ uint8_t GenControlSignal() {
 }
 
 uint8_t PushControlSignal() {
+#ifdef USE_ADAU1962a
 	if (pGetDAC != NULL) {
 		pDAC = (void *) pGetDAC;
 #ifndef USE_ADAU1761
 		Adau1979DoneWithBuffer(pGetADC);
 		pGetADC = NULL;
 #endif
+
 		Adau1962aDoneWithBuffer(pGetDAC);
 
 		pGetDAC = NULL;
 		int32_t *pDst;
 		pDst = (int32_t *) pDAC;
+
 		for (uint32_t i = NUM_AUDIO_SAMPLES_PER_CHANNEL - 1; i < OFPMInputSize;
 				i++) {
 			//TDM8 SHIFT <<8
@@ -778,12 +806,72 @@ uint8_t PushControlSignal() {
 
 		}
 	}
+#endif
+	if (pGetDAC1 != NULL&& pGetDAC2 !=NULL) {
+		pDAC1 = (void *) pGetDAC1;
+		pDAC2 = (void *) pGetDAC2;
+
+		adi_adau1761_SubmitTxBuffer(hADAU1761_1, pDAC1, BUFFER_SIZE_1761);
+
+		adi_adau1761_SubmitTxBuffer(hADAU1761_2, pDAC2, BUFFER_SIZE_1761);
+
+		int32_t *pDst1;
+		int32_t *pDst2;
+		pDst1 = (int32_t *) pDAC1;
+		pDst2 = (int32_t *) pDAC2;
+		for (uint32_t i = NUM_AUDIO_SAMPLES_PER_CHANNEL - 1; i < OFPMInputSize;
+				i++) {
+			//TDM8 SHIFT <<8
+			/*
+			 for(int32_t j =0; j< numControlSignal;j++){
+			 *pDst++ = (conv_fix_by(controlSignal[j][i], 10)) ;
+			 }
+
+			 for(int32_t m =0; m< NUM_DAC_CHANNELS - numControlSignal;m++){
+			 *pDst++ = 0;
+			 }
+			 */
+			/*
+			 *pDst++ = (conv_fix_by(controlOutputSignal[0][i], 18));
+			 *pDst++ = (conv_fix_by(controlOutputSignal[1][i], 18));
+			 *pDst++ = 0;
+			 *pDst++ = 0;
+			 *pDst++ = 0;
+			 *pDst++ = 0;
+			 *pDst++ = 0;
+			 *pDst++ = 0;
+
+			 */
+
+			//*pDst++ = (conv_fix_by(refInputBuff[i], 25));
+			//*pDst++ = (conv_fix_by(OCPMAuxInputBuff[0][i], 25));
+			*pDst1++ = 0;//(conv_fix_by(controlOutputSignal[0][i], 15));
+			*pDst1++ = 0;//(conv_fix_by(controlOutputSignal[1][i], 15));
+			*pDst2++ = (conv_fix_by(controlOutputSignal[0][i], 15));
+			*pDst2++ = (conv_fix_by(controlOutputSignal[1][i], 15));
+
+
+			/*
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 *pDst++ = 0;
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 *pDst++ = 0;
+			 *pDst++ = (conv_fix_by(WNSignal[0][i]*10000000, 1));
+			 */
+
+		}
+	}
+
 	else{
 		printf("error");
 	}
 	return 0;
 }
 
+#ifdef USE_ADAU1962a
 //////////////////////////////////////////////////////////////////////////////
 // DAC callback - Called when the DAC requires data
 //				  The MDMA A1 callback MUST occur before this callback.
@@ -814,7 +902,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		break;
 	}
 }
-
+#endif
 float VecSumf(const void* x, uint32_t length)
 
 {
@@ -1658,11 +1746,13 @@ int main(void) {
 	PcgDacInit();
 	AsrcDacInit();
 #endif
+
+#ifdef USE_ADAU1962a
 	// Initialize ADAU1962a
 	if (Result == 0u) {
 		Result = Adau1962aInit();
 	}
-
+#endif
 	firResult = FIR_init();
 	if (firResult == 0) {
 		printf("FIR init success\n");
@@ -1747,6 +1837,31 @@ int main(void) {
 	result1 = adi_adau1761_RegisterRxCallback(hADAU1761_1, ADAU1761Callback_1,
 			NULL);
 	CheckResult(result1);
+
+	/* config SPORT for Tx data transfer */
+	sportTxInfo1.nDeviceNum = SPORT_TX_DEVICE1;
+	sportTxInfo1.eChannel = ADI_HALF_SPORT_A;
+	sportTxInfo1.eMode = ADI_ADAU1761_SPORT_I2S;
+	sportTxInfo1.hDevice = NULL;
+	sportTxInfo1.pMemory = sportTxMem1;
+	sportTxInfo1.bEnableDMA = true;
+	sportTxInfo1.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
+	sportTxInfo1.bEnableStreaming = true;
+
+	result1 = adi_adau1761_ConfigSPORT (hADAU1761_1,
+			ADI_ADAU1761_SPORT_OUTPUT, &sportTxInfo1);
+	CheckResult(result1);
+
+	/* register a Tx callback */
+	result1 = adi_adau1761_RegisterTxCallback (hADAU1761_1,
+			ADAU1761Callback_1, NULL);
+	CheckResult(result1);
+
+
+
+
+
+
 	//DISABLE MIXER BYPASS OUTPUT
 	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x401C, 0x21);// MUTE
 	CheckResult(result1);
@@ -1767,7 +1882,7 @@ int main(void) {
 	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
 	CheckResult(result1);
 	//high pass 2 hz filter
-	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
+	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
 	//64x
 	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4017, 0x08);
 #if defined(USE_LINE_IN)
@@ -1780,14 +1895,14 @@ int main(void) {
 #endif
 
 	// disable mixer
-	//MixerEnable(false);
+	MixerEnable(false);
 
 	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_HEADPHONE,
 			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
 	CheckResult(result1);
 
 	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 57);
 	CheckResult(result1);
 
 	result1 = adi_adau1761_SetSampleRate(hADAU1761_1, SAMPLE_RATE);
@@ -1827,27 +1942,47 @@ int main(void) {
 			NULL);
 	CheckResult(result2);
 
+	/* config SPORT for Tx data transfer */
+	sportTxInfo2.nDeviceNum = SPORT_TX_DEVICE2;
+	sportTxInfo2.eChannel = ADI_HALF_SPORT_A;
+	sportTxInfo2.eMode = ADI_ADAU1761_SPORT_I2S;
+	sportTxInfo2.hDevice = NULL;
+	sportTxInfo2.pMemory = sportTxMem2;
+	sportTxInfo2.bEnableDMA = true;
+	sportTxInfo2.eDataLen = ADI_ADAU1761_SPORT_DATA_24;
+	sportTxInfo2.bEnableStreaming = true;
+
+	result2 = adi_adau1761_ConfigSPORT (hADAU1761_2,
+			ADI_ADAU1761_SPORT_OUTPUT, &sportTxInfo2);
+	CheckResult(result2);
+
+	/* register a Tx callback */
+	result2 = adi_adau1761_RegisterTxCallback (hADAU1761_2,
+			ADAU1761Callback_2, NULL);
+	CheckResult(result2);
+
+
 	//DISABLE MIXER BYPASS OUTPUT
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21);// MUTE
-	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21);// MUTE
+	CheckResult(result2);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401D, 0x00);// MUTE
-	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x401D, 0x00);// MUTE
+	CheckResult(result2);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401E, 0x41);// MUTE
-	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x401E, 0x41);// MUTE
+	CheckResult(result2);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x401F, 0x00);// MUTE
-	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x401F, 0x00);// MUTE
+	CheckResult(result2);
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33); // MUTE
 	//CheckResult(result1);
 
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
-	CheckResult(result1);
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
-	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
+	CheckResult(result2);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
+	CheckResult(result2);
 	//high pass 2 hz filter
-	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
+	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
 	//64x
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4017, 0x08);
 #if defined(USE_LINE_IN)
@@ -1867,7 +2002,7 @@ int main(void) {
 	CheckResult(result2);
 
 	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
+			ADI_ADAU1761_VOL_CHAN_BOTH, false, 57);
 	CheckResult(result2);
 
 	result2 = adi_adau1761_SetSampleRate(hADAU1761_2, SAMPLE_RATE);
@@ -1902,12 +2037,12 @@ int main(void) {
 				printf("Started.\n");
 #ifdef USE_ADAU1761
 				MixerEnable(true);
-				//result1 = adi_adau1761_EnableOutput(hADAU1761_1, false);
-				//CheckResult(result1);
+				result1 = adi_adau1761_EnableOutput(hADAU1761_1, false);
+				CheckResult(result1);
 				result1 = adi_adau1761_EnableInput(hADAU1761_1, false);
 				CheckResult(result1);
-				//result2 = adi_adau1761_EnableOutput(hADAU1761_2, false);
-				//CheckResult(result2);
+				result2 = adi_adau1761_EnableOutput(hADAU1761_2, false);
+				CheckResult(result2);
 				result2 = adi_adau1761_EnableInput(hADAU1761_2, false);
 				CheckResult(result2);
 
@@ -1929,6 +2064,27 @@ int main(void) {
 						&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 1u],
 						BUFFER_SIZE_1761);
 				CheckResult(result2);
+
+
+				result1 = adi_adau1761_SubmitTxBuffer(hADAU1761_1,
+						&DacBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 0u],
+						BUFFER_SIZE_1761);
+				CheckResult(result1);
+				result1 = adi_adau1761_SubmitTxBuffer(hADAU1761_1,
+						&DacBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 1u],
+						BUFFER_SIZE_1761);
+				CheckResult(result1);
+
+				result2 = adi_adau1761_SubmitTxBuffer(hADAU1761_2,
+						&DacBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 0u],
+						BUFFER_SIZE_1761);
+				CheckResult(result2);
+				result2 = adi_adau1761_SubmitTxBuffer(hADAU1761_2,
+						&DacBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL *2 * 1u],
+						BUFFER_SIZE_1761);
+				CheckResult(result2);
+
+
 #else
 
 				//1979 ping pong buffers
@@ -1937,17 +2093,24 @@ int main(void) {
 				}
 
 #endif
+#ifdef USE_ADAU1962a
 				//1962a ping pong buffers
 				if (Result == 0u) {
 					Result = Adau1962aSubmitBuffers();
 				}
-
+#endif
 #ifdef USE_ADAU1761
 				//Start recording
 				result1 = adi_adau1761_EnableInput(hADAU1761_1, true);
 				CheckResult(result1);
 
 				result2 = adi_adau1761_EnableInput(hADAU1761_2, true);
+				CheckResult(result2);
+
+				result1 = adi_adau1761_EnableOutput(hADAU1761_1, true);
+				CheckResult(result1);
+
+				result2 = adi_adau1761_EnableOutput(hADAU1761_2, true);
 				CheckResult(result2);
 #else
 				// Enable data flow for the ADC
@@ -1956,12 +2119,12 @@ int main(void) {
 				}
 
 #endif
-
+#ifdef USE_ADAU1962a
 				// Enable data flow for the DAC
 				if (Result == 0u) {
 					Adau1962aEnable();
 				}
-
+#endif
 				break;
 			default:
 				break;
@@ -2015,61 +2178,7 @@ void ProcessBufferADC() {
 
 #ifdef USE_ADAU1761
 	if (pADC1 != NULL && pADC2 != NULL) {
-		/*
-		 if(pADC1 == &AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
-		 BUFFER_SIZE_1761);
-		 pADC1 = (void *)&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1];
-		 }
 
-		 if(pADC1 == &AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
-		 BUFFER_SIZE_1761);
-		 pADC1 = (void *)&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 2];
-		 }
-		 else if(pADC1 == &AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
-		 BUFFER_SIZE_1761);
-		 pADC1 = (void *)&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0];
-		 }
-		 else if(pADC1 == &AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 2])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC1,
-		 BUFFER_SIZE_1761);
-		 pADC1 = (void *)&AdcBuf1[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1];
-		 }
-
-
-		 if(pADC2 == &AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC2,
-		 BUFFER_SIZE_1761);
-		 pADC2 = (void *)&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1];
-		 }
-
-		 if(pADC2 == &AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC2,
-		 BUFFER_SIZE_1761);
-		 pADC2 = (void *)&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 2];
-		 }
-		 else if(pADC2 == &AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC2,
-		 BUFFER_SIZE_1761);
-		 pADC2 = (void *)&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 0];
-		 }
-		 else if(pADC2 == &AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 2])
-		 {
-		 adi_adau1761_SubmitRxBuffer(hADAU1761_1, (void *) pADC2,
-		 BUFFER_SIZE_1761);
-		 pADC2 = (void *)&AdcBuf2[NUM_AUDIO_SAMPLES_PER_CHANNEL * 2 * 1];
-		 }
-
-		 */
 		pADC1Buffer = (int32_t *) pADC1;
 		pADC2Buffer = (int32_t *) pADC2;
 
@@ -2525,7 +2634,7 @@ int32_t WN_Gen(void) {
 		for (uint32_t i = 0, l = OCPMLength - 1;
 				i < OCPMLength, l < OCPMInputSize; i++, l++) {
 			//OCPMAuxInputBuff[j][l]=     (((float) rand_r_imp(randSeed) / ((float) RAND_MAX))-0.5)*2*OCPMWNGain[j];
-			OCPMAuxInputBuff[j][i+OCPMLength-1] = WNSignal[i + j * NUM_AUDIO_SAMPLES_PER_CHANNEL] *OCPMWNGain[j]; //*30
+			OCPMAuxInputBuff[j][i+OCPMLength-1] = WNSignal[i + j * WNDelay] *OCPMWNGain[j]; //*30
 		}
 	}
 	return 0;

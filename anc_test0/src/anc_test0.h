@@ -98,13 +98,16 @@ to the terms of the associated Analog Devices License Agreement.
  */
 
 #define SPORT_RX_DEVICE1  2
+#define SPORT_2A_SPU_PID  19
+#define SPORT_2A_DMA4_SPU_PID 70
 #define SPORT_2B_SPU_PID  20
 #define SPORT_2B_DMA5_SPU_PID 71
 
 #define SPORT_RX_DEVICE2  0
+#define SPORT_0A_SPU_PID  15
+#define SPORT_0A_DMA0_SPU_PID 66
 #define SPORT_0B_SPU_PID  16
 #define SPORT_0B_DMA1_SPU_PID 67
-
 
 /* ADSP-SC589 Processor family */
 #if defined(__ADSPSC589_FAMILY__)

@@ -7,9 +7,10 @@
 #include "PKIC.h"
 #include "TRNG.h"
 #define USE_ADAU1761
+//#define USE_ADAU1962a
 #define TDM_MODE
 #define OCPMExtendedFilter
-#define USE_ASRC
+//#define USE_ASRC
 void SPE1_ISR();
 
 //#define ControlFIRA
@@ -24,6 +25,12 @@ void SPE1_ISR();
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
 
+
+
+
+#define controlLeak 0.0001f
+#define OCPMLeak 0.0001f
+#define OCPMExtendedLeak 0.0001f
 #define refLength NUM_AUDIO_SAMPLES_PER_CHANNEL
 #define refInputSize (refLength + refWindowSize - 1)
 #define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
@@ -53,13 +60,28 @@ void SPE1_ISR();
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
-#define WNLength OCPMLength+NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
+#define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
+#define WNLength OCPMLength+WNDelay
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
   /* FS 24.576 MHz /Fs kHz */
 #define pcgFSDIV 2048u
 
+#define GPIO_MEMORY_SIZE (ADI_GPIO_CALLBACK_MEM_SIZE*2)
+
+
+/* select input source */
+#define USE_LINE_IN
+//#define USE_MICROPHONE
+#define USE_LINE_OUT
+/* the ADAU1761 Rec Mixer Left 0 register */
+#define REC_MIX_LEFT_REG    (0x400A)
+/* the ADAU1761 Rec Mixer Right 0 register */
+#define REC_MIX_RIGHT_REG   (0x400C)
+
+/* codec device instance to be tested */
+#define ADAU1761_DEV_NUM          0
 
 
 
@@ -77,10 +99,16 @@ void SPE1_ISR();
  */
 
 #define SPORT_RX_DEVICE1  2
+#define SPORT_TX_DEVICE1  2
+#define SPORT_2A_SPU_PID  19
+#define SPORT_2A_DMA4_SPU_PID 70
 #define SPORT_2B_SPU_PID  20
 #define SPORT_2B_DMA5_SPU_PID 71
 
 #define SPORT_RX_DEVICE2  0
+#define SPORT_TX_DEVICE2  0
+#define SPORT_0A_SPU_PID  15
+#define SPORT_0A_DMA0_SPU_PID 66
 #define SPORT_0B_SPU_PID  16
 #define SPORT_0B_DMA1_SPU_PID 67
 
