@@ -7,6 +7,15 @@
 #include "anc_test1.h"
 #include <drivers/asrc/adi_asrc.h>
 #include <stdio.h>
+uint8_t AsrcMemory0[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc0;
+uint8_t AsrcMemory1[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc1;
+uint8_t AsrcMemory2[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc2;
+uint8_t AsrcMemory3[ADI_ASRC_MEMORY_SIZE];
+static ADI_ASRC_HANDLE phAsrc3;
+
 uint8_t AsrcMemory4[ADI_ASRC_MEMORY_SIZE];
 static ADI_ASRC_HANDLE phAsrc4;
 uint8_t AsrcMemory5[ADI_ASRC_MEMORY_SIZE];

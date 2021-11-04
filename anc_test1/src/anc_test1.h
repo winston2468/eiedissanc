@@ -6,8 +6,8 @@
 #define __ANC_TEST1_H__
 #include "PKIC.h"
 #include "TRNG.h"
-#define USE_ADAU1761
-//#define USE_ADAU1962a
+//#define USE_ADAU1761
+#define USE_ADAU1962a
 #define TDM_MODE
 #define OCPMExtendedFilter
 //#define USE_ASRC
@@ -15,7 +15,7 @@ void SPE1_ISR();
 
 //#define ControlFIRA
 
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL      512
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL      256
 
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
@@ -87,7 +87,7 @@ void SPE1_ISR();
 
 #define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
 /* select sample rate */
-#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_12KHZ)
+#define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_8KHZ)
 
 
 /* The SPORT device selection depends on which BF609 EZ-Board connector

@@ -24,7 +24,7 @@ uint32_t Adau1979SportMemory[ADI_SPORT_DMA_MEMORY_SIZE];
 
 
 #pragma align(4)
-int32_t AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 3];
+int32_t AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 2];
 
 
 /* ADC callback */
@@ -231,7 +231,7 @@ uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
 	 * Since the DMA has an inbuilt ping-pong buffer queue when a callback is detected,
 	 * the next buffer for submission is two buffers ahead
 	 */
-
+	 /*
 	if(pBuffer == &AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0])
 	{
 		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 2];
@@ -244,7 +244,7 @@ uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
 	{
 		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 1];
 	}
-	 /*
+
 
 	if(pBuffer == &AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0])
 	{
@@ -254,12 +254,12 @@ uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
 	{
 		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0];
 	}
-*/
+
 	else
 	{
 		return 1u;
 	}
-
+*/
 
 	/* submit the ADC buffer */
    // eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pADC, AUDIO_BUFFER_SIZE_ADC_1979);

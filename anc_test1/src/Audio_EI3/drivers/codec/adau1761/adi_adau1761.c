@@ -1158,7 +1158,7 @@ ADI_ADAU1761_RESULT adi_adau1761_ConfigSPORT (
 
 	if ((pInfoStruct->eDataLen < ADI_ADAU1761_SPORT_DATA_16) || (pInfoStruct->eDataLen > ADI_ADAU1761_SPORT_DATA_32))
 	{
-		pInfoStruct->eDataLen = ADI_ADAU1761_SPORT_DATA_24; /* default */
+		pInfoStruct->eDataLen = ADI_ADAU1761_SPORT_DATA_32; /* default */
 	}
 
 	if (eDir == ADI_ADAU1761_SPORT_INPUT)
@@ -1231,7 +1231,7 @@ ADI_ADAU1761_RESULT adi_adau1761_ConfigSPORT (
 				false,
 				false,
 				false,
-				false) != ADI_SPORT_SUCCESS)
+				true) != ADI_SPORT_SUCCESS)
 		{
 			return ADI_ADAU1761_SPORT_ERROR;
 		}

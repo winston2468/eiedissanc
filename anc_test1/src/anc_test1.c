@@ -114,9 +114,9 @@ extern uint32_t Adau1962aDoneWithBuffer(volatile void *pBuffer);
 uint8_t ControlFIR(void);
 uint8_t GenControlSignal(void);
 uint8_t PushControlSignal(void);
-
-#ifdef USE_ADAU1761
 int32_t randBuff[4] = { 0 };
+#ifdef USE_ADAU1761
+
 
 
 /* used for exit timeout */
@@ -572,7 +572,7 @@ void MixerEnable(bool bEnable) {
 	if (bEnable) {
 		/* enable the record mixer (left) */
 		//0x5B 0 db
-		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x13); /* -12 dB */
+		result1 = adi_adau1761_SetRegister(hADAU1761_1, REC_MIX_LEFT_REG, 0x13); /* -12 dB  0x13*/
 		CheckResult(result1);
 
 		/* enable the record mixer (right) */
@@ -784,8 +784,8 @@ uint8_t PushControlSignal() {
 
 			//*pDst++ = (conv_fix_by(refInputBuff[i], 25));
 			//*pDst++ = (conv_fix_by(OCPMAuxInputBuff[0][i], 25));
-			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 15));
-			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 15));
+			*pDst++ = (conv_fix_by(controlOutputSignal[0][i], 10));
+			*pDst++ = (conv_fix_by(controlOutputSignal[1][i], 10));
 			*pDst++ = 0;
 			*pDst++ = 0;
 			*pDst++ = 0;
@@ -806,7 +806,7 @@ uint8_t PushControlSignal() {
 
 		}
 	}
-#endif
+#else
 	if (pGetDAC1 != NULL&& pGetDAC2 !=NULL) {
 		pDAC1 = (void *) pGetDAC1;
 		pDAC2 = (void *) pGetDAC2;
@@ -847,8 +847,10 @@ uint8_t PushControlSignal() {
 			//*pDst++ = (conv_fix_by(OCPMAuxInputBuff[0][i], 25));
 			*pDst1++ = 0;//(conv_fix_by(controlOutputSignal[0][i], 15));
 			*pDst1++ = 0;//(conv_fix_by(controlOutputSignal[1][i], 15));
-			*pDst2++ = (conv_fix_by(controlOutputSignal[0][i], 15));
-			*pDst2++ = (conv_fix_by(controlOutputSignal[1][i], 15));
+			*pDst2++= (conv_fix_by(refInputBuff[i], 15));
+			*pDst2++= (conv_fix_by(refInputBuff[i], 15));
+			//*pDst2++ = (conv_fix_by(controlOutputSignal[0][i], 15));
+			//*pDst2++ = (conv_fix_by(controlOutputSignal[1][i], 15));
 
 
 			/*
@@ -864,14 +866,14 @@ uint8_t PushControlSignal() {
 
 		}
 	}
-
+#endif
 	else{
 		printf("error");
 	}
 	return 0;
 }
 
-#ifdef USE_ADAU1962a
+
 //////////////////////////////////////////////////////////////////////////////
 // DAC callback - Called when the DAC requires data
 //				  The MDMA A1 callback MUST occur before this callback.
@@ -902,7 +904,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 		break;
 	}
 }
-#endif
+
 float VecSumf(const void* x, uint32_t length)
 
 {
@@ -1819,6 +1821,7 @@ int main(void) {
 	/* load Sigma Studio program exported from *_IC_1.h */
 	result1 = adi_adau1761_SigmaStudioLoad(hADAU1761_1, default_download_IC_1);
 	CheckResult(result1);
+	for(uint32_t i=0; i< 100000000; i++);
 
 	/* config SPORT for Rx data transfer */
 	sportRxInfo1.nDeviceNum = SPORT_RX_DEVICE1;
@@ -1881,8 +1884,17 @@ int main(void) {
 	CheckResult(result1);
 	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4015, 0x01);
 	CheckResult(result1);
+
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x40F5, 0x01);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x40F6, 0x01);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x40F8, 0x06);
+	CheckResult(result1);
 	//high pass 2 hz filter
-	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4019, 0x33);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x402A, 0x03);
+	result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4009, 0x70);
 	//64x
 	//result1 = adi_adau1761_SetRegister(hADAU1761_1, 0x4017, 0x08);
 #if defined(USE_LINE_IN)
@@ -1895,14 +1907,14 @@ int main(void) {
 #endif
 
 	// disable mixer
-	MixerEnable(false);
+	//MixerEnable(false);
 
 	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_HEADPHONE,
 			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
 	CheckResult(result1);
 
 	result1 = adi_adau1761_SetVolume(hADAU1761_1, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 57);
+			ADI_ADAU1761_VOL_CHAN_BOTH, true, 63);
 	CheckResult(result1);
 
 	result1 = adi_adau1761_SetSampleRate(hADAU1761_1, SAMPLE_RATE);
@@ -1961,6 +1973,9 @@ int main(void) {
 			ADAU1761Callback_2, NULL);
 	CheckResult(result2);
 
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4029, 0x2B);//
+	CheckResult(result2);
+
 
 	//DISABLE MIXER BYPASS OUTPUT
 	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x401C, 0x21);// MUTE
@@ -1980,11 +1995,21 @@ int main(void) {
 	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4016, 0x00);
 	CheckResult(result2);
 	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4015, 0x01);
+
+	CheckResult(result2);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x40F5, 0x01);
+	CheckResult(result1);
+	result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x40F6, 0x01);
+	CheckResult(result1);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x40F8, 0x06);
 	CheckResult(result2);
 	//high pass 2 hz filter
-	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4019, 0x33);
 	//64x
 	//result1 = adi_adau1761_SetRegister(hADAU1761_2, 0x4017, 0x08);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x402A, 0x03);
+	result2 = adi_adau1761_SetRegister(hADAU1761_2, 0x4009, 0x70);
+	CheckResult(result2);
 #if defined(USE_LINE_IN)
 	result2 = adi_adau1761_SelectInputSource(hADAU1761_2,
 			ADI_ADAU1761_INPUT_ADC);
@@ -1995,14 +2020,14 @@ int main(void) {
 #endif
 
 	// disable mixer
-	MixerEnable(false);
+	//MixerEnable(false);
 
 	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_HEADPHONE,
 			ADI_ADAU1761_VOL_CHAN_BOTH, false, 0);
 	CheckResult(result2);
 
 	result2 = adi_adau1761_SetVolume(hADAU1761_2, ADI_ADAU1761_VOL_LINE_OUT,
-			ADI_ADAU1761_VOL_CHAN_BOTH, false, 57);
+			ADI_ADAU1761_VOL_CHAN_BOTH, true, 63);
 	CheckResult(result2);
 
 	result2 = adi_adau1761_SetSampleRate(hADAU1761_2, SAMPLE_RATE);
@@ -2222,7 +2247,7 @@ void ProcessBufferADC() {
 #else
 				//refInputBuff[l] = conv_float_by((pADCBuffer[4 * i]<<8), -5);
 				//refInputBuff[l] = conv_float_by(((*(pADCBuffer + 4 * i))<<8), -20);
-				refSignal[i] = conv_float_by(((*(pADCBuffer +
+				refInputBuff[i+controlLength-1] = conv_float_by(((*(pADCBuffer +
 #ifdef TDM_MODE
 						8
 #else
@@ -2232,7 +2257,7 @@ void ProcessBufferADC() {
 						-23);
 				for (uint8_t k = 0; k < numErrorSignal; k++) {
 
-					errorSignal[k][i] = conv_float_by(
+					errorSignal[k][i+controlLength-1] = conv_float_by(
 							((*(pADCBuffer +
 #ifdef TDM_MODE
 						8
@@ -2414,8 +2439,10 @@ void ProcessBufferADC() {
 			while (bMemCopyInProgress)
 				;
 		}
+#ifdef USE_ADAU1761
 			ADC2Flag =false;
 			ADC1Flag = false;
+#endif
 		} else {
 			ANCERR = true;
 			fprintf(stdout, "ERROR, ANC processing time too long");
