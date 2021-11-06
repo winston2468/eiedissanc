@@ -8,15 +8,15 @@
 #include "TRNG.h"
 //#define USE_ADAU1761
 #define USE_ADAU1962a
-#define TDM_MODE
-#define OCPMExtendedFilter
+//#define TDM_MODE
+//#define OCPMExtendedFilter
 //#define USE_ASRC
 void SPE1_ISR();
-
+#define multiRateStage 3
 //#define ControlFIRA
-
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL      256
-
+//#define OCPMOnFIRA
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL     24
+#define DECIMATION_FACTOR 24
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -26,42 +26,43 @@ void SPE1_ISR();
 //#define WINDOW_SIZE 128u
 
 
-
-
+#define OFPMFilter
+#define NormalizedLMS
 #define controlLeak 0.0001f
 #define OCPMLeak 0.0001f
 #define OCPMExtendedLeak 0.0001f
-#define refLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define refInputSize (refLength + refWindowSize - 1)
-#define refWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define refOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define refOutput_BufferSize (NUM_AUDIO_SAMPLES_PER_CHANNEL*sizeof(float))
 
-#define controlLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define controlInputSize (controlLength + controlWindowSize - 1)
-#define controlWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define controlOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OCPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OCPMInputSize (OCPMLength + OCPMWindowSize - 1)
-#define OCPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OCPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OFPMLength NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OFPMInputSize (OCPMLength + OCPMWindowSize - 1)
-#define OFPMWindowSize NUM_AUDIO_SAMPLES_PER_CHANNEL
-#define OFPMOutputSize NUM_AUDIO_SAMPLES_PER_CHANNEL
+#define refLength 256
+#define refWindowSize 24
+
+#define controlOutputLength 256
+#define controlOutputWindowSize 24
+
+#define controlLength 512
+#define controlWindowSize 1
+#define OCPMLength 128
+#define OCPMWindowSize 1
+
+#define OFPMLength 128
+#define OFPMWindowSize 1
+#define OFPMErrorLength 128
+#define OFPMErrorWindowSize 1
+
+#define WNSignalBuffLength (OCPMLength+0u)
+
 #define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (8u)
 #define NUM_ADAU1979_CHANNELS (4u)
 #define NUM_ADAU1761_CHANNELS (2u)
-#define BUFFER_SIZE_1761      (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1761_CHANNELS*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
 #define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
+
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
-#define WNLength OCPMLength+WNDelay
+#define WNLength (4*numControlSignal) //extra
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -213,5 +214,133 @@ void SPE1_ISR();
 #else
 #define DBG_MSG(...)
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*=============  L O C A L    F U N C T I O N    P R O T O T Y P E S =============*/
+
+/* Initializes ADC */
+extern uint32_t Adau1979Init(void);
+
+/* Submit buffers to ADC */
+extern uint32_t Adau1979SubmitBuffers(void);
+
+extern uint32_t Adau1979Enable(void);
+
+extern uint32_t Adau1979DoneWithBuffer(volatile void *pBuffer);
+extern void configGpio(void);
+float constrain(float input, float low, float high);
+
+
+void ProcessBuffers(void);
+
+
+
+int32_t FIR_init(void);
+void reverseArrayf(float*, uint32_t);
+int32_t ControlWeightUpdate(void);
+int32_t OCPMRefFIR(void);
+int32_t OCPMAuxFIR(void);
+int32_t OCPMWeightUpdate(void);
+uint8_t RefFIR(void);
+uint8_t ControlFIR(void);
+uint8_t GenControlSignal(void);
+uint8_t PushControlSignal(void);
+#ifdef OFPMFilter
+int32_t OFPMFIR(void);
+int32_t OFPMErrorFIR(void);
+int32_t OFPMWeightUpdate(void);
+int32_t OFPMErrorWeightUpdate(void);
+#endif
+int32_t ANCALG_1(void);
+int32_t ANCALG_2(void);
+int32_t ANCALG_3(void);
+int32_t ANCALG_4(void);
+int32_t ANCALG_5(void);
+
+int32_t WN_Gen(void);
+
+extern uint32_t DMAInit(void);
+
+
+static void OCPMRefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
+static void OCPMAuxFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
+
+
+extern void PKIC_Interrupt_ACK(int iValue);
+extern void Enable_TRNG_Interrupt(void);
+extern int Read_TRNG_Stat(void);
+extern int Read_Alarm_Mask(void);
+extern int Read_Alarm_Stop(void);
+extern int Read_PKIC_Masked_Interrupt_Source(void);
+extern void Mask_Interrupt(int);
+
+extern void Startup_Cycle_Number(int iValue);
+extern void Min_Refill_Cycle(int iValue);
+
+extern void Max_Refill_Cycle(int iValue);
+extern void Sample_division(int iValue);
+
+extern void Set_Alarm_Threshold(int iValue);
+extern void Set_Shutdown_Threshold(int iValue);
+
+extern void Disbale_FRO(int iValue);
+extern void Detune_FRO(int iValue);
+extern void Enable_FRO(int iValue);
+extern void Acknowledge_Interrupt(int iValue);
+extern void Disable_TRNG(void);
+extern void Enable_TRNG(void);
+extern void Set_PKIC_Polarity(int iValue);
+extern void Set_PKIC_Level_type(int iValue);
+extern void Disable_PKIC_Interrupt(int iValue);
+
+extern int Read_PKIC_Unmasked_Interrupt_Source(void);
+
+extern void Read_TRNG_Output(int *iOutput);
+void TRNG_Init (void);
+
+
+
+/*
+ int rand_r_imp(unsigned int *seed);
+ */
+void aluFLTOIHandler(uint32_t iid, void* handlerArg);
+
+
+
+extern int32_t MemDma0Copy1D(void *pMemDest, void *pMemSrc,
+		uint8_t nBytesInElement, uint32_t ElementCount);
+
+extern int32_t MemDma0Copy2D(void *pDestBuffer, void *pSrcBuffer,
+		uint8_t nBytesInElement, uint32_t Xcount, uint32_t YCount);
+
+
+
+void Read_TRNG_Output_Imp(float *iOutput);
+
+static void PKIC_ISR(uint32_t iid, void* handlerArg);
+
+static void TRNG_ISR(void);
+static void TRNG_ACK(void);
+float VecSumf(const void* x, uint32_t length);
+
+/* Initializes DAC */
+extern uint32_t Adau1962aInit(void);
+/* Submit buffers to DAC */
+extern uint32_t Adau1962aSubmitBuffers(void);
+extern uint32_t Adau1962aEnable(void);
+extern uint32_t Adau1962aDoneWithBuffer(volatile void *pBuffer);
+
+
 
 #endif /* __ANC_CORE1_H__ */
