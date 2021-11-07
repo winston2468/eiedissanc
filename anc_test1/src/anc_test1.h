@@ -32,27 +32,32 @@ void SPE1_ISR();
 #define OCPMLeak 0.0001f
 #define OCPMExtendedLeak 0.0001f
 
-#define refLength 256
+#define refLength 128
 #define refWindowSize 24
 
-#define controlOutputLength 256
-#define controlOutputWindowSize 24
+#define controlOutputSignalInputSize 1
+#define controlOutputSignalLength 128
+#define controlOutputSignalInterp  24
+#define controlOutputSignalPolyPhases      controlOutputSignalInterp
+#define controlOutputSignalWindowSize (controlOutputSignalInputSize*controlOutputSignalInterp)
+#define controlOutputSignalCoeffsPerPoly     (controlOutputSignalLength / controlOutputSignalPolyPhases)
 
-#define controlLength 512
+
+#define controlLength 64
 #define controlWindowSize 1
-#define OCPMLength 128
+#define OCPMLength 32
 #define OCPMWindowSize 1
 
-#define OFPMLength 128
+#define OFPMLength 32
 #define OFPMWindowSize 1
-#define OFPMErrorLength 128
+#define OFPMErrorLength 32
 #define OFPMErrorWindowSize 1
 
 #define WNSignalBuffLength (OCPMLength+0u)
 
-#define numErrorSignal 2
+#define numErrorSignal 3
 #define numControlSignal 2
-#define NUM_DAC_CHANNELS (8u)
+#define NUM_DAC_CHANNELS (4u)
 #define NUM_ADAU1979_CHANNELS (4u)
 #define NUM_ADAU1761_CHANNELS (2u)
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
@@ -62,7 +67,7 @@ void SPE1_ISR();
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
-#define WNLength (4*numControlSignal) //extra
+#define WNLength (4*numControlSignal+32) //extra
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -172,7 +177,7 @@ void SPE1_ISR();
 /* DAC Master clock frequency */
 #define ADAU1962A_MCLK_IN       (24576000u)
 /* DAC sample rate */
-#define SAMPLE_RATE_A   			(96000u)
+#define SAMPLE_RATE_A   			(192000u)
 
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
@@ -257,8 +262,8 @@ uint8_t ControlFIR(void);
 uint8_t GenControlSignal(void);
 uint8_t PushControlSignal(void);
 #ifdef OFPMFilter
-int32_t OFPMFIR(void);
-int32_t OFPMErrorFIR(void);
+uint8_t OFPMFIR(void);
+uint8_t OFPMErrorFIR(void);
 int32_t OFPMWeightUpdate(void);
 int32_t OFPMErrorWeightUpdate(void);
 #endif

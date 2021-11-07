@@ -83,6 +83,14 @@
 								<option id="compiler.option.threads.374365604" name="Enable toolchain RTOS support (-threads)" superClass="compiler.option.threads" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="sharc.compiler.option.disableshifttoadd.1920622192" name="Disable shift-to-add conversion (-no-shift-to-add)" superClass="sharc.compiler.option.disableshifttoadd" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="sharc.compiler.option.visa.1919024854" name="Variable Instruction Set Encoding (VISA)" superClass="sharc.compiler.option.visa" useByScannerDiscovery="false" value="sharc.compiler.option.visa.enumerated.generatevisa" valueType="enumerated"/>
+								<option id="compiler.option.processpeed.1019309198" name="Processor speed (MHz) (-D__PROCESSOR_SPEED__):" superClass="compiler.option.processpeed" value="500" valueType="string"/>
+								<option id="compiler.option.rtcheck.unassigned.317552281" name="Enable unassigned variable checking (-rtcheck-unassigned)" superClass="compiler.option.rtcheck.unassigned" value="false" valueType="boolean"/>
+								<option id="compiler.option.rtcheck.divzero.1370837506" name="Enable division by zero checking (-rtcheck-div-zero)" superClass="compiler.option.rtcheck.divzero" value="false" valueType="boolean"/>
+								<option id="compiler.option.rtcheck.arrbnd.1435449248" name="Enable array bound checking (-rtcheck-arr-bnd)" superClass="compiler.option.rtcheck.arrbnd" value="false" valueType="boolean"/>
+								<option id="compiler.option.rtcheck.nullptr.1456821175" name="Enable NULL pointer dereference checking (-rtcheck-null-ptr)" superClass="compiler.option.rtcheck.nullptr" value="false" valueType="boolean"/>
+								<option id="compiler.option.rtcheck.shiftcheck.508354436" name="Enable shift magnitude checking (-rtcheck-shift-check)" superClass="compiler.option.rtcheck.shiftcheck" value="false" valueType="boolean"/>
+								<option id="compiler.option.catchstackovrflw.3432917" name="Generate code to catch a Stack Overflow (-rtcheck-stack)" superClass="compiler.option.catchstackovrflw" value="false" valueType="boolean"/>
+								<option id="compiler.option.heaptracelib.1726316065" name="Link against heap debugging libraries (-rtcheck-heap)" superClass="compiler.option.heaptracelib" value="false" valueType="boolean"/>
 								<inputType id="compiler.inputType.663269820" name="C/C++ Source" superClass="compiler.inputType"/>
 							</tool>
 							<tool id="sharc.toolchain.linker.1667429023" name="CrossCore SHARC Linker" superClass="sharc.toolchain.linker">
@@ -104,6 +112,8 @@
 								<option id="linker.option.misrachecksrcfiles.199057788" name="-misra-no-cross-module" superClass="linker.option.misrachecksrcfiles" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="linker.option.threadsafelibraries.1122401867" name="Link against thread-safe run-time libraries (-threads)" superClass="linker.option.threadsafelibraries" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="linker.option.cppexceptlibs.1444144748" name="Use C++ exceptions libraries (-MD__ADI_LIBEH__)" superClass="linker.option.cppexceptlibs" useByScannerDiscovery="false" value="false" valueType="boolean"/>
+								<option id="linker.option.catchstackovrflw.132610995" name="-rtcheck-stack" superClass="linker.option.catchstackovrflw" value="false" valueType="boolean"/>
+								<option id="linker.option.heaptracelib.1396752178" name="-rtcheck-heap" superClass="linker.option.heaptracelib" value="false" valueType="boolean"/>
 								<inputType id="linker.doj.input.1447544674" name="Object Files" superClass="linker.doj.input"/>
 							</tool>
 							<tool id="sharc.toolchain.archiver.415629364" name="CrossCore SHARC Archiver" superClass="sharc.toolchain.archiver">

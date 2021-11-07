@@ -120,7 +120,7 @@ uint32_t Adau1979Init(void) {
 	}
 
 	if ((uint32_t) adi_adau1979_SetSampleRate(phAdau1979,
-			ADI_ADAU1979_SAMPLE_RATE_32000HZ) != 0u) {
+			ADI_ADAU1979_SAMPLE_RATE_192000HZ) != 0u) {
 		printf("ADAU1979: adi_adau1979_SetSampleRate failed\n");
 		/* return error */
 		return 1u;
@@ -138,38 +138,40 @@ uint32_t Adau1979Init(void) {
 		/* return error */
 		return 1u;
 	}
+	/*
 
 	if ((uint32_t) adi_adau1979_HighPassChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
 			!= 0u) {
 		printf("ADAU1979: highpass failed\n");
-		/* return error */
+		// return error
 		return 1u;
 	}
 	if ((uint32_t) adi_adau1979_HighPassChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, true)
 			!= 0u) {
 		printf("ADAU1979: highpass failed\n");
-		/* return error */
+		// return error
 		return 1u;
 	}
 	if ((uint32_t) adi_adau1979_HighPassChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, true)
 			!= 0u) {
 		printf("ADAU1979: highpass failed\n");
-		/* return error */
+		// return error
 		return 1u;
 	}
 	if ((uint32_t) adi_adau1979_HighPassChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, true)
 			!= 0u) {
 		printf("ADAU1979: highpass failed\n");
-		/* return error */
+		// return error
 		return 1u;
 	}
 	//MODIFIED FUNCTION!
 	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
 			!= 0u) {
 		printf("ADAU1979: highpass failed\n");
-		/* return error */
+		// return error
 		return 1u;
 	}
+	*/
 	return Result;
 }
 
