@@ -28,34 +28,36 @@ void SPE1_ISR();
 
 #define OFPMFilter
 #define NormalizedLMS
-#define controlLeak 0.0001f
-#define OCPMLeak 0.0001f
-#define OCPMExtendedLeak 0.0001f
+#define controlLeak 1.0f
+#define OCPMLeak  1.0f
+#define OCPMExtendedLeak  1.0f
+#define  OFPMLeak 1.0f
+#define  OFPMErrorLeak  1.0f
 
-#define refLength 128
-#define refWindowSize 24
+#define refLength 256
+#define refWindowSize DECIMATION_FACTOR
 
 #define controlOutputSignalInputSize 1
-#define controlOutputSignalLength 128
-#define controlOutputSignalInterp  24
+#define controlOutputSignalLength 1024
+#define controlOutputSignalInterp  DECIMATION_FACTOR
 #define controlOutputSignalPolyPhases      controlOutputSignalInterp
 #define controlOutputSignalWindowSize (controlOutputSignalInputSize*controlOutputSignalInterp)
 #define controlOutputSignalCoeffsPerPoly     (controlOutputSignalLength / controlOutputSignalPolyPhases)
 
 
-#define controlLength 64
+#define controlLength 128
 #define controlWindowSize 1
-#define OCPMLength 32
+#define OCPMLength 64
 #define OCPMWindowSize 1
 
-#define OFPMLength 32
+#define OFPMLength 64
 #define OFPMWindowSize 1
-#define OFPMErrorLength 32
+#define OFPMErrorLength 64
 #define OFPMErrorWindowSize 1
 
 #define WNSignalBuffLength (OCPMLength+0u)
 
-#define numErrorSignal 3
+#define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (4u)
 #define NUM_ADAU1979_CHANNELS (4u)
@@ -182,7 +184,7 @@ void SPE1_ISR();
 /* ADAU1962A SPORT config parameters */
 #define LR_B_CLK_MASTER_1962    (true)
 #define BCLK_RISING_1962 	    (true)
-#define LRCLK_HI_LO_1962        (false)
+#define LRCLK_HI_LO_1962        (true)
 
 
 /* SPU Peripheral ID */

@@ -132,13 +132,39 @@ uint32_t Adau1979Init(void) {
 		return 1u;
 	}
 
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, (uint8_t)0xF0)
+			!= 0u) {
+		printf("ADAU1979: adi_adau1979_SetVolume1 failed\n");
+		// return error
+		return 1u;
+	}
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, (uint8_t)0xF0)
+			!= 0u) {
+		printf("ADAU1979: adi_adau1979_SetVolume2 failed\n");
+		// return error
+		return 1u;
+	}
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, (uint8_t)0xF0)
+			!= 0u) {
+		printf("ADAU1979: adi_adau1979_SetVolume3 failed\n");
+		// return error
+		return 1u;
+	}
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, (uint8_t)0xF0)
+			!= 0u) {
+		printf("ADAU1979: adi_adau1979_SetVolume4 failed\n");
+		// return error
+		return 1u;
+	}
+
+
 	if ((uint32_t) adi_adau1979_RegisterCallback(phAdau1979, AdcCallback, NULL)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_RegisterCallback failed\n");
 		/* return error */
 		return 1u;
 	}
-	/*
+
 
 	if ((uint32_t) adi_adau1979_HighPassChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
 			!= 0u) {
@@ -164,6 +190,7 @@ uint32_t Adau1979Init(void) {
 		// return error
 		return 1u;
 	}
+	/*
 	//MODIFIED FUNCTION!
 	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
 			!= 0u) {
@@ -171,7 +198,28 @@ uint32_t Adau1979Init(void) {
 		// return error
 		return 1u;
 	}
-	*/
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+*/
 	return Result;
 }
 

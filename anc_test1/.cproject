@@ -83,7 +83,7 @@
 								<option id="compiler.option.threads.374365604" name="Enable toolchain RTOS support (-threads)" superClass="compiler.option.threads" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="sharc.compiler.option.disableshifttoadd.1920622192" name="Disable shift-to-add conversion (-no-shift-to-add)" superClass="sharc.compiler.option.disableshifttoadd" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="sharc.compiler.option.visa.1919024854" name="Variable Instruction Set Encoding (VISA)" superClass="sharc.compiler.option.visa" useByScannerDiscovery="false" value="sharc.compiler.option.visa.enumerated.generatevisa" valueType="enumerated"/>
-								<option id="compiler.option.processpeed.1019309198" name="Processor speed (MHz) (-D__PROCESSOR_SPEED__):" superClass="compiler.option.processpeed" value="500" valueType="string"/>
+								<option id="compiler.option.processpeed.1019309198" name="Processor speed (MHz) (-D__PROCESSOR_SPEED__):" superClass="compiler.option.processpeed" value="" valueType="string"/>
 								<option id="compiler.option.rtcheck.unassigned.317552281" name="Enable unassigned variable checking (-rtcheck-unassigned)" superClass="compiler.option.rtcheck.unassigned" value="false" valueType="boolean"/>
 								<option id="compiler.option.rtcheck.divzero.1370837506" name="Enable division by zero checking (-rtcheck-div-zero)" superClass="compiler.option.rtcheck.divzero" value="false" valueType="boolean"/>
 								<option id="compiler.option.rtcheck.arrbnd.1435449248" name="Enable array bound checking (-rtcheck-arr-bnd)" superClass="compiler.option.rtcheck.arrbnd" value="false" valueType="boolean"/>
