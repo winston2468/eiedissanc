@@ -28,17 +28,20 @@ void SPE1_ISR();
 
 #define OFPMFilter
 #define NormalizedLMS
-#define controlLeak 1.0f
-#define OCPMLeak  1.0f
-#define OCPMExtendedLeak  1.0f
-#define  OFPMLeak 1.0f
-#define  OFPMErrorLeak  1.0f
+#define controlLeak 0.1f
+#define OCPMLeak  0.1f
+#define OCPMExtendedLeak  0.1f
+#define  OFPMLeak 0.1f
+#define  OFPMErrorLeak  0.1f
 
 #define refLength 256
 #define refWindowSize DECIMATION_FACTOR
 
+#define refLengthB 256
+#define refWindowSizeB 1
+
 #define controlOutputSignalInputSize 1
-#define controlOutputSignalLength 1024
+#define controlOutputSignalLength 256
 #define controlOutputSignalInterp  DECIMATION_FACTOR
 #define controlOutputSignalPolyPhases      controlOutputSignalInterp
 #define controlOutputSignalWindowSize (controlOutputSignalInputSize*controlOutputSignalInterp)
@@ -56,7 +59,8 @@ void SPE1_ISR();
 #define OFPMErrorWindowSize 1
 
 #define WNSignalBuffLength (OCPMLength+0u)
-
+#define constrain_min -1000
+#define constrain_max 1000
 #define numErrorSignal 2
 #define numControlSignal 2
 #define NUM_DAC_CHANNELS (4u)
@@ -69,7 +73,7 @@ void SPE1_ISR();
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
-#define WNLength (4*numControlSignal+32) //extra
+#define WNLength (4*numControlSignal) //extra
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u

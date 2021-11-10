@@ -194,7 +194,7 @@ uint32_t Adau1962aInit(void) {
 		return 1u;
 	}
 	if ((eResult = adi_adau1962a_ConfigDeEmphasis(phAdau1962a, false,
-			true,  false, false))
+			true,  true, false))
 			!= ADI_ADAU1962A_SUCCESS) {
 		printf("ADAU1962A: Failed to set volume, Error Code: 0x%08X\n",
 				eResult);
@@ -203,6 +203,43 @@ uint32_t Adau1962aInit(void) {
 	}
 
 
+
+	/* DAC Master Power-up */
+	if ((eResult = adi_adau1962a_ConfigDacPwr(phAdau1962a,
+			ADI_ADAU1962A_CHNL_DAC_1, ADI_ADAU1962A_DAC_PWR_BEST_PERFORMANCE, true))
+			!= ADI_ADAU1962A_SUCCESS) {
+		printf("ADAU1962A: Failed to configure DAC power, Error Code: 0x%08X\n",
+				eResult);
+		/* return error */
+		return 1u;
+	}
+	/* DAC Master Power-up */
+	if ((eResult = adi_adau1962a_ConfigDacPwr(phAdau1962a,
+			ADI_ADAU1962A_CHNL_DAC_2, ADI_ADAU1962A_DAC_PWR_BEST_PERFORMANCE, true))
+			!= ADI_ADAU1962A_SUCCESS) {
+		printf("ADAU1962A: Failed to configure DAC power, Error Code: 0x%08X\n",
+				eResult);
+		/* return error */
+		return 1u;
+	}
+	/* DAC Master Power-up */
+	if ((eResult = adi_adau1962a_ConfigDacPwr(phAdau1962a,
+			ADI_ADAU1962A_CHNL_DAC_3, ADI_ADAU1962A_DAC_PWR_BEST_PERFORMANCE, true))
+			!= ADI_ADAU1962A_SUCCESS) {
+		printf("ADAU1962A: Failed to configure DAC power, Error Code: 0x%08X\n",
+				eResult);
+		/* return error */
+		return 1u;
+	}
+	/* DAC Master Power-up */
+	if ((eResult = adi_adau1962a_ConfigDacPwr(phAdau1962a,
+			ADI_ADAU1962A_CHNL_DAC_4, ADI_ADAU1962A_DAC_PWR_BEST_PERFORMANCE, true))
+			!= ADI_ADAU1962A_SUCCESS) {
+		printf("ADAU1962A: Failed to configure DAC power, Error Code: 0x%08X\n",
+				eResult);
+		/* return error */
+		return 1u;
+	}
 
 	return 0u;
 }

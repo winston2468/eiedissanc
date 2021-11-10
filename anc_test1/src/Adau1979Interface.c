@@ -131,7 +131,7 @@ uint32_t Adau1979Init(void) {
 		/* return error */
 		return 1u;
 	}
-
+/*
 	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, (uint8_t)0xF0)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_SetVolume1 failed\n");
@@ -156,7 +156,7 @@ uint32_t Adau1979Init(void) {
 		// return error
 		return 1u;
 	}
-
+*/
 
 	if ((uint32_t) adi_adau1979_RegisterCallback(phAdau1979, AdcCallback, NULL)
 			!= 0u) {

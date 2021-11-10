@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 startup code generated on Nov 07, 2021 at 10:26:31.
+** ADSP-SC589 startup code generated on Nov 10, 2021 at 10:42:19.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -33,34 +33,6 @@
 #include <platform_include.h>       // defines MMR macros
 #include <adi_osal.h>               // OSAL support
 #include <sys/fatal_error_code.h>   // defines fatal error support
-
-/* End marker for the list of static constructors.
-** seg_ctdml has to be mapped right after seg_ctdm.
-*/
-
-.SECTION/DATA/DOUBLEANY seg_ctdml;
-.RETAIN_NAME __ctor_NULL_marker;
-.GLOBAL __ctor_NULL_marker;
-.VAR __ctor_NULL_marker = 0;
-
-/* The .gdt (global dispatch table) data is used by the C++ exception
-** runtime library support to determine which area of code a particular
-** exception belongs. These .gdt sections must be mapped to contiguous
-** memory by the LDF starting with this one and and ending with .gdtl.
-** The word addressed variants of these sections also need to be included
-** and are called .gdt32 and .gdtl32.
-*/
-
-.SECTION/DOUBLEANY .gdt;
-.ALIGN 4;
-.BYTE __eh_gdt.[4];
-.GLOBAL __eh_gdt.;
-.TYPE __eh_gdt.,STT_OBJECT;
-
-.SECTION/DM/DOUBLEANY .gdt32;
-.VAR ___eh_gdt[1];
-.GLOBAL ___eh_gdt;
-.TYPE ___eh_gdt,STT_OBJECT;
 
 /* Suppress the assemblers informational message regarding the automatic
 ** call sequence change it does when building -swc.
@@ -205,15 +177,6 @@ start:
 /*$VDSG<insert-code-after-setup>                                */
 
       /*
-      ** Set a noncacheable range for the SDRAM memory that is allocated to
-      ** the ARM core.
-      */
-      .EXTERN __lib_set_noncacheable_arm_cache_range.;
-      CJUMP __lib_set_noncacheable_arm_cache_range. (DB);
-         DM(I7, M7) = R2;
-         DM(I7, M7) = PC;
-
-      /*
       ** Enable the ILOPI interrupt to support illegal opcode detection.
       ** The interrupt vector code for Illegal Opcode detection
       ** jumps directly to stub handler _adi_ilop_detected.
@@ -248,52 +211,6 @@ start:
       R1 = E_ADI_OSAL_SUCCESS;
       COMPU(R0, R1);
       IF NE JUMP .osal_Init_failed;
-
-      /*
-      ** Call all the byte-addressed then word-addressed C++ static
-      ** class instance constructors.
-      */
-      .EXTERN  __ctors, _ctors.; // defined in the LDF file
-
-      I0 = _ctors.;              // load pointer to the list of constructors
-                                 // for byte addressing into call preserved I0
-
-      R15 = 2;                   // counter held in R15
-      R5 = I6;                   // hold current I6 in preserved register R5
-
-.call_ctors_start:
-      R0 = DM(I0, M6);           // get the address of the first constructor
-      R0 = PASS R0, I13 = R0;    // check if it's the NULL list terminator
-.call_ctors:
-      IF EQ JUMP (PC, .call_ctors_next); // if NULL we found the list end
-
-      I6 = I7;
-      JUMP (M13, I13) (DB);      // call the constructor
-         DM(I7, M7) = R5;
-         DM(I7, M7) = PC;
-      JUMP (PC, .call_ctors) (DB);
-         R0 = DM(I0, M6);        // get the address of the next constructor
-         R0 = PASS R0, I13 = R0; // check if it's the NULL list terminator
-.call_ctors_next:
-      R15 = R15 - 1;             // decrement counter
-      If EQ JUMP (PC, .call_ctors_exit);
-
-      I0 = __ctors;              // word-addressing constructors list
-
-      I7 = B2W(I7);
-      B7 = B2W(B7);
-      JUMP (PC, .call_ctors_start) (DB);
-         I6 = B2W(I6);
-         B6 = B2W(B6);
-.call_ctors_exit:
-
-      /*
-      ** Transform back to byte-addressed frame.
-      */
-      I7 = W2B(I7);
-      B7 = W2B(B7);
-      I6 = W2B(I6);
-      B6 = W2B(B6);
 
       R4 = R4 - R4,              // argc = 0
          R8 = M5;                // argv = NULL

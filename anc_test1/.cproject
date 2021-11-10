@@ -4,21 +4,10 @@
 		<cconfiguration id="sharc.toolchain.configuration.debug.1414034732">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.debug.1414034732" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<macros>
-					<stringMacro name="sinc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="uart-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="iir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
-					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fft-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
+					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
 				</macros>
 				<externalSettings/>
 				<extensions>
@@ -39,7 +28,6 @@
 								<option id="assembler.option.sirevision.2030939704" name="-si-revision" superClass="assembler.option.sirevision" useByScannerDiscovery="false" value=" 1.0" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="assembler.option.preprocessdefs.74065311" name="Preprocessor definitions (-D):" superClass="assembler.option.preprocessdefs" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="_DEBUG"/>
-									<listOptionValue builtIn="false" value="ADI_MCAPI"/>
 									<listOptionValue builtIn="false" value="CORE1"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="assembler.option.additionaldirectories.1098586917" name="Additional include directories (-I):" superClass="assembler.option.additionaldirectories" useByScannerDiscovery="false" valueType="includePath">
@@ -56,7 +44,6 @@
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="compiler.option.preprocessdefs.735084600" name="Preprocessor definitions (-D):" superClass="compiler.option.preprocessdefs" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="_DEBUG"/>
 									<listOptionValue builtIn="false" value="ADI_DEBUG"/>
-									<listOptionValue builtIn="false" value="ADI_MCAPI"/>
 									<listOptionValue builtIn="false" value="CORE1"/>
 								</option>
 								<option id="compiler.option.coreid.1462089576" name="Specify the core Id (-DCORE[A|B|0-2])" superClass="compiler.option.coreid" useByScannerDiscovery="false" value="1" valueType="string"/>
@@ -91,11 +78,14 @@
 								<option id="compiler.option.rtcheck.shiftcheck.508354436" name="Enable shift magnitude checking (-rtcheck-shift-check)" superClass="compiler.option.rtcheck.shiftcheck" value="false" valueType="boolean"/>
 								<option id="compiler.option.catchstackovrflw.3432917" name="Generate code to catch a Stack Overflow (-rtcheck-stack)" superClass="compiler.option.catchstackovrflw" value="false" valueType="boolean"/>
 								<option id="compiler.option.heaptracelib.1726316065" name="Link against heap debugging libraries (-rtcheck-heap)" superClass="compiler.option.heaptracelib" value="false" valueType="boolean"/>
+								<option id="compiler.option.ptrconst.1887134430" name="Pointers to const may point to non-const data (-const-read-write)" superClass="compiler.option.ptrconst" value="true" valueType="boolean"/>
+								<option id="compiler.option.chkinitord.1879914560" name="Check initialization order (-check-init-order)" superClass="compiler.option.chkinitord" value="true" valueType="boolean"/>
+								<option id="compiler.option.satassociative.1726403946" name="Treat saturating addition as associative (-sat-associative)" superClass="compiler.option.satassociative" value="true" valueType="boolean"/>
 								<inputType id="compiler.inputType.663269820" name="C/C++ Source" superClass="compiler.inputType"/>
 							</tool>
 							<tool id="sharc.toolchain.linker.1667429023" name="CrossCore SHARC Linker" superClass="sharc.toolchain.linker">
 								<option id="linker.option.individmap.1556742853" name="Individually map functions and data items (-ip)" superClass="linker.option.individmap" useByScannerDiscovery="false" value="false" valueType="boolean"/>
-								<option id="linker.option.eliminateunused.1958712142" name="Eliminate unused objects (-e)" superClass="linker.option.eliminateunused" useByScannerDiscovery="false"/>
+								<option id="linker.option.eliminateunused.1958712142" name="Eliminate unused objects (-e)" superClass="linker.option.eliminateunused" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="linker.option.usedbglib.606407922" name="Use Debug System libraries (-add-debug-libpaths)" superClass="linker.option.usedbglib" useByScannerDiscovery="false"/>
 								<option id="linker.option.proc.754698867" name="-proc" superClass="linker.option.proc" useByScannerDiscovery="false" value=" ADSP-SC589" valueType="string"/>
 								<option id="linker.option.sirevision.1129180534" name="-si-revision" superClass="linker.option.sirevision" useByScannerDiscovery="false" value=" 1.0" valueType="string"/>
@@ -157,21 +147,10 @@
 		<cconfiguration id="sharc.toolchain.configuration.release.202983279">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="sharc.toolchain.configuration.release.202983279" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<macros>
-					<stringMacro name="sinc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="sport-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="fir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="uart-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="iir-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
-					<stringMacro name="asrc-driver-version" type="VALUE_TEXT" value="1.0"/>
 					<stringMacro name="twi-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="wdt-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="rtc-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="mcapi-version" type="VALUE_TEXT" value="2.15"/>
-					<stringMacro name="gpio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="fft-driver-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="stdio-service-version" type="VALUE_TEXT" value="1.0"/>
-					<stringMacro name="dma-service-version" type="VALUE_TEXT" value="1.0"/>
+					<stringMacro name="addin-name" type="VALUE_TEXT" value="ADSP-SC5xx EZ-KIT Lite Examples"/>
 				</macros>
 				<externalSettings/>
 				<extensions>
@@ -192,7 +171,6 @@
 								<option id="assembler.option.sirevision.1719190918" name="-si-revision" superClass="assembler.option.sirevision" value=" 1.0" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="assembler.option.preprocessdefs.1640601121" name="Preprocessor definitions (-D):" superClass="assembler.option.preprocessdefs" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="NDEBUG"/>
-									<listOptionValue builtIn="false" value="ADI_MCAPI"/>
 									<listOptionValue builtIn="false" value="CORE1"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="assembler.option.additionaldirectories.1524409419" name="Additional include directories (-I):" superClass="assembler.option.additionaldirectories" valueType="includePath">
@@ -207,7 +185,6 @@
 								<option id="compiler.option.sirevision.1332510796" name="-si-revision" superClass="compiler.option.sirevision" value=" 1.0" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="compiler.option.preprocessdefs.1275821613" name="Preprocessor definitions (-D):" superClass="compiler.option.preprocessdefs" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="NDEBUG"/>
-									<listOptionValue builtIn="false" value="ADI_MCAPI"/>
 									<listOptionValue builtIn="false" value="CORE1"/>
 								</option>
 								<option id="compiler.option.coreid.1333970650" name="Specify the core Id (-DCORE[A|B|0-2])" superClass="compiler.option.coreid" value="1" valueType="string"/>

@@ -1,5 +1,5 @@
 /*
-** adi_initialize.c source file generated on September 21, 2021 at 17:07:46.
+** adi_initialize.c source file generated on November 10, 2021 at 10:57:51.
 **
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
 **
@@ -12,7 +12,6 @@
 
 #include "adi_initialize.h"
 
-extern int32_t adi_mcapi_Init(void);
 
 int32_t adi_initComponents(void)
 {
@@ -20,10 +19,6 @@ int32_t adi_initComponents(void)
 
 	result = adi_sec_Init();
 
-
-	if (result == 0) {
-		result = adi_mcapi_Init(); /* auto-generated code (order:6) */
-	}
 
 	return result;
 }
