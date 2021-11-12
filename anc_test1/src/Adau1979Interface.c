@@ -131,32 +131,32 @@ uint32_t Adau1979Init(void) {
 		/* return error */
 		return 1u;
 	}
-/*
-	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, (uint8_t)0xF0)
+
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, (uint8_t)0x50)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_SetVolume1 failed\n");
 		// return error
 		return 1u;
 	}
-	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, (uint8_t)0xF0)
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, (uint8_t)0x50)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_SetVolume2 failed\n");
 		// return error
 		return 1u;
 	}
-	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, (uint8_t)0xF0)
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, (uint8_t)0x50)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_SetVolume3 failed\n");
 		// return error
 		return 1u;
 	}
-	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, (uint8_t)0xF0)
+	if ((uint32_t) adi_adau1979_SetVolume(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, (uint8_t)0x50)
 			!= 0u) {
 		printf("ADAU1979: adi_adau1979_SetVolume4 failed\n");
 		// return error
 		return 1u;
 	}
-*/
+
 
 	if ((uint32_t) adi_adau1979_RegisterCallback(phAdau1979, AdcCallback, NULL)
 			!= 0u) {
@@ -190,7 +190,7 @@ uint32_t Adau1979Init(void) {
 		// return error
 		return 1u;
 	}
-	/*
+
 	//MODIFIED FUNCTION!
 	if ((uint32_t) adi_adau1979_CalibrateChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
 			!= 0u) {
@@ -219,7 +219,39 @@ uint32_t Adau1979Init(void) {
 		// return error
 		return 1u;
 	}
-*/
+
+
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_ClipChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL1, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_ClipChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL2, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_ClipChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL3, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+	//MODIFIED FUNCTION!
+	if ((uint32_t) adi_adau1979_ClipChannel(phAdau1979, ADI_ADAU1979_AUDIO_CHANNEL4, true)
+			!= 0u) {
+		printf("ADAU1979: highpass failed\n");
+		// return error
+		return 1u;
+	}
+
+
+
 	return Result;
 }
 
@@ -270,7 +302,7 @@ uint32_t Adau1979Enable( void )
 
 
 
-uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
+uint32_t Adau1979DoneWithBuffer(  void *pBuffer )
 {
     ADI_ADAU1979_RESULT     eResult1;
     void 					*pADC;
@@ -305,12 +337,12 @@ uint32_t Adau1979DoneWithBuffer( volatile  void *pBuffer )
 		pADC = (void *)&AdcBuf[NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS * 0];
 	}
 
+
 	else
 	{
 		return 1u;
 	}
 */
-
 	/* submit the ADC buffer */
    // eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pADC, AUDIO_BUFFER_SIZE_ADC_1979);
     eResult1 = adi_adau1979_SubmitBuffer(phAdau1979, (void *) pBuffer, AUDIO_BUFFER_SIZE_ADC_1979);

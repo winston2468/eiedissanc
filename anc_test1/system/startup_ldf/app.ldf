@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 core 1 linker description file generated on Nov 10, 2021 at 10:42:19.
+** ADSP-SC589 core 1 linker description file generated on Nov 10, 2021 at 17:58:16.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -154,8 +154,7 @@ MEMORY
    // The data cache attached to block 2 caches all the external memory access
    // requests for the PM bus. If the size of the cache is 128KB, the whole
    // of block 2 is cache.
-   // 64 KB at the end of block 2 is PM cache
-   mem_block2_bw           { TYPE(BW RAM) START(0x00300000) END(0x0030ffff) WIDTH(8) }
+   // The whole of block 2 is PM cache
 
    // ----------------------- L1-Block 3 RAM (1 MBit) --------------------------
    // The instruction cache is attached to block 3.
@@ -724,115 +723,7 @@ PROCESSOR SC589_CORE_1
     // The values used match the bits in the L1C0_CFG register size bits or
     // -1 if cache is off.
 
-      ___ldf_pmcachesize = 2; // 64 KB PM cache
-      
-      /*$VDSG<insert-new-sections-for-l1_block2>                */
-      /* Text inserted between these $VDSG comments will be preserved */
-      /*$VDSG<insert-new-sections-for-l1_block2>                */
-      
-      dxe_block2_data_prio0_bw BW
-      {
-         // Highest priority byte data for block2.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2) )
-      } > mem_block2_bw
-      
-      dxe_block2_data_prio0 DM
-      {
-         // Highest priority data for block2.
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2) )
-      } > mem_block2_bw
-      
-      dxe_block2_sw_code_prio0 SW
-      {
-         // Highest priority SW code for block2.
-         INPUT_SECTION_ALIGN(2)
-         FILL(0x1)  // fill gaps in memory with NOPs
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2) )
-      } > mem_block2_bw
-      
-      dxe_block2_nw_code_prio0 PM
-      {
-         // Highest priority code for block2.
-         INPUT_SECTION_ALIGN(2)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2) )
-      } > mem_block2_bw
-      
-      dxe_block2_noinit_prio0 NO_INIT DM
-      {
-         // Highest priority uninitialized data.
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2_noinit_data) )
-      } > mem_block2_bw
-      
-      dxe_block2_noinit_prio0_bw NO_INIT BW
-      {
-         // Highest priority uninitialized data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2_noinit_data) )
-      } > mem_block2_bw
-      
-      dxe_block2_bsz_prio0 ZERO_INIT DM
-      {
-         // Highest priority zero initialized data.
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2_bsz_data) )
-      } > mem_block2_bw
-      
-      dxe_block2_bsz_prio0_bw ZERO_INIT BW
-      {
-         // Highest priority zero initialized data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_l1_block2_bsz_data) )
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio1 PM 32
-      {
-         // High priority pm data.
-         
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_pm_data>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_pm_data>  */
-         
-         INPUT_SECTIONS( $OBJS_LIBS_INTERNAL(seg_pmda_nw seg_pmda) )
-         
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_pm_data>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_pm_data>  */
-         
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio1_bw BW
-      {
-         // High priority data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS_INTERNAL(seg_pmda_bw seg_pmda) )
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio2 PM 32
-      {
-         // Default priority pm data.
-         INPUT_SECTIONS( $OBJS_LIBS_NOT_EXTERNAL(seg_pmda_nw seg_pmda) )
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio2_bw BW
-      {
-         // Default priority pm data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS_NOT_EXTERNAL(seg_pmda_bw seg_pmda) )
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio3 PM 32
-      {
-         // Unspecified and lowest priority pm data for any unused memory.
-         INPUT_SECTIONS( $OBJS_LIBS(seg_pmda_nw seg_pmda) )
-      } > mem_block2_bw
-      
-      dxe_block2_pm_data_prio3_bw BW
-      {
-         // Unspecified and lowest priority pm data for any unused memory.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_pmda) )
-      } > mem_block2_bw
-      
+      ___ldf_pmcachesize = 3; // 128 KB PM cache
 
     // ------------------------------------------------------------------
     // Block 3 is primarily used for code and instruction cache.
@@ -980,68 +871,6 @@ PROCESSOR SC589_CORE_1
          INPUT_SECTIONS( $OBJS_LIBS(seg_init) )
          INPUT_SECTIONS( $OBJS_LIBS(seg_pmco) )
       } > mem_block0_bw
-      
-
-    // next try non-PM data in block 2
-
-      dxe_block2_data DM
-      {
-         // general data.
-         
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_overflow_data>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_overflow_data>  */
-         
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_data seg_dmda_nw seg_dmda) )
-         
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_overflow_data>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_overflow_data>  */
-         
-      } > mem_block2_bw
-      
-      dxe_block2_data_bw BW
-      {
-         // General data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_data seg_dmda_bw seg_dmda) )
-      } > mem_block2_bw
-      
-      dxe_block2_bsz ZERO_INIT DM
-      {
-         // Zero init data.
-         
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_bsz>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-start-of-dxe_block2_bsz>  */
-         
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_bsz_data seg_bsz_data .bss32 .bss) )
-         
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_bsz>  */
-         /* Text inserted between these $VDSG comments will be preserved */
-         /*$VDSG<insert-input-sections-at-the-end-of-dxe_block2_bsz>  */
-         
-      } > mem_block2_bw
-      
-      dxe_block2_bsz_bw ZERO_INIT BW
-      {
-         // Zero init data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_bsz_data seg_bsz_data .bss8 .bss) )
-      } > mem_block2_bw
-      
-      dxe_block2_noinit NO_INIT DM
-      {
-         // No-init data.
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_noinit_data seg_noinit_data) )
-      } > mem_block2_bw
-      
-      dxe_block2_noinit_bw NO_INIT BW
-      {
-         // No-init data.
-         INPUT_SECTION_ALIGN(4)
-         INPUT_SECTIONS( $OBJS_LIBS(seg_int_noinit_data seg_noinit_data) )
-      } > mem_block2_bw
       
       // next try PM data in block 0 and block 1
       dxe_block0_pm_data PM 32

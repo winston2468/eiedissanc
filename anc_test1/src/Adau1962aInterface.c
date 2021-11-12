@@ -184,6 +184,7 @@ uint32_t Adau1962aInit(void) {
 		/* return error */
 		return 1u;
 	}
+	/*
 	//VOL
 	if ((eResult = adi_adau1962a_SetVolume(phAdau1962a,
 			ADI_ADAU1962A_CHNL_DAC_MSTR, DacMasterVolume))
@@ -193,6 +194,7 @@ uint32_t Adau1962aInit(void) {
 		// return error
 		return 1u;
 	}
+
 	if ((eResult = adi_adau1962a_ConfigDeEmphasis(phAdau1962a, false,
 			true,  true, false))
 			!= ADI_ADAU1962A_SUCCESS) {
@@ -201,7 +203,7 @@ uint32_t Adau1962aInit(void) {
 		// return error
 		return 1u;
 	}
-
+*/
 
 
 	/* DAC Master Power-up */
@@ -290,7 +292,7 @@ uint32_t Adau1962aEnable( void )
 
 
 
-uint32_t Adau1962aDoneWithBuffer( volatile void *pBuffer )
+uint32_t Adau1962aDoneWithBuffer(  void *pBuffer )
 {
 	ADI_ADAU1962A_RESULT    eResult2;
 	void 					*pDAC;
@@ -325,7 +327,7 @@ uint32_t Adau1962aDoneWithBuffer( volatile void *pBuffer )
 	}
 */
 	/* submit the DAC buffer */
-   // eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC, AUDIO_BUFFER_SIZE_DAC);
+    //eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pDAC, AUDIO_BUFFER_SIZE_DAC);
 	 eResult2 = adi_adau1962a_SubmitBuffer(phAdau1962a, (void *) pBuffer, AUDIO_BUFFER_SIZE_DAC);
 	return 0;
 }

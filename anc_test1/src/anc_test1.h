@@ -17,6 +17,9 @@ void SPE1_ISR();
 //#define OCPMOnFIRA
 #define NUM_AUDIO_SAMPLES_PER_CHANNEL     24
 #define DECIMATION_FACTOR 24
+#define DECIMATION_FACTOR_A 6
+#define DECIMATION_FACTOR_B 2
+#define DECIMATION_FACTOR_C 2
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -34,28 +37,47 @@ void SPE1_ISR();
 #define  OFPMLeak 0.1f
 #define  OFPMErrorLeak  0.1f
 
-#define refLength 256
-#define refWindowSize DECIMATION_FACTOR
+#define refLength 64
+#define refWindowSize 24
 
-#define refLengthB 256
-#define refWindowSizeB 1
+#define refLengthB 64
+#define refWindowSizeB 24/DECIMATION_FACTOR_A
+#define refLengthC 64
+#define refWindowSizeC refWindowSizeB/DECIMATION_FACTOR_B
+#define refWindowSizeD refWindowSizeC/DECIMATION_FACTOR_C
 
-#define controlOutputSignalInputSize 1
-#define controlOutputSignalLength 256
-#define controlOutputSignalInterp  DECIMATION_FACTOR
-#define controlOutputSignalPolyPhases      controlOutputSignalInterp
-#define controlOutputSignalWindowSize (controlOutputSignalInputSize*controlOutputSignalInterp)
-#define controlOutputSignalCoeffsPerPoly     (controlOutputSignalLength / controlOutputSignalPolyPhases)
+#define OutputSignalInputSizeC refWindowSizeD
+#define OutputSignalLengthC 64
+#define OutputSignalInterpC  DECIMATION_FACTOR_C
+#define OutputSignalPolyPhasesC      OutputSignalInterpC
+#define OutputSignalWindowSizeC (OutputSignalInputSizeC*OutputSignalInterpC)
+#define OutputSignalCoeffsPerPolyC     (OutputSignalLengthC / OutputSignalPolyPhasesC)
+
+#define OutputSignalInputSizeB refWindowSizeC
+#define OutputSignalLengthB 64
+#define OutputSignalInterpB  DECIMATION_FACTOR_B
+#define OutputSignalPolyPhasesB      OutputSignalInterpB
+#define OutputSignalWindowSizeB (OutputSignalInputSizeB*OutputSignalInterpB)
+#define OutputSignalCoeffsPerPolyB     (OutputSignalLengthB / OutputSignalPolyPhasesB)
 
 
-#define controlLength 128
+#define OutputSignalInputSize refWindowSizeB
+#define OutputSignalLength 64
+#define OutputSignalInterp  DECIMATION_FACTOR_A
+#define OutputSignalPolyPhases      OutputSignalInterp
+#define OutputSignalWindowSize (OutputSignalInputSize*OutputSignalInterp)
+#define OutputSignalCoeffsPerPoly     (OutputSignalLength / OutputSignalPolyPhases)
+
+
+
+#define controlLength 64
 #define controlWindowSize 1
-#define OCPMLength 64
+#define OCPMLength 32
 #define OCPMWindowSize 1
 
-#define OFPMLength 64
+#define OFPMLength 32
 #define OFPMWindowSize 1
-#define OFPMErrorLength 64
+#define OFPMErrorLength 32
 #define OFPMErrorWindowSize 1
 
 #define WNSignalBuffLength (OCPMLength+0u)
@@ -66,14 +88,14 @@ void SPE1_ISR();
 #define NUM_DAC_CHANNELS (4u)
 #define NUM_ADAU1979_CHANNELS (4u)
 #define NUM_ADAU1761_CHANNELS (2u)
-#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*sizeof(int32_t))
-#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*sizeof(int32_t))
+#define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*4)
+#define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*4)
 
 #define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
-#define WNLength (4*numControlSignal) //extra
+#define WNLength (4*(numControlSignal+1)) //extra
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -97,7 +119,7 @@ void SPE1_ISR();
 
 
 
-#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S3)       // Stream 0
+#define MEMCOPY_STREAM_ID           (ADI_DMA_MEMDMA_S0)       // Stream 0
 /* select sample rate */
 #define SAMPLE_RATE  (ADI_ADAU1761_SAMPLE_RATE_8KHZ)
 
@@ -248,7 +270,7 @@ extern uint32_t Adau1979SubmitBuffers(void);
 
 extern uint32_t Adau1979Enable(void);
 
-extern uint32_t Adau1979DoneWithBuffer(volatile void *pBuffer);
+extern uint32_t Adau1979DoneWithBuffer(void *pBuffer);
 extern void configGpio(void);
 float constrain(float input, float low, float high);
 
@@ -284,7 +306,7 @@ int32_t WN_Gen(void);
 extern uint32_t DMAInit(void);
 
 
-static void OCPMRefFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
+
 static void OCPMAuxFIRCallback(void *pCBParam, uint32_t eEvent, void *pArg);
 
 
@@ -350,7 +372,7 @@ extern uint32_t Adau1962aInit(void);
 /* Submit buffers to DAC */
 extern uint32_t Adau1962aSubmitBuffers(void);
 extern uint32_t Adau1962aEnable(void);
-extern uint32_t Adau1962aDoneWithBuffer(volatile void *pBuffer);
+extern uint32_t Adau1962aDoneWithBuffer(void *pBuffer);
 
 
 
