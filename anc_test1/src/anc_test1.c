@@ -881,7 +881,7 @@ for (uint8_t j = 0; j < numControlSignal; j++) {
 	//stepSizeFMax= 0.00001;
 	//stepSizeHMax= 0.00001;
 
-	stepSizeW   = 0.0000000000001;	// 0.000005;
+	stepSizeW   = 0.0000000000005;	// 0.000005;
 	stepSizeSMin= 0.000000000001;
 	//stepSizeFMin= 0.000001;
 	//stepSizeHMin= 0.000001;
@@ -1227,11 +1227,11 @@ int32_t ANCALG_5(void) {
 		for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
-				stepSizeS[j][k] = constrain(
+				stepSizeS[j][k] =// fclipf(
 						(stepSizeSMin * powerOCPMWNSignal[j]
 								/ (powerIndirectErrorSignal[j][k]
 										+ 0.000000000000000001))
-										, 0.000000000000000001,stepSizeSMax)
+										// stepSizeSMax)
 		;
 			}
 		}
@@ -1343,7 +1343,7 @@ int32_t OFPMErrorWeightUpdate(void) {
 
 
 int32_t ControlWeightUpdate(void) {
-if(count >=16000){
+if(count >=32000){
 	//Control Coeff
 
 #pragma vector_for
@@ -1354,7 +1354,7 @@ if(count >=16000){
 #pragma vector_for
 			for (uint8_t k = 0; k < numErrorSignal; k++) {
 #pragma vector_for
-				for (uint32_t i = 0; i < OCPMLength; i++) {
+				for (uint32_t i = 0; i < controlLength; i++) {
 				controlCoeffNSum += OCPMRefOutputBuff[j][k][i]*OCPMRefOutputBuff[j][k][i];
 				}
 			}
@@ -1525,7 +1525,7 @@ for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
 pDAC = NULL;
 pADC = NULL;
 
-if(count < 16000){
+if(count < 32000){
 count +=1;
 }
 ANCInProgress = false;
@@ -1536,10 +1536,11 @@ ANCInProgress = false;
 
 uint8_t limitSig(){
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-	if(fabsf(controlOutputBuff[j][0]> Amax) ){
-		controlOutputBuff[j][0]= controlOutputBuff[j][0]*Amax/fabsf(controlOutputBuff[j][0]);
+	if(fabsf(controlOutputBuff[j][0]> 800.0) ){
+		//count+=1;
+		controlOutputBuff[j][0]= (controlOutputBuff[j][0]*Amax/fabsf(controlOutputBuff[j][0]));
 		for (int32_t i = 0; i < controlLength ; i++) {
-		controlCoeffBuff[j][i]= controlCoeffBuff[j][i]*Amax/fabsf(controlOutputBuff[j][0]);
+		controlCoeffBuff[j][i]= (controlCoeffBuff[j][i]*Amax/fabsf(controlOutputBuff[j][0])) * 0.99;
 		}
 	}
 	}
@@ -1559,6 +1560,13 @@ uint8_t GenControlSignal() {
 				OutputSignalCoeffsPerPolyC,
 				OutputSignalInterpC);
 
+#pragma vector_for
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (uint32_t i = 0; i < OutputSignalInputSizeC; i++){
+			OutputSignalInputBuffB[j][i] = OutputSignalInputBuffB[j][i] / OutputSignalInterpC;
+		}
+	}
 		fir_interp(OutputSignalInputBuffB[j],
 				OutputSignalInputBuff[j],
 				OutputSignalCoeffBuffB,
@@ -1567,6 +1575,13 @@ uint8_t GenControlSignal() {
 				OutputSignalCoeffsPerPolyB,
 				OutputSignalInterpB);
 
+#pragma vector_for
+	for (uint8_t j = 0; j < numControlSignal; j++) {
+#pragma vector_for
+		for (uint32_t i = 0; i < OutputSignalInputSize; i++){
+			OutputSignalInputBuff[j][i] = OutputSignalInputBuff[j][i] / OutputSignalInterpB;
+		}
+	}
 		fir_interp(OutputSignalInputBuff[j],
 				OutputSignalOutputBuff[j],
 				OutputSignalCoeffBuff,
@@ -1578,15 +1593,15 @@ uint8_t GenControlSignal() {
 
 	}
 
-/*
+
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 #pragma vector_for
 		for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++){
-			OutputSignalOutputBuff[j][i] = OutputSignalOutputBuff[j][i] / DECIMATION_FACTOR;
+			OutputSignalOutputBuff[j][i] = OutputSignalOutputBuff[j][i] / OutputSignalInterp;
 		}
 	}
-*/
+
 
 
 
