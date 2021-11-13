@@ -29,14 +29,14 @@ void SPE1_ISR();
 //#define WINDOW_SIZE 128u
 
 
-#define OFPMFilter
+//#define OFPMFilter
 #define NormalizedLMS
-#define controlLeak 0.1f
-#define OCPMLeak  0.1f
-#define OCPMExtendedLeak  0.1f
+#define controlLeak 10000.0f//1000.0f
+#define OCPMLeak  100.0f
+#define OCPMExtendedLeak  1.0f
 #define  OFPMLeak 0.1f
 #define  OFPMErrorLeak  0.1f
-
+#define Amax 100.0f
 #define refLength 64
 #define refWindowSize 24
 
@@ -95,7 +95,7 @@ void SPE1_ISR();
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
-#define WNLength (4*(numControlSignal+1)) //extra
+#define WNLength (4*(numControlSignal+1)*2) //extra
 
     /* Clock C 24.576 MHz /(numASRC * 64 * Fs) */
 #define pcgCLKDIV 8u
@@ -287,6 +287,7 @@ int32_t OCPMAuxFIR(void);
 int32_t OCPMWeightUpdate(void);
 uint8_t RefFIR(void);
 uint8_t ControlFIR(void);
+uint8_t limitSig(void);
 uint8_t GenControlSignal(void);
 uint8_t PushControlSignal(void);
 #ifdef OFPMFilter
