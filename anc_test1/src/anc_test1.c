@@ -881,8 +881,8 @@ for (uint8_t j = 0; j < numControlSignal; j++) {
 	//stepSizeFMax= 0.00001;
 	//stepSizeHMax= 0.00001;
 
-	stepSizeW   = 0.0000000000005;	// 0.000005;
-	stepSizeSMin= 0.000000000001;
+	stepSizeW   = 0.0000000001;	// 0.000005;
+	stepSizeSMin= 0.000000001;
 	//stepSizeFMin= 0.000001;
 	//stepSizeHMin= 0.000001;
 	//stepSizeF = stepSizeFMin;
@@ -1451,9 +1451,9 @@ void ProcessBuffers(){
 			pDst = (int32_t *) pDAC;
 
 			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-				refInputBuff[i] = conv_float_by(*pADCBuffer++,-16);
+				refInputBuff[i] = conv_float_by(*pADCBuffer++,-18);
 				for(uint8_t k =0; k < NUM_ADAU1979_CHANNELS - 1; k ++){
-				errorSignal[k][i] = conv_float_by(*pADCBuffer++, -16);
+				errorSignal[k][i] = conv_float_by(*pADCBuffer++, -18);
 				}
 
 			}
@@ -1536,11 +1536,11 @@ ANCInProgress = false;
 
 uint8_t limitSig(){
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-	if(fabsf(controlOutputBuff[j][0]> 800.0) ){
+	if(fabsf(controlOutputBuff[j][0]> 400.0) ){
 		//count+=1;
 		controlOutputBuff[j][0]= (controlOutputBuff[j][0]*Amax/fabsf(controlOutputBuff[j][0]));
 		for (int32_t i = 0; i < controlLength ; i++) {
-		controlCoeffBuff[j][i]= (controlCoeffBuff[j][i]*Amax/fabsf(controlOutputBuff[j][0])) * 0.99;
+		controlCoeffBuff[j][i]= (controlCoeffBuff[j][i]*Amax/fabsf(controlOutputBuff[j][0]))*0.99 ;
 		}
 	}
 	}

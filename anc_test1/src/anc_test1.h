@@ -31,12 +31,12 @@ void SPE1_ISR();
 
 //#define OFPMFilter
 #define NormalizedLMS
-#define controlLeak 1000.0f//1000.0f
+#define controlLeak 0.0f//1000.0f
 #define OCPMLeak  0.0f
 #define OCPMExtendedLeak  1.0f
 #define  OFPMLeak 0.1f
 #define  OFPMErrorLeak  0.1f
-#define Amax 800.0f
+#define Amax 400.0f
 #define refLength 64
 #define refWindowSize 24
 
