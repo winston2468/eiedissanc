@@ -79,7 +79,7 @@
 //ANC Secondary path identification filter forgetting gactor
 #define forgettingFactorOCPM_set (0.6f)
 
-//ANC Control filter length
+//ANC Control filter length  (length affects processing load)
 #define controlLength 32
 //ANC Control window size
 #define controlWindowSize 1
@@ -95,8 +95,8 @@
 #define stepSizeSMax_set (0.01f)
 //White noise signal of secondary path identification filter gain
 #define OCPMWNGainCompensation (20.0f)
-//Secondary path identification filter length
-#define OCPMLength 32
+//Secondary path identification filter length (length affects processing load)
+#define OCPMLength 16
 //Secondary path identification window size
 #define OCPMWindowSize 1
 

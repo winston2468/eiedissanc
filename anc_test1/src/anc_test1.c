@@ -611,7 +611,7 @@ void DacCallback(void *pCBParam, uint32_t nEvent, void *pArg) {
 
 		if (ANCInProgress){
 		 ANCERR = true;
-		 printf("anc err\n");
+		 printf("anc err, too much processing load\n");
 		 }
 
 
