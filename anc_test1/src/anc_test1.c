@@ -157,13 +157,13 @@ float powerOCPMWNSignal[numControlSignal] = { 0 };
 float indirectErrorSignal[numControlSignal][numErrorSignal]={0};
 float powerIndirectErrorSignal[numControlSignal][numErrorSignal] = { 0 };
 float powerUncorruptedErrorSignal[numErrorSignal] = { 0 };
-float forgettingFactorOCPM = 0.6;
+float forgettingFactorOCPM = forgettingFactorOCPM_set;
 
-float stepSizeW = 0;
-float stepSizeSMin = 0;
-float stepSizeSMax = 0;
+float stepSizeW = stepSizeSMax_set;
+float stepSizeSMin = stepSizeSMin_set;
+float stepSizeSMax = stepSizeSMax_set;
 float stepSizeS[numControlSignal][numErrorSignal] = { 0 };
-#ifdef OFPMFilter
+#if 0 	//ifdef OFPMFilter
 float powerOFPMErrorSignal = 1.0;
 float OFPMPowerRatio = 1;
 float forgettingFactorOFPM = 0.6;
@@ -877,12 +877,12 @@ for (uint8_t j = 0; j < numControlSignal; j++) {
 			powerUncorruptedErrorSignal[k] = 1.0;
 	}
 
-	stepSizeSMax= 0.01;
+
 	//stepSizeFMax= 0.00001;
 	//stepSizeHMax= 0.00001;
-
-	stepSizeW   = 0.00000005;	// 0.000005;
-	stepSizeSMin= 0.0000001;
+//	stepSizeSMax= 0.01;
+//	stepSizeW   = 0.00000005;	// 0.000005;
+//	stepSizeSMin= 0.0000001;
 	//stepSizeFMin= 0.000001;
 	//stepSizeHMin= 0.000001;
 	//stepSizeF = stepSizeFMin;
@@ -1105,7 +1105,7 @@ int32_t WN_Gen(void) {
 
 	 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-		WNSignal[j][0]= randBuff[j] *OCPMWNGain[j]*20;
+		WNSignal[j][0]= randBuff[j] *OCPMWNGain[j]*OCPMWNGainCompensation;
 
 	}
 
@@ -1265,7 +1265,7 @@ int32_t ANCALG_5(void) {
 
 
 
-#ifdef OFPMFilter
+#if 0 //ifdef OFPMFilter
 
 int32_t OFPMWeightUpdate(void) {
 #pragma vector_for
@@ -1343,7 +1343,7 @@ int32_t OFPMErrorWeightUpdate(void) {
 
 
 int32_t ControlWeightUpdate(void) {
-if(count >=32000){
+//if(count >=32000){
 	//Control Coeff
 
 #pragma vector_for
@@ -1398,7 +1398,7 @@ else{
 }
 }
 */
-}
+//}
 	return 0;
 }
 
@@ -1451,9 +1451,9 @@ void ProcessBuffers(){
 			pDst = (int32_t *) pDAC;
 
 			for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-				refInputBuff[i] = conv_float_by(*pADCBuffer++,-16);
+				refInputBuff[i] = conv_float_by(*pADCBuffer++,refInputBuff_conv_float_by_exp);
 				for(uint8_t k =0; k < NUM_ADAU1979_CHANNELS - 1; k ++){
-				errorSignal[k][i] = conv_float_by(*pADCBuffer++, -16);
+				errorSignal[k][i] = conv_float_by(*pADCBuffer++, errorSignal_conv_float_by_exp);
 				}
 
 			}
@@ -1502,14 +1502,14 @@ void ProcessBuffers(){
 #pragma vector_for
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++){
-	OutputSignalInt32[j][i] = conv_fix_by(OutputSignalOutputBuff[j][i],11);
+	OutputSignalInt32[j][i] = conv_fix_by(OutputSignalOutputBuff[j][i],OutputSignalInt32_conv_fix_by_exp);
 	}
 }
 
 
 
 for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
-	//TDM8 SHIFT <<8
+
 
 	for (uint8_t j = 0; j < numControlSignal; j++) {
 	*pDst++ = OutputSignalInt32[j][i] ;
@@ -1525,9 +1525,9 @@ for (uint32_t i = 0; i < NUM_AUDIO_SAMPLES_PER_CHANNEL; i++) {
 pDAC = NULL;
 pADC = NULL;
 
-if(count < 32000){
-count +=1;
-}
+//if(count < 32000){
+//count +=1;
+//}
 ANCInProgress = false;
 }
 
@@ -1536,7 +1536,7 @@ ANCInProgress = false;
 
 uint8_t limitSig(){
 	for (uint8_t j = 0; j < numControlSignal; j++) {
-	if(fabsf(controlOutputBuff[j][0]> 400.0) ){
+	if(fabsf(controlOutputBuff[j][0]> Amax) ){
 		//count+=1;
 		controlOutputBuff[j][0]= (controlOutputBuff[j][0]*Amax/fabsf(controlOutputBuff[j][0]));
 		for (int32_t i = 0; i < controlLength ; i++) {
@@ -1567,6 +1567,7 @@ uint8_t GenControlSignal() {
 			OutputSignalInputBuffB[j][i] = OutputSignalInputBuffB[j][i] / OutputSignalInterpC;
 		}
 	}
+
 		fir_interp(OutputSignalInputBuffB[j],
 				OutputSignalInputBuff[j],
 				OutputSignalCoeffBuffB,

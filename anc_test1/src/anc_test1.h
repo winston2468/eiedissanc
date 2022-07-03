@@ -6,20 +6,125 @@
 #define __ANC_TEST1_H__
 #include "PKIC.h"
 #include "TRNG.h"
+
+
+////////////////// Customizable options ////////////////////////////////////////////////////////////////////
+
+// Converts val to a floating-point value, then scales that value by adding amount to the value's exponent
+// Reference input integer * exponent then convert to float
+#define refInputBuff_conv_float_by_exp -16
+// errorSignal input integer * exponent then convert to float
+#define errorSignal_conv_float_by_exp -16
+
+
+// Scales val by adding amount to val exponent, then converts the result to an integer
+// Output Signal float * exponent convert to integer
+#define OutputSignalInt32_conv_fix_by_exp 11
+
+
+//Multi rate filtering configuration
+//Modfying this requires also modifying src/data/* filters' values
+#define NUM_AUDIO_SAMPLES_PER_CHANNEL     24
+#define DECIMATION_FACTOR 24
+#define DECIMATION_FACTOR_A 6
+#define DECIMATION_FACTOR_B 2
+#define DECIMATION_FACTOR_C 2
+
+
+
+
+//Reference decimation filter A Settings
+#define refLength 6
+#define refWindowSize 24
+
+//Reference decimation filter B Settings
+#define refLengthB 6
+#define refWindowSizeB 24/DECIMATION_FACTOR_A
+
+//Reference decimation filter C Settings
+#define refLengthC 6
+#define refWindowSizeC refWindowSizeB/DECIMATION_FACTOR_B
+#define refWindowSizeD refWindowSizeC/DECIMATION_FACTOR_C
+
+//Output interpolation filter C Settings
+#define OutputSignalInputSizeC refWindowSizeD
+#define OutputSignalLengthC 6
+#define OutputSignalInterpC  DECIMATION_FACTOR_C
+#define OutputSignalPolyPhasesC      OutputSignalInterpC
+#define OutputSignalWindowSizeC (OutputSignalInputSizeC*OutputSignalInterpC)
+#define OutputSignalCoeffsPerPolyC     (OutputSignalLengthC / OutputSignalPolyPhasesC)
+
+//Output interpolation filter B Settings
+#define OutputSignalInputSizeB refWindowSizeC
+#define OutputSignalLengthB 6
+#define OutputSignalInterpB  DECIMATION_FACTOR_B
+#define OutputSignalPolyPhasesB      OutputSignalInterpB
+#define OutputSignalWindowSizeB (OutputSignalInputSizeB*OutputSignalInterpB)
+#define OutputSignalCoeffsPerPolyB     (OutputSignalLengthB / OutputSignalPolyPhasesB)
+
+//Output interpolation filter A Settings
+#define OutputSignalInputSize refWindowSizeB
+#define OutputSignalLength 6
+#define OutputSignalInterp  DECIMATION_FACTOR_A
+#define OutputSignalPolyPhases      OutputSignalInterp
+#define OutputSignalWindowSize (OutputSignalInputSize*OutputSignalInterp)
+#define OutputSignalCoeffsPerPoly     (OutputSignalLength / OutputSignalPolyPhases)
+
+//Leakage settings
+
+//ANC Control filter Tap Leakage
+#define controlLeak 0.0f
+//ANC Secondary path identification filter Tap Leakage
+#define OCPMLeak  0.0f
+//ANC Secondary path identification filter forgetting gactor
+#define forgettingFactorOCPM_set (0.6f)
+
+//ANC Control filter length
+#define controlLength 32
+//ANC Control window size
+#define controlWindowSize 1
+//Control Filter LMS step size
+#define stepSizeW_set (0.00000005f)
+
+//Max amplitude for output ANC control filter signal
+#define Amax 400.0f
+
+//secondary path identification filter LMS step size minimum value
+#define stepSizeSMin_set (0.0000001f)
+//Secondary path identification filter LMS step size maximum value
+#define stepSizeSMax_set (0.01f)
+//White noise signal of secondary path identification filter gain
+#define OCPMWNGainCompensation (20.0f)
+//Secondary path identification filter length
+#define OCPMLength 32
+//Secondary path identification window size
+#define OCPMWindowSize 1
+
+//Number of input error signal (values 1 to 3)
+#define numErrorSignal 2
+//Number of input error signal (values 1 to 4)
+#define numControlSignal 2
+///////////////////////////////end of customizable settings/////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
 //#define USE_ADAU1761
 #define USE_ADAU1962a
 //#define TDM_MODE
 //#define OCPMExtendedFilter
 //#define USE_ASRC
 void SPE1_ISR();
-#define multiRateStage 3
+#define OCPMExtendedLeak  1.0f
+#define constrain_min -1000
+#define constrain_max 1000
+//#define OFPMFilter
 //#define ControlFIRA
 //#define OCPMOnFIRA
-#define NUM_AUDIO_SAMPLES_PER_CHANNEL     24
-#define DECIMATION_FACTOR 24
-#define DECIMATION_FACTOR_A 6
-#define DECIMATION_FACTOR_B 2
-#define DECIMATION_FACTOR_C 2
 /*
 #define NUM_AUDIO_SAMPLES_ADC_SINGLE      (NUM_AUDIO_SAMPLES_ADC/2)
 #define NUM_AUDIO_SAMPLES_ADC_1979     NUM_AUDIO_SAMPLES_ADC_SINGLE
@@ -28,70 +133,22 @@ void SPE1_ISR();
 //#define TAP_LENGTH 128u
 //#define WINDOW_SIZE 128u
 
-
-//#define OFPMFilter
-#define NormalizedLMS
-#define controlLeak 0.0f//1000.0f
-#define OCPMLeak  0.0f
-#define OCPMExtendedLeak  1.0f
+//#define OFPMLength 32
+//#define OFPMWindowSize 1
+//#define OFPMErrorLength 32
+//#define OFPMErrorWindowSize 1
 #define  OFPMLeak 0.1f
 #define  OFPMErrorLeak  0.1f
-#define Amax 400.0f
-#define refLength 6
-#define refWindowSize 24
-
-#define refLengthB 6
-#define refWindowSizeB 24/DECIMATION_FACTOR_A
-#define refLengthC 6
-#define refWindowSizeC refWindowSizeB/DECIMATION_FACTOR_B
-#define refWindowSizeD refWindowSizeC/DECIMATION_FACTOR_C
-
-#define OutputSignalInputSizeC refWindowSizeD
-#define OutputSignalLengthC 6
-#define OutputSignalInterpC  DECIMATION_FACTOR_C
-#define OutputSignalPolyPhasesC      OutputSignalInterpC
-#define OutputSignalWindowSizeC (OutputSignalInputSizeC*OutputSignalInterpC)
-#define OutputSignalCoeffsPerPolyC     (OutputSignalLengthC / OutputSignalPolyPhasesC)
-
-#define OutputSignalInputSizeB refWindowSizeC
-#define OutputSignalLengthB 6
-#define OutputSignalInterpB  DECIMATION_FACTOR_B
-#define OutputSignalPolyPhasesB      OutputSignalInterpB
-#define OutputSignalWindowSizeB (OutputSignalInputSizeB*OutputSignalInterpB)
-#define OutputSignalCoeffsPerPolyB     (OutputSignalLengthB / OutputSignalPolyPhasesB)
-
-
-#define OutputSignalInputSize refWindowSizeB
-#define OutputSignalLength 6
-#define OutputSignalInterp  DECIMATION_FACTOR_A
-#define OutputSignalPolyPhases      OutputSignalInterp
-#define OutputSignalWindowSize (OutputSignalInputSize*OutputSignalInterp)
-#define OutputSignalCoeffsPerPoly     (OutputSignalLength / OutputSignalPolyPhases)
-
-
-
-#define controlLength 64
-#define controlWindowSize 1
-#define OCPMLength 64
-#define OCPMWindowSize 1
-
-#define OFPMLength 32
-#define OFPMWindowSize 1
-#define OFPMErrorLength 32
-#define OFPMErrorWindowSize 1
-
 #define WNSignalBuffLength (OCPMLength+0u)
-#define constrain_min -1000
-#define constrain_max 1000
-#define numErrorSignal 2
-#define numControlSignal 2
+
+
 #define NUM_DAC_CHANNELS (4u)
 #define NUM_ADAU1979_CHANNELS (4u)
 #define NUM_ADAU1761_CHANNELS (2u)
 #define AUDIO_BUFFER_SIZE_DAC 	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_DAC_CHANNELS*4)
 #define AUDIO_BUFFER_SIZE_ADC_1979	        (NUM_AUDIO_SAMPLES_PER_CHANNEL*NUM_ADAU1979_CHANNELS*4)
 
-#define DacMasterVolume 0 //Master volume control, uint8_t 0 to 255 = 0 dB to -95.625 dB
+
 #define OCPMWNSignal_BufferSize (numControlSignal*OCPMLength*sizeof(float))
 #define control_BufferSize (numControlSignal*controlLength*sizeof(float))
 #define WNDelay NUM_AUDIO_SAMPLES_PER_CHANNEL*numErrorSignal
