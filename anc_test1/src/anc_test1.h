@@ -37,24 +37,24 @@ void SPE1_ISR();
 #define  OFPMLeak 0.1f
 #define  OFPMErrorLeak  0.1f
 #define Amax 400.0f
-#define refLength 64
+#define refLength 6
 #define refWindowSize 24
 
-#define refLengthB 64
+#define refLengthB 6
 #define refWindowSizeB 24/DECIMATION_FACTOR_A
-#define refLengthC 64
+#define refLengthC 6
 #define refWindowSizeC refWindowSizeB/DECIMATION_FACTOR_B
 #define refWindowSizeD refWindowSizeC/DECIMATION_FACTOR_C
 
 #define OutputSignalInputSizeC refWindowSizeD
-#define OutputSignalLengthC 64
+#define OutputSignalLengthC 6
 #define OutputSignalInterpC  DECIMATION_FACTOR_C
 #define OutputSignalPolyPhasesC      OutputSignalInterpC
 #define OutputSignalWindowSizeC (OutputSignalInputSizeC*OutputSignalInterpC)
 #define OutputSignalCoeffsPerPolyC     (OutputSignalLengthC / OutputSignalPolyPhasesC)
 
 #define OutputSignalInputSizeB refWindowSizeC
-#define OutputSignalLengthB 64
+#define OutputSignalLengthB 6
 #define OutputSignalInterpB  DECIMATION_FACTOR_B
 #define OutputSignalPolyPhasesB      OutputSignalInterpB
 #define OutputSignalWindowSizeB (OutputSignalInputSizeB*OutputSignalInterpB)
@@ -62,7 +62,7 @@ void SPE1_ISR();
 
 
 #define OutputSignalInputSize refWindowSizeB
-#define OutputSignalLength 64
+#define OutputSignalLength 6
 #define OutputSignalInterp  DECIMATION_FACTOR_A
 #define OutputSignalPolyPhases      OutputSignalInterp
 #define OutputSignalWindowSize (OutputSignalInputSize*OutputSignalInterp)
@@ -72,7 +72,7 @@ void SPE1_ISR();
 
 #define controlLength 64
 #define controlWindowSize 1
-#define OCPMLength 32
+#define OCPMLength 64
 #define OCPMWindowSize 1
 
 #define OFPMLength 32
