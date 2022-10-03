@@ -1,5 +1,5 @@
 /*
-** ADSP-SC589 startup code generated on Sep 21, 2021 at 17:10:14.
+** ADSP-SC589 startup code generated on Sep 19, 2022 at 12:11:29.
 */
 /*
 ** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
@@ -15,7 +15,7 @@
 ** placed within these sections are preserved when this file is re-generated.
 **
 ** Product      : CrossCore Embedded Studio
-** Tool Version : 6.2.2.7
+** Tool Version : 6.2.2.8
 */
 
 .FILE_ATTR libGroup="startup";

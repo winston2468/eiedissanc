@@ -1,8 +1,8 @@
 /*
 **
-** mcapi_config.c source file generated on August 27, 2021 at 06:33:51.	
+** mcapi_config.c source file generated on September 19, 2022 at 12:11:26.	
 **
-** Copyright (C) 2000-2021 Analog Devices Inc., All Rights Reserved.
+** Copyright (C) 2000-2022 Analog Devices Inc., All Rights Reserved.
 **
 ** This file is generated automatically based upon the options selected in 
 ** the MCAPI configuration editor. Changes to the MCAPI configuration should

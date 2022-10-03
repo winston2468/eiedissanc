@@ -90,5 +90,9 @@
 			<name>COM_ANALOG_CROSSCORE_ADDINS_SC58X_EZ_KIT_2_0_2_LOC</name>
 			<value>file:/C:/Analog%20Devices/ADSP-SC5xx_EZ-KIT_Lite-Rel2.0.2/ADSP-SC5xx_EZ-KIT</value>
 		</variable>
+		<variable>
+			<name>copy_PARENT</name>
+			<value>$%7BPARENT-4-PROJECT_LOC%7D/cces/2.10.1/examples/sc58x_ez_kit_2.0.2/GPIO%20Button%20LED%20Callback%20(SC589%20Cortex)</value>
+		</variable>
 	</variableList>
 </projectDescription>

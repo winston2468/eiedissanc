@@ -11,7 +11,6 @@
 #include "anc_test1.h"
 
 
-
 /* Twi  */
 static uint32_t TwiMemory[ADI_TWI_MEMORY_SIZE];
 
@@ -158,6 +157,7 @@ uint32_t Adau1962aInit(void) {
 	}
 
 	/* Configure Sample rate */
+	/////MODIFIED TO HARD CODE 192KHZ LOW PROPAGATION MODE///
 	if ((eResult = adi_adau1962a_SetSampleRate(phAdau1962a, SAMPLE_RATE_A))
 			!= ADI_ADAU1962A_SUCCESS) {
 		printf(
@@ -204,6 +204,35 @@ uint32_t Adau1962aInit(void) {
 		return 1u;
 	}
 */
+
+//    /* Register configuration data and shift count for mask */
+//    uint8_t           		RegData;
+//
+//    /* Read DAC Control 0 Register */
+//    eResult = ReadAdau1962a (phAdau1962a, (uint8_t) ADI_ADAU1962A_REG_DAC_CTRL0, &RegData);
+//    if (eResult != ADI_ADAU1962A_SUCCESS){
+//		printf("ADAU1962A: Failed to read ADI_ADAU1962A_REG_DAC_CTRL0 for low propagation mode, Error Code: 0x%08X\n",
+//				eResult);
+//    }
+//    /* Clear the current Sample Rate settings */
+//    RegData &= ~ (0x06u) ;
+//    /* Update Sample Rate select */
+//    RegData |= (3u << (1u));
+//    //RegData |= (8 << BITP_ADAU1962A_06_FS);
+//    /* Write the updated register configuration */
+//    eResult = WriteAdau1962a (phAdau1962a, (uint8_t) ADI_ADAU1962A_REG_DAC_CTRL0, RegData);
+//
+//    if (eResult != ADI_ADAU1962A_SUCCESS){
+//		printf("ADAU1962A: Failed to configure low propagation mode, Error Code: 0x%08X\n",
+//				eResult);
+//    }
+//
+
+
+
+
+
+
 
 
 	/* DAC Master Power-up */

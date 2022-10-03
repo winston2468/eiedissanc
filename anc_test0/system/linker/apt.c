@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, Analog Devices, Inc. All rights reserved.
+/* Copyright (c) 2015-2021, Analog Devices, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -97,6 +97,8 @@ const adi_mmu_AbstractPageEntry _adi_mmu_absPageTable[] =
 
     /* L2 ROM2 */
     { 0x20280000u, 0x202BFFFFu, ADI_MMU_RO_CACHED           }, /* 256KB L2 ROM2 */
+
+    { 0x24000000u, 0x24001FFFu, ADI_MMU_RW_DEVICE           }, /* 8KB OTP space */
 
 #if defined(__ADSPSC583__)
     /* L1 memory of SHARC0 in MP space via Slave1 port */

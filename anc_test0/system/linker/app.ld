@@ -36,7 +36,7 @@
  * be regenerated, and your modified copy will be preserved with the
  * .backup file extension.
  *
- * This file was created by CrossCore Embedded Studio 2.10.0 for ADSP-SC589.
+ * This file was created by CrossCore Embedded Studio 2.10.1 for ADSP-SC589.
  */
 
 /*
@@ -234,6 +234,15 @@ SECTIONS
     *(.l2_cached_code)
     *(.l2_cached_data)
   } >MEM_L2_CACHED = 0
+
+  /* L3 MMU table section:
+  ** Place page_table_mem.o at the start of L3 to avoid large amounts
+  ** of padding to meet the _adi_mmu_tableMemory 16kB alignment. */
+  .l3_mmu_table (NOLOAD) :
+  {
+    *page_table_mem.o(.bss .bss*)
+  } >MEM_L3 = 0
+
   /* L3 Memory. No code/data placed here by default */
   .l3 :
   {

@@ -12,14 +12,14 @@
 
 // Converts val to a floating-point value, then scales that value by adding amount to the value's exponent
 // Reference input integer * exponent then convert to float
-#define refInputBuff_conv_float_by_exp -16
+#define refInputBuff_conv_float_by_exp -8
 // errorSignal input integer * exponent then convert to float
-#define errorSignal_conv_float_by_exp -16
+#define errorSignal_conv_float_by_exp -8
 
 
 // Scales val by adding amount to val exponent, then converts the result to an integer
 // Output Signal float * exponent convert to integer
-#define OutputSignalInt32_conv_fix_by_exp 11
+#define OutputSignalInt32_conv_fix_by_exp 10
 
 
 //Multi rate filtering configuration
@@ -73,37 +73,37 @@
 //Leakage settings
 
 //ANC Control filter Tap Leakage
-#define controlLeak 0.0f
+#define controlLeak 0.0001f
 //ANC Secondary path identification filter Tap Leakage
-#define OCPMLeak  0.0f
+#define OCPMLeak 0.001f
 //ANC Secondary path identification filter forgetting gactor
 #define forgettingFactorOCPM_set (0.6f)
 
 //ANC Control filter length  (length affects processing load)
-#define controlLength 32
+#define controlLength 64
 //ANC Control window size
 #define controlWindowSize 1
 //Control Filter LMS step size
 #define stepSizeW_set (0.00000005f)
 
 //Max amplitude for output ANC control filter signal
-#define Amax 400.0f
+#define Amax 1000.0f
 
 //secondary path identification filter LMS step size minimum value
-#define stepSizeSMin_set (0.0000001f)
+#define stepSizeSMin_set (0.0001f)
 //Secondary path identification filter LMS step size maximum value
 #define stepSizeSMax_set (0.01f)
 //White noise signal of secondary path identification filter gain
-#define OCPMWNGainCompensation (20.0f)
+#define OCPMWNGainCompensation (100.0f)
 //Secondary path identification filter length (length affects processing load)
-#define OCPMLength 16
+#define OCPMLength 128
 //Secondary path identification window size
 #define OCPMWindowSize 1
 
 //Number of input error signal (values 1 to 3)
-#define numErrorSignal 2
+#define numErrorSignal 1
 //Number of input error signal (values 1 to 4)
-#define numControlSignal 2
+#define numControlSignal 1
 ///////////////////////////////end of customizable settings/////////////////////////////////////////////////////
 
 
@@ -137,7 +137,7 @@ void SPE1_ISR();
 //#define OFPMWindowSize 1
 //#define OFPMErrorLength 32
 //#define OFPMErrorWindowSize 1
-#define  OFPMLeak 0.1f
+#define  OFPMLeak 0.001f
 #define  OFPMErrorLeak  0.1f
 #define WNSignalBuffLength (OCPMLength+0u)
 
@@ -209,40 +209,6 @@ void SPE1_ISR();
 /* TWI device instance used for communicating with the codec device */
 #define TWI_DEV_NUM            0
 
-
-#define PUSH_BUTTON1_PORT (ADI_GPIO_PORT_F)
-/* GPIO pin within the port to which push button 1 is connected to */
-#define PUSH_BUTTON1_PIN            (ADI_GPIO_PIN_1)
-
-/* pin within the pint to which push button 1 is connected to */
-#define PUSH_BUTTON1_PINT_PIN       (ADI_GPIO_PIN_1)
-#define PUSH_BUTTON1_PINT           (ADI_GPIO_PIN_INTERRUPT_4)
-
-#define PUSH_BUTTON2_PORT (ADI_GPIO_PORT_F)
-/* GPIO pin within the port to which push button 2 is connected to */
-#define PUSH_BUTTON2_PIN            (ADI_GPIO_PIN_0)
-
-/* pin within the pint to which push button 2 is connected to */
-#define PUSH_BUTTON2_PINT_PIN       (ADI_GPIO_PIN_0)
-#define PUSH_BUTTON2_PINT           (ADI_GPIO_PIN_INTERRUPT_4)
-
-
-/*
- * LED GPIO settings
- */
-
-/* GPIO port to which LED 1 is connected to */
-#define LED1_PORT                   (ADI_GPIO_PORT_E)
-/* GPIO pin within the port to which LED 1 is connected to */
-#define LED1_PIN                    (ADI_GPIO_PIN_14)
-
-
-
-/* GPIO port to which LED 2 is connected to */
-#define LED2_PORT                   (ADI_GPIO_PORT_E)
-
-/* GPIO pin within the port to which LED 2 is connected to */
-#define LED2_PIN                    (ADI_GPIO_PIN_13)
 
 /*
  * ADC settings
