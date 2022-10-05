@@ -12,14 +12,14 @@
 
 // Converts val to a floating-point value, then scales that value by adding amount to the value's exponent
 // Reference input integer * exponent then convert to float
-#define refInputBuff_conv_float_by_exp -8
+#define refInputBuff_conv_float_by_exp -11
 // errorSignal input integer * exponent then convert to float
-#define errorSignal_conv_float_by_exp -8
+#define errorSignal_conv_float_by_exp -11
 
 
 // Scales val by adding amount to val exponent, then converts the result to an integer
 // Output Signal float * exponent convert to integer
-#define OutputSignalInt32_conv_fix_by_exp 10
+#define outputSignalInt32_conv_fix_by_exp 7
 
 
 //Multi rate filtering configuration
@@ -73,14 +73,14 @@
 //Leakage settings
 
 //ANC Control filter Tap Leakage
-#define controlLeak 0.0001f
+#define controlLeak 0.01f
 //ANC Secondary path identification filter Tap Leakage
-#define OCPMLeak 0.001f
+#define OCPMLeak 0.01f
 //ANC Secondary path identification filter forgetting gactor
 #define forgettingFactorOCPM_set (0.6f)
 
 //ANC Control filter length  (length affects processing load)
-#define controlLength 64
+#define controlLength 32
 //ANC Control window size
 #define controlWindowSize 1
 //Control Filter LMS step size
@@ -96,7 +96,7 @@
 //White noise signal of secondary path identification filter gain
 #define OCPMWNGainCompensation (100.0f)
 //Secondary path identification filter length (length affects processing load)
-#define OCPMLength 128
+#define OCPMLength 64
 //Secondary path identification window size
 #define OCPMWindowSize 1
 
